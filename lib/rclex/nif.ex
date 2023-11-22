@@ -67,6 +67,14 @@ defmodule Rclex.Nif do
     :erlang.nif_error(:nif_not_loaded)
   end
 
+  def rcl_clock_init!(_opts) do
+    :erlang.nif_error(:nif_not_loaded)
+  end
+
+  def rcl_clock_get_now!(_opts) do
+    :erlang.nif_error(:nif_not_loaded)
+  end
+
   def rcl_clock_fini!(_clock) do
     :erlang.nif_error(:nif_not_loaded)
   end

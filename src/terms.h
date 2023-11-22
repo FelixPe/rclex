@@ -40,6 +40,11 @@ extern ERL_NIF_TERM
                           // application to assert liveliness on the Topic will mark the Topic as
                           // being alive.
 
+extern ERL_NIF_TERM atom_clock_type;
+extern ERL_NIF_TERM atom_system_time;
+extern ERL_NIF_TERM atom_steady_time;
+extern ERL_NIF_TERM atom_ros_time;
+
 extern void make_atoms(ErlNifEnv *env);
 extern ERL_NIF_TERM nif_raise_for_test(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
 extern ERL_NIF_TERM nif_raise_with_message_for_test(ErlNifEnv *env, int argc,

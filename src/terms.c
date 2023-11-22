@@ -28,11 +28,16 @@ ERL_NIF_TERM atom_reliable;    // Guarantee that samples are delivered, may retr
 ERL_NIF_TERM atom_best_effort; // Attempt to deliver samples, but some may be lost if the network is
                                // not robust.
 ERL_NIF_TERM
-    atom_automatic; // The signal that establishes a Topic is alive comes from the ROS rmw layer.
+atom_automatic; // The signal that establishes a Topic is alive comes from the ROS rmw layer.
 ERL_NIF_TERM atom_manual_by_topic; // The signal that establishes a Topic is alive is at the Topic
                                    // level. Only publishing a message on the Topic or an explicit
                                    // signal from the application to assert liveliness on the Topic
                                    // will mark the Topic as being alive.
+
+ERL_NIF_TERM atom_clock_type;
+ERL_NIF_TERM atom_system_time;
+ERL_NIF_TERM atom_steady_time;
+ERL_NIF_TERM atom_ros_time;
 
 void make_atoms(ErlNifEnv *env) {
   atom_ok    = enif_make_atom(env, "ok");
@@ -60,6 +65,10 @@ void make_atoms(ErlNifEnv *env) {
   atom_best_effort                     = enif_make_atom(env, "best_effort");
   atom_automatic                       = enif_make_atom(env, "automatic");
   atom_manual_by_topic                 = enif_make_atom(env, "manual_by_topic");
+  atom_clock_type                      = enif_make_atom(env, "clock_type");
+  atom_system_time                     = enif_make_atom(env, "system_time");
+  atom_steady_time                     = enif_make_atom(env, "steady_time");
+  atom_ros_time                        = enif_make_atom(env, "ros_time");
 }
 
 ERL_NIF_TERM nif_raise_for_test(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {

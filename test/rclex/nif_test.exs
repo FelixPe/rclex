@@ -10,7 +10,7 @@ defmodule Rclex.NifTest do
       rescue
         ex in [ErlangError] ->
           %ErlangError{original: charlist, reason: nil} = ex
-          assert "at src/terms.c:69" <> _ = to_string(charlist)
+          assert "at src/terms.c:78" <> _ = to_string(charlist)
       end
     end
 
@@ -20,7 +20,7 @@ defmodule Rclex.NifTest do
       rescue
         ex in [ErlangError] ->
           %ErlangError{original: charlist, reason: nil} = ex
-          assert "at src/terms.c:76" <> _ = to_string(charlist)
+          assert "at src/terms.c:85" <> _ = to_string(charlist)
           assert String.ends_with?(to_string(charlist), "test")
       end
     end
