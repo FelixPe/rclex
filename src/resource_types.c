@@ -10,6 +10,7 @@ ErlNifResourceType *rt_rcl_clock_t;
 ErlNifResourceType *rt_rcl_timer_t;
 ErlNifResourceType *rt_rcl_wait_set_t;
 ErlNifResourceType *rt_rosidl_message_type_support_t;
+ErlNifResourceType *rt_rosidl_service_type_support_t;
 ErlNifResourceType *rt_ros_message;
 
 #define open_rt_return_if_error(env, module, name, flags)                                          \
@@ -27,6 +28,7 @@ int open_resource_types(ErlNifEnv *env, const char *module) {
   open_rt_return_if_error(env, module, rcl_timer_t, flags);
   open_rt_return_if_error(env, module, rcl_wait_set_t, flags);
   open_rt_return_if_error(env, module, rosidl_message_type_support_t, flags);
+  open_rt_return_if_error(env, module, rosidl_service_type_support_t, flags);
   open_rt_return_if_error(env, module, ros_message, flags);
 
   return 0;
