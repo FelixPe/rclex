@@ -3,6 +3,7 @@
 #include "qos.h"
 #include "rcl_client.h"
 #include "rcl_clock.h"
+#include "rcl_graph.h"
 #include "rcl_init.h"
 #include "rcl_node.h"
 #include "rcl_publisher.h"
@@ -66,6 +67,17 @@ static ErlNifFunc nif_funcs[] = {
     nif_io_bound_func(rcl_client_fini, 2),
     nif_regular_func(rcl_send_request, 2),
     nif_regular_func(rcl_take_response_with_info, 2),
+    nif_regular_func(rcl_count_publishers, 2),
+    nif_regular_func(rcl_count_subscribers, 2),
+    nif_regular_func(rcl_get_node_names, 1),
+    nif_regular_func(rcl_get_node_names_with_enclaves, 1),
+    nif_regular_func(rcl_get_publisher_names_and_types_by_node, 4),
+    nif_regular_func(rcl_get_publishers_info_by_topic, 3),
+    nif_regular_func(rcl_get_subscriber_names_and_types_by_node, 4),
+    nif_regular_func(rcl_get_subscribers_info_by_topic, 3),
+    nif_regular_func(rcl_get_topic_names_and_types, 2),
+    nif_io_bound_func(rcl_wait_for_publishers, 4),
+    nif_io_bound_func(rcl_wait_for_subscribers, 4),
     nif_regular_func(rmw_qos_profile_sensor_data, 0),
     nif_regular_func(rmw_qos_profile_parameters, 0),
     nif_regular_func(rmw_qos_profile_default, 0),
