@@ -8,4 +8,9 @@ config :rclex,
     "sensor_msgs/msg/PointCloud",
     "diagnostic_msgs/msg/DiagnosticStatus"
   ],
-  ros2_directories: []
+  ros2_directories: [],
+  ros2_service_types: [
+    # "std_srvs/srv/Empty",
+    "std_srvs/srv/SetBool"
+    # "action_msgs/srv/CancelGoal"
+  ]

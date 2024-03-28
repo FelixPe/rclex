@@ -18,26 +18,36 @@ defmodule Rclex.Generators.MsgC do
   end
 
   def to_header_name(ros2_message_type) do
-    [_interfaces, "msg", type] = ros2_message_type |> String.split("/")
+    [_interfaces, _interface_type, type] = ros2_message_type |> String.split("/")
     Util.to_down_snake(type)
   end
 
   def to_deps_header_prefix_list(ros2_message_type, ros2_message_type_map) do
     get_deps_types(ros2_message_type, ros2_message_type_map)
     |> Enum.map(fn ros2_message_type ->
-      [interfaces, "msg", type] = ros2_message_type |> String.split("/")
-      [interfaces, "msg", "detail", Util.to_down_snake(type)] |> Path.join()
+      [interfaces, interface_type, type] = ros2_message_type |> String.split("/")
+      [interfaces, interface_type, "detail", Util.to_down_snake(type)] |> Path.join()
     end)
   end
 
   def to_header_prefix(ros2_message_type) do
-    [interfaces, "msg", type] = ros2_message_type |> String.split("/")
-    [interfaces, "msg", "detail", Util.to_down_snake(type)] |> Path.join()
+    [interfaces, interface_type, type] = ros2_message_type |> String.split("/")
+
+    type =
+      if interface_type == "srv" do
+        type
+        |> String.trim_trailing("_Request")
+        |> String.trim_trailing("_Response")
+      else
+        type
+      end
+
+    [interfaces, interface_type, "detail", Util.to_down_snake(type)] |> Path.join()
   end
 
   def rosidl_get_msg_type_support(ros2_message_type) do
-    [interfaces, "msg", type] = ros2_message_type |> String.split("/")
-    "ROSIDL_GET_MSG_TYPE_SUPPORT(#{interfaces}, msg, #{type})"
+    [interfaces, interface_type, type] = ros2_message_type |> String.split("/")
+    "ROSIDL_GET_MSG_TYPE_SUPPORT(#{interfaces}, #{interface_type}, #{type})"
   end
 
   @doc """
@@ -48,8 +58,8 @@ defmodule Rclex.Generators.MsgC do
   "std_msgs__msg__UInt32MultiArray"
   """
   def to_c_type(ros2_message_type) do
-    [interfaces, "msg", type] = ros2_message_type |> String.split("/")
-    [interfaces, "_msg_", type] |> Enum.join("_")
+    [interfaces, interface_type, type] = ros2_message_type |> String.split("/")
+    [interfaces, "_#{interface_type}_", type] |> Enum.join("_")
   end
 
   defmodule Acc do

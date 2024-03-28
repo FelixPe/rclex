@@ -28,6 +28,18 @@ defmodule Rclex.Parsers.Helpers do
     |> times(min: 1)
   end
 
+  def parse_service(combinator \\ empty()) do
+    combinator
+    |> choice([
+      field_line(),
+      ignore(constant_line()),
+      ignore(comment_line()),
+      ignore(empty_line())
+    ])
+    |> wrap()
+    |> times(min: 1)
+  end
+
   def field_line(combinator \\ empty()) do
     combinator
     |> optional(whitespace())

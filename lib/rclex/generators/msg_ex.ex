@@ -186,7 +186,7 @@ defmodule Rclex.Generators.MsgEx do
   "StdMsgs.Msg.String"
   """
   def module_name(ros2_message_type) do
-    [pkg, msg = "msg", type] = String.split(ros2_message_type, "/")
+    [pkg, msg, type] = String.split(ros2_message_type, "/")
 
     pkg =
       pkg

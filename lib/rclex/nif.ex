@@ -92,6 +92,14 @@ defmodule Rclex.Nif do
     :erlang.nif_error(:nif_not_loaded)
   end
 
+  def rcl_wait_set_init_client!(_context) do
+    :erlang.nif_error(:nif_not_loaded)
+  end
+
+  def rcl_wait_set_init_service!(_context) do
+    :erlang.nif_error(:nif_not_loaded)
+  end
+
   def rcl_wait_set_init_timer!(_context) do
     :erlang.nif_error(:nif_not_loaded)
   end
@@ -104,7 +112,47 @@ defmodule Rclex.Nif do
     :erlang.nif_error(:nif_not_loaded)
   end
 
+  def rcl_wait_client!(_wait_set, _timeout_us, _client) do
+    :erlang.nif_error(:nif_not_loaded)
+  end
+
+  def rcl_wait_service!(_wait_set, _timeout_us, _service) do
+    :erlang.nif_error(:nif_not_loaded)
+  end
+
   def rcl_wait_timer!(_wait_set, _timeout_us, _timer) do
+    :erlang.nif_error(:nif_not_loaded)
+  end
+
+  def rcl_service_init!(_node, _type_support, _service_name, _qos) do
+    :erlang.nif_error(:nif_not_loaded)
+  end
+
+  def rcl_service_fini!(_service, _node) do
+    :erlang.nif_error(:nif_not_loaded)
+  end
+
+  def rcl_take_request_with_info!(_service, _ros_request_message) do
+    :erlang.nif_error(:nif_not_loaded)
+  end
+
+  def rcl_send_response!(_service, _response_header, _ros_response_message) do
+    :erlang.nif_error(:nif_not_loaded)
+  end
+
+  def rcl_client_init!(_node, _type_support, _service_name, _qos) do
+    :erlang.nif_error(:nif_not_loaded)
+  end
+
+  def rcl_client_fini!(_client, _node) do
+    :erlang.nif_error(:nif_not_loaded)
+  end
+
+  def rcl_send_request!(_client, _ros_request_message) do
+    :erlang.nif_error(:nif_not_loaded)
+  end
+
+  def rcl_take_response_with_info!(_client, _ros_respone_message) do
     :erlang.nif_error(:nif_not_loaded)
   end
 
@@ -133,4 +181,5 @@ defmodule Rclex.Nif do
   end
 
   @before_compile Rclex.MsgFuncs
+  @before_compile Rclex.SrvFuncs
 end

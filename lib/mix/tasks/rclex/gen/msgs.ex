@@ -127,23 +127,35 @@ defmodule Mix.Tasks.Rclex.Gen.Msgs do
 
   @doc false
   def generate(from, to) when is_list(from) and is_binary(to) do
-    types = Application.get_env(:rclex, :ros2_message_types, [])
+    msg_types = Application.get_env(:rclex, :ros2_message_types, [])
+    srv_types = Application.get_env(:rclex, :ros2_service_types, [])
 
-    if Enum.empty?(types) do
+    if Enum.empty?(msg_types) do
       Mix.raise("ros2_message_types is not specified in config.")
     end
 
+    srv_msg_types =
+      Enum.map(srv_types, fn type -> String.replace_suffix(type, "", "_Request") end) ++
+        Enum.map(srv_types, fn type -> String.replace_suffix(type, "", "_Response") end)
+
     ros2_message_type_map =
-      Enum.reduce(types, %{}, fn type, acc -> get_ros2_message_type_map(type, from, acc) end)
+      Enum.reduce(msg_types ++ srv_msg_types, %{}, fn type, acc ->
+        get_ros2_message_type_map(type, from, acc)
+      end)
 
     types = Map.keys(ros2_message_type_map)
 
     for {:msg_type, type} <- types do
-      [interfaces, "msg", type_name] = String.split(type, "/")
+      [interfaces, interface_type, type_name] = String.split(type, "/")
+
+      if interface_type != "msg" and interface_type != "srv" do
+        raise "unknown interface type #{interface_type}"
+      end
+
       type_name = Util.to_down_snake(type_name)
 
-      dir_path_ex = Path.join(to, "lib/rclex/pkgs/#{interfaces}/msg")
-      dir_path_c = Path.join(to, "src/pkgs/#{interfaces}/msg")
+      dir_path_ex = Path.join(to, "lib/rclex/pkgs/#{interfaces}/#{interface_type}")
+      dir_path_c = Path.join(to, "src/pkgs/#{interfaces}/#{interface_type}")
 
       File.mkdir_p!(dir_path_ex)
       File.mkdir_p!(dir_path_c)
@@ -166,8 +178,8 @@ defmodule Mix.Tasks.Rclex.Gen.Msgs do
   def clean() do
     dir_path = rclex_dir_path!()
 
-    for file_path <- ["lib/rclex/pkgs", "src/pkgs"] do
-      File.rm_rf!(Path.join(dir_path, file_path))
+    for file_path <- Path.wildcard("lib/rclex/pkgs/*/msg/*.ex") ++ Path.wildcard("src/pkgs/*/msg/*.{h,c}") ++ Path.wildcard("src/pkgs/*/srv/*___request.{h,c}") ++ Path.wildcard("src/pkgs/*/srv/*___response.{h,c}") do
+      File.rm!(Path.join(dir_path, file_path))
     end
 
     for file_path <- ["lib/rclex/msg_funcs.ex", "src/msg_funcs.h", "src/msg_funcs.ec"] do
@@ -204,8 +216,8 @@ defmodule Mix.Tasks.Rclex.Gen.Msgs do
   @doc false
   def generate_msg_funcs_h(types) do
     Enum.map_join(types, fn {:msg_type, type} ->
-      [interfaces, "msg", type] = String.split(type, "/")
-      file_path = Path.join([interfaces, "msg", Util.to_down_snake(type)]) <> ".h"
+      [interfaces, interface_type, type] = String.split(type, "/")
+      file_path = Path.join([interfaces, interface_type, Util.to_down_snake(type)]) <> ".h"
 
       """
       #include "pkgs/#{file_path}"
@@ -255,6 +267,7 @@ defmodule Mix.Tasks.Rclex.Gen.Msgs do
       |> MessageParser.parse()
 
     fields = to_complete_fields(fields, ros2_message_type)
+
     type_map = Map.put(acc, {:msg_type, ros2_message_type}, fields)
 
     Enum.reduce(fields, type_map, fn [head | _], acc ->
@@ -314,8 +327,14 @@ defmodule Mix.Tasks.Rclex.Gen.Msgs do
       [interfaces, type] = String.split(type, "/")
       [interfaces, "msg", type]
     else
-      [interfaces, "msg", _] = String.split(ros2_message_type, "/")
-      [interfaces, "msg", type]
+      [interfaces, interface_type, _] = String.split(ros2_message_type, "/")
+
+      if interface_type == "srv" and
+           (String.ends_with?(type, "_Request") or String.ends_with?(type, "_Response")) do
+        [interfaces, "srv", type]
+      else
+        [interfaces, "msg", type]
+      end
     end
     |> Path.join()
   end
