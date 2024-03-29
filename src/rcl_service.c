@@ -98,9 +98,10 @@ ERL_NIF_TERM nif_rcl_take_request_with_info(ErlNifEnv *env, int argc, const ERL_
 
   rc = rcl_take_request_with_info(service_p, &request_header, *ros_request_message_pp);
   if (rc == RCL_RET_OK) {
-    rmw_service_info_t *obj = enif_alloc_resource(rt_rmw_service_info_t, sizeof(rmw_service_info_t));
-    *obj               = request_header;
-    ERL_NIF_TERM term  = enif_make_resource(env, obj);
+    rmw_service_info_t *obj =
+        enif_alloc_resource(rt_rmw_service_info_t, sizeof(rmw_service_info_t));
+    *obj              = request_header;
+    ERL_NIF_TERM term = enif_make_resource(env, obj);
     enif_release_resource(obj);
     return enif_make_tuple2(env, atom_ok, term);
   } else if (rc == RCL_RET_SUBSCRIPTION_TAKE_FAILED) {

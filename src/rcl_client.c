@@ -98,7 +98,8 @@ ERL_NIF_TERM nif_rcl_take_response_with_info(ErlNifEnv *env, int argc, const ERL
   rc = rcl_take_response_with_info(client_p, &request_header, *ros_response_message_pp);
   int64_t sequence_number = request_header.request_id.sequence_number;
 
-  if (rc == RCL_RET_OK) return enif_make_tuple2(env, atom_ok, enif_make_int64(env, sequence_number));
+  if (rc == RCL_RET_OK)
+    return enif_make_tuple2(env, atom_ok, enif_make_int64(env, sequence_number));
   if (rc == RCL_RET_CLIENT_TAKE_FAILED) return atom_error;
   return raise(env, __FILE__, __LINE__);
 }

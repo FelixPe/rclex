@@ -194,6 +194,11 @@ defmodule Rclex.Generators.MsgEx do
       |> String.split("_")
       |> Enum.map_join(&String.capitalize(&1))
 
+    type =
+       type
+       |> String.replace_trailing("_Response", "Response")
+       |> String.replace_trailing("_Request", "Request")
+       
     Enum.join([pkg, String.capitalize(msg), type], ".")
   end
 

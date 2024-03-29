@@ -93,12 +93,24 @@ defmodule Mix.Tasks.Rclex.Gen.Srvs do
     File.write!(Path.join(to, "src/srv_funcs.ec"), generate_srv_funcs_c(srv_types))
   end
 
+  defp is_response_or_request?(f) do
+    String.ends_with?(f, "___request.h") or String.ends_with?(f, "___request.c") or
+      String.ends_with?(f, "_request.ex") or String.ends_with?(f, "___response.h") or
+      String.ends_with?(f, "___response.c") or String.ends_with?(f, "_response.ex")
+  end
+
   @doc false
   def clean() do
     dir_path = rclex_dir_path!()
 
-    file_pathes = Enum.reject(Path.wildcard("lib/rclex/pkgs/*/srv/*.ex") ++ Path.wildcard("src/pkgs/*/srv/*.{c,h}"), fn f -> String.ends_with?(f, "___request.h") or String.ends_with?(f, "___request.c") or  String.ends_with?(f, "___response.h") or String.ends_with?(f, "___response.c") end)
+    file_pathes =
+      Enum.reject(
+        Path.wildcard("lib/rclex/pkgs/*/srv/*.ex") ++ Path.wildcard("src/pkgs/*/srv/*.{c,h}"),
+        &is_response_or_request?/1
+      )
+
     IO.inspect(file_pathes)
+
     for file_path <- file_pathes do
       File.rm!(Path.join(dir_path, file_path))
     end
@@ -156,7 +168,6 @@ defmodule Mix.Tasks.Rclex.Gen.Srvs do
     )
   end
 
-
   @doc false
   def generate_srv_funcs_h(types) do
     Enum.map_join(types, fn type ->
@@ -168,8 +179,6 @@ defmodule Mix.Tasks.Rclex.Gen.Srvs do
       """
     end)
   end
-
-
 
   @doc false
   def get_ros2_message_type_map(ros2_message_type, from, acc \\ %{}) do

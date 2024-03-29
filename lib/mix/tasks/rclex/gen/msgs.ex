@@ -178,7 +178,11 @@ defmodule Mix.Tasks.Rclex.Gen.Msgs do
   def clean() do
     dir_path = rclex_dir_path!()
 
-    for file_path <- Path.wildcard("lib/rclex/pkgs/*/msg/*.ex") ++ Path.wildcard("src/pkgs/*/msg/*.{h,c}") ++ Path.wildcard("src/pkgs/*/srv/*___request.{h,c}") ++ Path.wildcard("src/pkgs/*/srv/*___response.{h,c}") do
+    for file_path <-
+          Path.wildcard("lib/rclex/pkgs/*/msg/*.ex") ++
+            Path.wildcard("src/pkgs/*/msg/*.{h,c}") ++
+            Path.wildcard("src/pkgs/*/srv/*___request.{h,c}") ++
+            Path.wildcard("src/pkgs/*/srv/*___response.{h,c}") do
       File.rm!(Path.join(dir_path, file_path))
     end
 

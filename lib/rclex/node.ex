@@ -104,7 +104,16 @@ defmodule Rclex.Node do
 
   def handle_call({:start_service, callback, service_type, service_name, qos}, _from, state) do
     return =
-      ES.start_service(state.context, callback, state.node, service_type, service_name, state.name, state.namespace, qos)
+      ES.start_service(
+        state.context,
+        callback,
+        state.node,
+        service_type,
+        service_name,
+        state.name,
+        state.namespace,
+        qos
+      )
 
     {:reply, return, state}
   end

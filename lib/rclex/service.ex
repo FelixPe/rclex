@@ -7,14 +7,15 @@ defmodule Rclex.Service do
 
   alias Rclex.Nif
 
-
   def start_link(args) do
     service_type = Keyword.fetch!(args, :service_type)
     service_name = Keyword.fetch!(args, :service_name)
     name = Keyword.fetch!(args, :name)
     namespace = Keyword.fetch!(args, :namespace)
 
-    GenServer.start_link(__MODULE__, args, name: name(service_type, service_name, name, namespace))
+    GenServer.start_link(__MODULE__, args,
+      name: name(service_type, service_name, name, namespace)
+    )
   end
 
   def name(service_type, service_name, name, namespace \\ "/") do
@@ -78,7 +79,7 @@ defmodule Rclex.Service do
               {:ok, _pid} =
                 Task.Supervisor.start_child(
                   {:via, PartitionSupervisor, {Rclex.TaskSupervisors, self()}},
-                  fn -> 
+                  fn ->
                     response_message_struct = state.callback.(request_message_struct)
                     response_message = apply(state.response_type, :create!, [])
                     apply(state.response_type, :set!, [response_message, response_message_struct])
