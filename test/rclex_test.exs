@@ -4,6 +4,7 @@ defmodule RclexTest do
   import ExUnit.CaptureLog
 
   alias Rclex.Pkgs.StdMsgs
+  alias Rclex.Pkgs.StdSrvs
   alias Rclex.NodeSupervisor
 
   setup do
@@ -157,6 +158,54 @@ defmodule RclexTest do
         assert Rclex.publish(message, topic_name, name) == :ok
         assert_receive ^message
       end
+    end
+  end
+
+  describe "service" do
+    setup do
+      :ok = Rclex.start_node("name")
+      on_exit(fn -> capture_log(fn -> Rclex.stop_node("name") end) end)
+
+      %{
+        callback: fn %StdSrvs.Srv.SetBoolRequest{data: data} ->
+          %StdSrvs.Srv.SetBoolResponse{success: data}
+        end
+      }
+    end
+
+    test "start_service/4", %{callback: callback} do
+      assert :ok = Rclex.start_service(callback, StdSrvs.Srv.SetBool, "/set_test_bool", "name")
+
+      assert {:error, :already_started} =
+               Rclex.start_service(callback, StdSrvs.Srv.SetBool, "/set_test_bool", "name")
+    end
+
+    test "start_service/4, node doesn't exist", %{callback: callback} do
+      assert {:noproc, _} =
+               catch_exit(
+                 Rclex.start_service(callback, StdSrvs.Srv.SetBool, "/set_test_bool", "notexists")
+               )
+    end
+
+    test "start_service/4, wrong service name", %{callback: callback} do
+      assert {:error, _} =
+               Rclex.start_service(callback, StdSrvs.Srv.SetBool, "set_test_bool", "name")
+    end
+
+    test "stop_service/3", %{callback: callback} do
+      :ok = Rclex.start_service(callback, StdSrvs.Srv.SetBool, "/set_test_bool", "name")
+
+      assert capture_log(fn ->
+               :ok = Rclex.stop_service(StdSrvs.Srv.SetBool, "/set_test_bool", "name")
+             end) =~ "Service: :shutdown"
+
+      assert {:error, :not_found} =
+               Rclex.stop_service(StdSrvs.Srv.SetBool, "/set_test_bool", "name")
+    end
+
+    test "stop_service/3, node doesn't exist", %{callback: _callback} do
+      assert {:noproc, _} =
+               catch_exit(Rclex.stop_service(StdSrvs.Srv.SetBool, "/chatter", "notexists"))
     end
   end
 

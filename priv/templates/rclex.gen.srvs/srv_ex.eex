@@ -9,10 +9,10 @@ defmodule Rclex.Pkgs.<%= module_name %> do
   end
 
   def request_type() do
-    Rclex.Pkgs.<%= module_name %>_Request
+    Rclex.Pkgs.<%= module_name %>Request
   end
 
   def response_type() do
-    Rclex.Pkgs.<%= module_name %>_Response
+    Rclex.Pkgs.<%= module_name %>Response
   end
 end
