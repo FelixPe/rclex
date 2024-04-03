@@ -83,7 +83,7 @@ defmodule Rclex.Service do
                     response_message_struct = state.callback.(request_message_struct)
                     response_message = apply(state.response_type, :create!, [])
                     apply(state.response_type, :set!, [response_message, response_message_struct])
-                    Nif.rcl_send_response!(state.service, request_header, response_message)
+                    :ok = Nif.rcl_send_response!(state.service, request_header, response_message)
                   end
                 )
 
