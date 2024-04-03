@@ -33,7 +33,6 @@ defmodule Mix.Tasks.Rclex.Gen.Srvs do
 
   use Mix.Task
 
-  alias Rclex.Parsers.MessageParser
   alias Rclex.Generators.SrvEx
   alias Rclex.Generators.SrvH
   alias Rclex.Generators.SrvC
@@ -109,8 +108,6 @@ defmodule Mix.Tasks.Rclex.Gen.Srvs do
         &is_response_or_request?/1
       )
 
-    IO.inspect(file_pathes)
-
     for file_path <- file_pathes do
       File.rm!(Path.join(dir_path, file_path))
     end
@@ -180,39 +177,6 @@ defmodule Mix.Tasks.Rclex.Gen.Srvs do
     end)
   end
 
-  @doc false
-  def get_ros2_message_type_map(ros2_message_type, from, acc \\ %{}) do
-    dir = Enum.find(from, fn dir -> File.exists?(Path.join(dir, [ros2_message_type, ".msg"])) end)
-
-    unless dir do
-      raise "#{ros2_message_type}.msg not found"
-    end
-
-    {:ok, fields, _rest, _context, _line, _column} =
-      Path.join(dir, [ros2_message_type, ".msg"])
-      |> File.read!()
-      |> MessageParser.parse()
-
-    fields = to_complete_fields(fields, ros2_message_type)
-    type_map = Map.put(acc, {:msg_type, ros2_message_type}, fields)
-
-    Enum.reduce(fields, type_map, fn [head | _], acc ->
-      case head do
-        {:builtin_type, _type} ->
-          acc
-
-        {:builtin_type_array, _type} ->
-          acc
-
-        {:msg_type, type} ->
-          get_ros2_message_type_map(type, from, acc)
-
-        {:msg_type_array, type} ->
-          get_ros2_message_type_map(get_array_type(type), from, acc)
-      end
-    end)
-  end
-
   defp rclex_dir_path!() do
     if Mix.Project.config()[:app] == :rclex do
       File.cwd!()
@@ -227,39 +191,5 @@ defmodule Mix.Tasks.Rclex.Gen.Srvs do
     else
       Mix.Task.rerun("deps.compile", ["rclex", "--force"])
     end
-  end
-
-  defp to_complete_fields(fields, ros2_message_type) do
-    Enum.map(fields, fn field ->
-      [head | tail] = field
-
-      case head do
-        {:msg_type, type} ->
-          type = to_complete_type(type, ros2_message_type)
-          [{:msg_type, type} | tail]
-
-        {:msg_type_array, type} ->
-          type = to_complete_type(type, ros2_message_type)
-          [{:msg_type_array, type} | tail]
-
-        _ ->
-          field
-      end
-    end)
-  end
-
-  defp to_complete_type(type, ros2_message_type) do
-    if String.contains?(type, "/") do
-      [interfaces, type] = String.split(type, "/")
-      [interfaces, "srv", type]
-    else
-      [interfaces, "srv", _] = String.split(ros2_message_type, "/")
-      [interfaces, "srv", type]
-    end
-    |> Path.join()
-  end
-
-  defp get_array_type(type) do
-    String.replace(type, ~r/\[.*\]$/, "")
   end
 end
