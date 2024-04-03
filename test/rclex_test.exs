@@ -266,16 +266,25 @@ defmodule RclexTest do
       :ok = Rclex.start_node(name)
 
       service_callback = fn %ExampleInterfaces.Srv.AddTwoIntsRequest{a: a, b: b} ->
-        %ExampleInterfaces.Srv.AddTwoIntsResponse{sum: a+b}
+        %ExampleInterfaces.Srv.AddTwoIntsResponse{sum: a + b}
       end
 
       me = self()
+
       receive_callback = fn _request, response ->
         send(me, response)
       end
 
-      :ok = Rclex.start_service(service_callback, ExampleInterfaces.Srv.AddTwoInts, service_name, name)
-      :ok = Rclex.start_client(receive_callback, ExampleInterfaces.Srv.AddTwoInts, service_name, name)
+      :ok =
+        Rclex.start_service(
+          service_callback,
+          ExampleInterfaces.Srv.AddTwoInts,
+          service_name,
+          name
+        )
+
+      :ok =
+        Rclex.start_client(receive_callback, ExampleInterfaces.Srv.AddTwoInts, service_name, name)
 
       on_exit(fn -> capture_log(fn -> Rclex.stop_node(name) end) end)
 
@@ -287,8 +296,8 @@ defmodule RclexTest do
 
     test "call/3", %{service_name: service_name, name: name} do
       for i <- 1..100 do
-        request = struct(ExampleInterfaces.Srv.AddTwoIntsRequest, %{a: i, b: 2*i})
-        response = struct(ExampleInterfaces.Srv.AddTwoIntsResponse, %{sum: 3*i})
+        request = struct(ExampleInterfaces.Srv.AddTwoIntsRequest, %{a: i, b: 2 * i})
+        response = struct(ExampleInterfaces.Srv.AddTwoIntsResponse, %{sum: 3 * i})
         assert Rclex.call_async(request, service_name, name) == :ok
         assert_receive ^response
       end
