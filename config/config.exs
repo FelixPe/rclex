@@ -11,6 +11,7 @@ config :rclex,
   ros2_directories: [],
   ros2_service_types: [
     # "std_srvs/srv/Empty",
-    "std_srvs/srv/SetBool"
+    "std_srvs/srv/SetBool",
+    "example_interfaces/srv/AddTwoInts"
     # "action_msgs/srv/CancelGoal"
   ]

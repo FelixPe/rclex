@@ -5,6 +5,7 @@ defmodule RclexTest do
 
   alias Rclex.Pkgs.StdMsgs
   alias Rclex.Pkgs.StdSrvs
+  alias Rclex.Pkgs.ExampleInterfaces
   alias Rclex.NodeSupervisor
 
   setup do
@@ -206,6 +207,91 @@ defmodule RclexTest do
     test "stop_service/3, node doesn't exist", %{callback: _callback} do
       assert {:noproc, _} =
                catch_exit(Rclex.stop_service(StdSrvs.Srv.SetBool, "/chatter", "notexists"))
+    end
+  end
+
+  describe "client" do
+    setup do
+      :ok = Rclex.start_node("name")
+      on_exit(fn -> capture_log(fn -> Rclex.stop_node("name") end) end)
+
+      %{
+        callback: fn _request, _response ->
+          nil
+        end
+      }
+    end
+
+    test "start_client/4", %{callback: callback} do
+      assert :ok = Rclex.start_client(callback, StdSrvs.Srv.SetBool, "/set_test_bool", "name")
+
+      assert {:error, :already_started} =
+               Rclex.start_client(callback, StdSrvs.Srv.SetBool, "/set_test_bool", "name")
+    end
+
+    test "start_client/4, node doesn't exist", %{callback: callback} do
+      assert {:noproc, _} =
+               catch_exit(
+                 Rclex.start_client(callback, StdSrvs.Srv.SetBool, "/set_test_bool", "notexists")
+               )
+    end
+
+    test "start_client/4, wrong client name", %{callback: callback} do
+      assert {:error, _} =
+               Rclex.start_client(callback, StdSrvs.Srv.SetBool, "set_test_bool", "name")
+    end
+
+    test "stop_client/3", %{callback: callback} do
+      :ok = Rclex.start_client(callback, StdSrvs.Srv.SetBool, "/set_test_bool", "name")
+
+      assert capture_log(fn ->
+               :ok = Rclex.stop_client(StdSrvs.Srv.SetBool, "/set_test_bool", "name")
+             end) =~ "Client: :shutdown"
+
+      assert {:error, :not_found} =
+               Rclex.stop_client(StdSrvs.Srv.SetBool, "/set_test_bool", "name")
+    end
+
+    test "stop_client/3, node doesn't exist", %{callback: _callback} do
+      assert {:noproc, _} =
+               catch_exit(Rclex.stop_client(StdSrvs.Srv.SetBool, "/chatter", "notexists"))
+    end
+  end
+
+  describe "calling services" do
+    setup do
+      name = "name"
+      service_name = "/set_test_bool"
+
+      :ok = Rclex.start_node(name)
+
+      service_callback = fn %ExampleInterfaces.Srv.AddTwoIntsRequest{a: a, b: b} ->
+        %ExampleInterfaces.Srv.AddTwoIntsResponse{sum: a+b}
+      end
+
+      me = self()
+      receive_callback = fn _request, response ->
+        send(me, response)
+      end
+
+      :ok = Rclex.start_service(service_callback, ExampleInterfaces.Srv.AddTwoInts, service_name, name)
+      :ok = Rclex.start_client(receive_callback, ExampleInterfaces.Srv.AddTwoInts, service_name, name)
+
+      on_exit(fn -> capture_log(fn -> Rclex.stop_node(name) end) end)
+
+      %{
+        name: name,
+        service_name: service_name
+      }
+    end
+
+    test "call/3", %{service_name: service_name, name: name} do
+      for i <- 1..100 do
+        request = struct(ExampleInterfaces.Srv.AddTwoIntsRequest, %{a: i, b: 2*i})
+        response = struct(ExampleInterfaces.Srv.AddTwoIntsResponse, %{sum: 3*i})
+        assert Rclex.call_async(request, service_name, name) == :ok
+        assert_receive ^response
+      end
     end
   end
 

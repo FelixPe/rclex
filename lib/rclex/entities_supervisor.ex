@@ -77,6 +77,28 @@ defmodule Rclex.EntitiesSupervisor do
     stop_entity(entity_name, name, namespace)
   end
 
+  def start_client(context, callback, node, service_type, service_name, name, namespace, qos) do
+    DynamicSupervisor.start_child(
+      name(name, namespace),
+      {Rclex.Client,
+       [
+         context: context,
+         callback: callback,
+         node: node,
+         service_type: service_type,
+         service_name: service_name,
+         name: name,
+         namespace: namespace,
+         qos: qos
+       ]}
+    )
+  end
+
+  def stop_client(service_type, service_name, name, namespace) do
+    entity_name = Rclex.Client.name(service_type, service_name, name, namespace)
+    stop_entity(entity_name, name, namespace)
+  end
+
   def start_timer(context, period_ms, callback, timer_name, name, namespace \\ "/") do
     DynamicSupervisor.start_child(
       name(name, namespace),

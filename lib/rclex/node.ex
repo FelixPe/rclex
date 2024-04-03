@@ -49,14 +49,14 @@ defmodule Rclex.Node do
     GenServer.call(server, {:stop_service, service_type, service_name})
   end
 
-  def start_client(message_type, service_name, name, namespace, qos) do
+  def start_client(callback, service_type, service_name, name, namespace, qos) do
     server = name(name, namespace)
-    GenServer.call(server, {:start_client, message_type, service_name, qos})
+    GenServer.call(server, {:start_client, callback, service_type, service_name, qos})
   end
 
-  def stop_client(message_type, service_name, name, namespace \\ "/") do
+  def stop_client(service_type, service_name, name, namespace \\ "/") do
     server = name(name, namespace)
-    GenServer.call(server, {:stop_client, message_type, service_name})
+    GenServer.call(server, {:stop_client, service_type, service_name})
   end
 
   def start_timer(period_ms, callback, timer_name, name, namespace \\ "/") do
@@ -120,6 +120,28 @@ defmodule Rclex.Node do
 
   def handle_call({:stop_service, message_type, service_name}, _from, state) do
     return = ES.stop_service(message_type, service_name, state.name, state.namespace)
+
+    {:reply, return, state}
+  end
+
+  def handle_call({:start_client, callback, service_type, service_name, qos}, _from, state) do
+    return =
+      ES.start_client(
+        state.context,
+        callback,
+        state.node,
+        service_type,
+        service_name,
+        state.name,
+        state.namespace,
+        qos
+      )
+
+    {:reply, return, state}
+  end
+
+  def handle_call({:stop_client, message_type, service_name}, _from, state) do
+    return = ES.stop_client(message_type, service_name, state.name, state.namespace)
 
     {:reply, return, state}
   end

@@ -5,8 +5,8 @@ defmodule Rclex do
 
   @namespace_doc "`:namespace` must lead with \"/\". if not specified, the default is \"/\""
   @qos_doc "`:qos` if not specified, applied the default which equals return of `Rclex.QoS.profile_default/0`"
-  @topic_name_doc "`topic_name` must lead with \"/\""
-  @service_name_doc "`service_name` must lead with \"/\""
+  @topic_name_doc "`topic_name` must lead with \"/\". See all [constraints](https://design.ros2.org/articles/topic_and_service_names.html#ros-2-topic-and-service-name-constraints)"
+  @service_name_doc "`service_name` must lead with \"/\". See all [constraints](https://design.ros2.org/articles/topic_and_service_names.html#ros-2-topic-and-service-name-constraints)"
 
   @typedoc "#{@topic_name_doc}."
   @type topic_name :: String.t()
@@ -249,7 +249,7 @@ defmodule Rclex do
     iex> Rclex.start_service(fn _ -> %StdSrvs.Srv.SetBoolResponse{success: true} end, StdMsgs.Srv.SetBool, "/set_bool", "node", namespace: "/example")
     {:error, :already_started}
   """
-  @spec start_subscription(
+  @spec start_service(
           callback :: function(),
           service_type :: module(),
           service_name :: service_name(),
@@ -291,7 +291,7 @@ defmodule Rclex do
     iex> alias Rclex.Pkgs.StdSrvs
     iex> Rclex.stop_service(StdSrvs.Srvg.SetBool, "/set_bool", "node", namespace: "/example")
     :ok
-    iex> Rclex.stop_subscription(StdSrvs.Srvg.SetBool, "/does_not_exist", "node", namespace: "/example")
+    iex> Rclex.stop_service(StdSrvs.Srvg.SetBool, "/does_not_exist", "node", namespace: "/example")
     {:error, :not_found}
   """
   @spec stop_service(
@@ -306,6 +306,119 @@ defmodule Rclex do
              is_list(opts) do
     namespace = Keyword.get(opts, :namespace, "/")
     Rclex.Node.stop_service(service_type, service_name, node_name, namespace)
+  end
+
+  @doc """
+    Start client.
+
+    - #{@service_name_doc}
+
+    ### opts
+
+    - #{@namespace_doc}
+    - #{@qos_doc}
+
+    ## Examples
+
+    iex> alias Rclex.Pkgs.StdSrvs
+    iex> Rclex.start_client(StdSrvs.Srv.SetBool, "/set_bool", "node", namespace: "/example")
+    :ok
+    iex> Rclex.start_client(StdSrvs.Srv.SetBool, "/set_bool", "node", namespace: "/example")
+    {:error, :already_started}
+    iex> Rclex.call(%StdSrvs.Srv.SetBoolRequest{data: true}, "/set_bool", "node", namespace: "/example"))
+  """
+  @spec start_client(
+          callback :: function(),
+          service_type :: module(),
+          service_name :: service_name(),
+          node_name :: String.t(),
+          opts :: [namespace: String.t(), qos: Rclex.QoS.t()]
+        ) ::
+          :ok | {:error, :already_started} | {:error, term()}
+  def start_client(callback, service_type, service_name, node_name, opts \\ [])
+      when is_function(callback) and is_atom(service_type) and is_binary(service_name) and
+             is_binary(node_name) and is_list(opts) do
+    namespace = Keyword.get(opts, :namespace, "/")
+    qos = Keyword.get(opts, :qos, Rclex.QoS.profile_services_default())
+
+    case Rclex.Node.start_client(
+           callback,
+           service_type,
+           service_name,
+           node_name,
+           namespace,
+           qos
+         ) do
+      {:ok, _pid} -> :ok
+      {:error, {:already_started, _pid}} -> {:error, :already_started}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  @doc """
+    Call service using an initialized client.
+
+    - #{@service_name_doc}
+
+    ### opts
+
+    - #{@namespace_doc}
+
+    ## Examples
+
+    iex> alias Rclex.Pkgs.StdSrvs
+    iex> Rclex.call_async(%StdSrvs.Srv.SetBoolRequest{data: true}, "/set_bool", "node", namespace: "/example")
+    :ok
+  """
+  @spec call_async(
+          request :: struct(),
+          service_name :: service_name(),
+          node_name :: String.t(),
+          opts :: [namespace: String.t()]
+        ) ::
+          :ok | {:error, :not_found} | {:error, term()}
+  def call_async(request, service_name, node_name, opts \\ [])
+      when is_binary(service_name) and
+             is_binary(node_name) and is_list(opts) do
+    namespace = Keyword.get(opts, :namespace, "/")
+
+    Rclex.Client.call_async(
+      request,
+      service_name,
+      node_name,
+      namespace
+    )
+  end
+
+  @doc """
+  Stop client.
+
+  - #{@service_name_doc}
+
+  ### opts
+
+  - #{@namespace_doc}
+
+  ## Examples
+
+    iex> alias Rclex.Pkgs.StdSrvs
+    iex> Rclex.stop_client(StdSrvs.Srvg.SetBool, "/set_bool", "node", namespace: "/example")
+    :ok
+    iex> Rclex.stop_client(StdSrvs.Srvg.SetBool, "/does_not_exist", "node", namespace: "/example")
+    {:error, :not_found}
+  """
+  @spec stop_client(
+          service_type :: module(),
+          service_name :: service_name(),
+          node_name :: String.t(),
+          opts :: [namespace: String.t()]
+        ) ::
+          :ok | {:error, :not_found}
+  def stop_client(service_type, service_name, node_name, opts \\ [])
+      when is_atom(service_type) and is_binary(service_name) and is_binary(node_name) and
+             is_list(opts) do
+    namespace = Keyword.get(opts, :namespace, "/")
+    Rclex.Node.stop_client(service_type, service_name, node_name, namespace)
   end
 
   @doc """

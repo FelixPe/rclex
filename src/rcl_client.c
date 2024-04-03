@@ -105,7 +105,7 @@ ERL_NIF_TERM nif_rcl_take_response_with_info(ErlNifEnv *env, int argc, const ERL
 }
 
 ERL_NIF_TERM nif_rcl_send_request(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
-  if (argc != 3) return enif_make_badarg(env);
+  if (argc != 2) return enif_make_badarg(env);
 
   rcl_ret_t rc;
   int64_t sequence_number;
@@ -115,16 +115,14 @@ ERL_NIF_TERM nif_rcl_send_request(ErlNifEnv *env, int argc, const ERL_NIF_TERM a
     return enif_make_badarg(env);
   if (!rcl_client_is_valid(client_p)) return raise(env, __FILE__, __LINE__);
 
-  rmw_service_info_t *response_header_p;
-  if (!enif_get_resource(env, argv[1], rt_rmw_service_info_t, (void **)&response_header_p))
-    return enif_make_badarg(env);
-
   void **ros_request_message_pp;
-  if (!enif_get_resource(env, argv[2], rt_ros_message, (void **)&ros_request_message_pp))
+  if (!enif_get_resource(env, argv[1], rt_ros_message, (void **)&ros_request_message_pp))
     return enif_make_badarg(env);
 
   rc = rcl_send_request(client_p, *ros_request_message_pp, &sequence_number);
-  if (rc != RCL_RET_OK) return raise(env, __FILE__, __LINE__);
 
-  return enif_make_int64(env, sequence_number);
+  if (rc == RCL_RET_OK)
+    return enif_make_tuple2(env, atom_ok, enif_make_int64(env, sequence_number));
+  else
+    return raise(env, __FILE__, __LINE__);
 }
