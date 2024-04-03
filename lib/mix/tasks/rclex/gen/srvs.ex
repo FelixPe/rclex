@@ -160,7 +160,7 @@ defmodule Mix.Tasks.Rclex.Gen.Srvs do
       |> String.split("\n")
       |> Enum.map_join("\n", &Kernel.<>(String.duplicate(" ", 6), &1))
 
-    EEx.eval_file(Path.join(Util.templates_dir_path("srv"), "srv_funcs.eex"),
+    EEx.eval_file(Path.join(Util.templates_dir_path(:srv), "srv_funcs.eex"),
       srv_funcs: srv_funcs
     )
   end

@@ -1,10 +1,10 @@
 defmodule Rclex.Generators.Util do
   @moduledoc false
 
-  def templates_dir_path(interface \\ "msg") do
+  def templates_dir_path(interface \\ :msg) do
     case interface do
-      "msg" -> Path.join(Application.app_dir(:rclex), "priv/templates/rclex.gen.msgs")
-      "srv" -> Path.join(Application.app_dir(:rclex), "priv/templates/rclex.gen.srvs")
+      :msg -> Path.join(Application.app_dir(:rclex), "priv/templates/rclex.gen.msgs")
+      :srv -> Path.join(Application.app_dir(:rclex), "priv/templates/rclex.gen.srvs")
       _ -> raise "ros2 interface type not supported"
     end
   end
