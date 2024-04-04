@@ -266,7 +266,9 @@ defmodule RclexTest do
       :ok = Rclex.start_node(name)
 
       service_callback = fn %RclInterfaces.Srv.GetParameterTypesRequest{names: names} ->
-        %RclInterfaces.Srv.GetParameterTypesResponse{types: Enum.map(names, fn n -> String.length(to_string(n)) end)}
+        %RclInterfaces.Srv.GetParameterTypesResponse{
+          types: Enum.map(names, fn n -> String.length(to_string(n)) end)
+        }
       end
 
       me = self()
@@ -284,7 +286,12 @@ defmodule RclexTest do
         )
 
       :ok =
-        Rclex.start_client(receive_callback, RclInterfaces.Srv.GetParameterTypes, service_name, name)
+        Rclex.start_client(
+          receive_callback,
+          RclInterfaces.Srv.GetParameterTypes,
+          service_name,
+          name
+        )
 
       on_exit(fn -> capture_log(fn -> Rclex.stop_node(name) end) end)
 
@@ -298,7 +305,12 @@ defmodule RclexTest do
       for i <- 1..10 do
         names = Enum.map(0..i, fn _ -> ~c"abc" end)
         request = struct(RclInterfaces.Srv.GetParameterTypesRequest, %{names: names})
-        response = struct(RclInterfaces.Srv.GetParameterTypesResponse, %{types: Enum.map(names, fn n -> String.length(to_string(n)) end)})
+
+        response =
+          struct(RclInterfaces.Srv.GetParameterTypesResponse, %{
+            types: Enum.map(names, fn n -> String.length(to_string(n)) end)
+          })
+
         assert Rclex.call_async(request, service_name, name) == :ok
         assert_receive ^response
       end

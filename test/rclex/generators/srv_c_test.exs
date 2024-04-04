@@ -6,7 +6,7 @@ defmodule Rclex.Generators.SrvCTest do
   alias Rclex.Generators.Util
 
   for ros2_service_type <- [
-    "std_srvs/srv/SetBool"
+        "std_srvs/srv/SetBool"
       ] do
     test "generate/2 #{ros2_service_type}" do
       ros2_service_type = unquote(ros2_service_type)

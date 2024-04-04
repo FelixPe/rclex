@@ -162,11 +162,11 @@ defmodule Rclex.Generators.MsgC do
     mbr = Enum.join(acc.mbrs, ".")
     term = Enum.join(acc.terms, "_")
 
-    array_type = 
-       case get_array_type(type) do
+    array_type =
+      case get_array_type(type) do
         "string" -> "String"
         t -> t
-    end
+      end
 
     sequence = "rosidl_runtime_c__#{array_type}__Sequence"
 

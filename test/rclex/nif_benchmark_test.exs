@@ -180,7 +180,7 @@ defmodule Rclex.NifBenchmarkTest do
 
       service = Nif.rcl_service_init!(node, type_support, ~c"/set_test_bool", qos)
       client = Nif.rcl_client_init!(node, type_support, ~c"/set_test_bool", qos)
-      
+
       request_struct = %Rclex.Pkgs.StdSrvs.Srv.SetBoolRequest{data: true}
       request_message = Rclex.Pkgs.StdSrvs.Srv.SetBoolRequest.create!()
       :ok = Rclex.Pkgs.StdSrvs.Srv.SetBoolRequest.set!(request_message, request_struct)
@@ -198,43 +198,75 @@ defmodule Rclex.NifBenchmarkTest do
         :ok = Nif.rcl_fini!(context)
       end)
 
-      %{node: node, type_support: type_support, response_message: response_message, request_message: request_message, client: client, service: service, qos: qos}
+      %{
+        node: node,
+        type_support: type_support,
+        response_message: response_message,
+        request_message: request_message,
+        client: client,
+        service: service,
+        qos: qos
+      }
     end
 
     test "rcl_send_request!/2", %{client: client, request_message: request_message} do
-        {time_us, {:ok, _sequence_number}} = :timer.tc(&Nif.rcl_send_request!/2, [client, request_message])
-        assert time_us <= @nif_tenth_limit_time_us
+      {time_us, {:ok, _sequence_number}} =
+        :timer.tc(&Nif.rcl_send_request!/2, [client, request_message])
+
+      assert time_us <= @nif_tenth_limit_time_us
     end
 
-    test "rcl_take_response_with_info!/2", %{client: client, service: service, request_message: request_message, response_message: response_message} do
+    test "rcl_take_response_with_info!/2", %{
+      client: client,
+      service: service,
+      request_message: request_message,
+      response_message: response_message
+    } do
       {:ok, request_sequence_number} = Nif.rcl_send_request!(client, request_message)
       {:ok, request_header} = Nif.rcl_take_request_with_info!(service, request_message)
       Nif.rcl_send_response!(service, request_header, response_message)
-      {time_us, {:ok, response_sequence_number}} = :timer.tc(&Nif.rcl_take_response_with_info!/2, [client, response_message])
+
+      {time_us, {:ok, response_sequence_number}} =
+        :timer.tc(&Nif.rcl_take_response_with_info!/2, [client, response_message])
+
       assert request_sequence_number == response_sequence_number
       assert time_us <= @nif_tenth_limit_time_us
     end
 
-    test "rcl_take_request_with_info!/2", %{client: client, service: service, request_message: request_message, response_message: response_message} do
+    test "rcl_take_request_with_info!/2", %{
+      client: client,
+      service: service,
+      request_message: request_message,
+      response_message: response_message
+    } do
       {:ok, request_sequence_number} = Nif.rcl_send_request!(client, request_message)
-      {time_us, {:ok, request_header}} = :timer.tc(&Nif.rcl_take_request_with_info!/2, [service, request_message])
+
+      {time_us, {:ok, request_header}} =
+        :timer.tc(&Nif.rcl_take_request_with_info!/2, [service, request_message])
+
       Nif.rcl_send_response!(service, request_header, response_message)
       {:ok, response_sequence_number} = Nif.rcl_take_response_with_info!(client, response_message)
       assert request_sequence_number == response_sequence_number
       assert time_us <= @nif_tenth_limit_time_us
     end
 
-    test "rcl_send_response!/3", %{client: client, service: service, request_message: request_message, response_message: response_message} do
+    test "rcl_send_response!/3", %{
+      client: client,
+      service: service,
+      request_message: request_message,
+      response_message: response_message
+    } do
       {:ok, request_sequence_number} = Nif.rcl_send_request!(client, request_message)
       {:ok, request_header} = Nif.rcl_take_request_with_info!(service, request_message)
-      {time_us, :ok} = :timer.tc(&Nif.rcl_send_response!/3, [service, request_header, response_message])
+
+      {time_us, :ok} =
+        :timer.tc(&Nif.rcl_send_response!/3, [service, request_header, response_message])
+
       {:ok, response_sequence_number} = Nif.rcl_take_response_with_info!(client, response_message)
       assert request_sequence_number == response_sequence_number
       assert time_us <= @nif_tenth_limit_time_us
     end
-
   end
-
 
   describe "wait_set" do
     setup do
