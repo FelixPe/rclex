@@ -81,7 +81,7 @@ defmodule Rclex.Client do
   end
 
   def handle_call(
-        {:is_service_server_available},
+        {:service_server_available},
         _from,
         %{
           node: node,

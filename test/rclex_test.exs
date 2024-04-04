@@ -482,15 +482,15 @@ defmodule RclexTest do
       assert [{"/chatter", ["std_msgs/msg/String"]}] = Rclex.get_topic_names_and_types("name")
     end
 
-    test "is_service_server_available?/4", %{
+    test "service_server_available?/4", %{
       name: name,
       service_type: service_type,
       service_name: service_name
     } do
-      true = Rclex.is_service_server_available?(service_type, service_name, name)
+      true = Rclex.service_server_available?(service_type, service_name, name)
 
       {:error, :not_found} =
-        Rclex.is_service_server_available?(service_type, "/does_not_exist", name)
+        Rclex.service_server_available?(service_type, "/does_not_exist", name)
     end
   end
 end
