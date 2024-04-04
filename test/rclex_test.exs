@@ -362,7 +362,9 @@ defmodule RclexTest do
       :ok = Rclex.start_subscription(fn _msg -> nil end, StdMsgs.Msg.String, topic_name, name)
 
       service_callback = fn %RclInterfaces.Srv.GetParameterTypesRequest{names: names} ->
-        %RclInterfaces.Srv.GetParameterTypesResponse{types: Enum.map(names, fn n -> String.length(to_string(n)) end)}
+        %RclInterfaces.Srv.GetParameterTypesResponse{
+          types: Enum.map(names, fn n -> String.length(to_string(n)) end)
+        }
       end
 
       receive_callback = fn _request, _response ->
