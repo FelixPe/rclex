@@ -442,11 +442,13 @@ defmodule RclexTest do
     end
 
     test "get_service_names_and_types/2", %{name: name} do
-      assert [{"/set_test_bool", ["example_interfaces/srv/AddTwoInts"]}] = Rclex.get_service_names_and_types(name)
+      assert [{"/set_test_bool", ["example_interfaces/srv/AddTwoInts"]}] =
+               Rclex.get_service_names_and_types(name)
     end
 
     test "get_service_names_and_types_by_node/4", %{name: name} do
-      [{"/set_test_bool", ["example_interfaces/srv/AddTwoInts"]}] = Rclex.get_service_names_and_types_by_node(name, name, "/")
+      [{"/set_test_bool", ["example_interfaces/srv/AddTwoInts"]}] =
+        Rclex.get_service_names_and_types_by_node(name, name, "/")
     end
 
     test "get_subscriber_names_and_types_by_node/4", %{} do
@@ -484,7 +486,9 @@ defmodule RclexTest do
       service_name: service_name
     } do
       true = Rclex.is_service_server_available?(service_type, service_name, name)
-      {:error, :not_found} = Rclex.is_service_server_available?(service_type, "/does_not_exist", name)
+
+      {:error, :not_found} =
+        Rclex.is_service_server_available?(service_type, "/does_not_exist", name)
     end
   end
 end
