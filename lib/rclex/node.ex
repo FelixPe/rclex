@@ -80,6 +80,11 @@ defmodule Rclex.Node do
     GenServer.call(server, {:count_subscribers, topic_name})
   end
 
+  def get_client_names_and_types_by_node(name, namespace, node_name, node_namespace) do
+    server = name(name, namespace)
+    GenServer.call(server, {:get_client_names_and_types_by_node, node_name, node_namespace})
+  end
+
   def get_node_names(name, namespace \\ "/") do
     server = name(name, namespace)
     GenServer.call(server, {:get_node_names})
@@ -117,6 +122,16 @@ defmodule Rclex.Node do
       server,
       {:get_publishers_info_by_topic, topic_name, no_mangle}
     )
+  end
+
+  def get_service_names_and_types(name, namespace) do
+    server = name(name, namespace)
+    GenServer.call(server, {:get_service_names_and_types})
+  end
+
+  def get_service_names_and_types_by_node(name, namespace, node_name, node_namespace) do
+    server = name(name, namespace)
+    GenServer.call(server, {:get_service_names_and_types_by_node, node_name, node_namespace})
   end
 
   def get_subscriber_names_and_types_by_node(
@@ -313,6 +328,18 @@ defmodule Rclex.Node do
     {:reply, return, state}
   end
 
+  def handle_call({:get_client_names_and_types_by_node, node_name, node_namespace}, _from, state) do
+    return =
+      Graph.get_client_names_and_types_by_node(
+        state.node,
+        ~c"#{node_name}",
+        ~c"#{node_namespace}"
+      )
+      |> names_and_types_charlist_to_string()
+
+    {:reply, return, state}
+  end
+
   def handle_call({:get_node_names}, _from, state) do
     return =
       Graph.get_node_names(state.node)
@@ -362,6 +389,26 @@ defmodule Rclex.Node do
     {:reply, return, state}
   end
 
+  def handle_call({:get_service_names_and_types}, _form, state) do
+    return =
+      Graph.get_service_names_and_types(state.node)
+      |> names_and_types_charlist_to_string()
+
+    {:reply, return, state}
+  end
+
+  def handle_call({:get_service_names_and_types_by_node, node_name, node_namespace}, _from, state) do
+    return =
+      Graph.get_service_names_and_types_by_node(
+        state.node,
+        ~c"#{node_name}",
+        ~c"#{node_namespace}"
+      )
+      |> names_and_types_charlist_to_string()
+
+    {:reply, return, state}
+  end
+
   def handle_call(
         {:get_subscriber_names_and_types_by_node, node_name, node_namespace, no_demangle},
         _from,
@@ -399,6 +446,13 @@ defmodule Rclex.Node do
     return =
       Graph.get_topic_names_and_types(state.node, no_demangle)
       |> names_and_types_charlist_to_string()
+
+    {:reply, return, state}
+  end
+
+  def handle_call({:service_server_is_available, client}, _from, state) do
+    return =
+      Graph.service_server_is_available(state.node, client)
 
     {:reply, return, state}
   end

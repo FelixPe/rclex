@@ -305,24 +305,40 @@ defmodule Rclex.NifBenchmarkTest do
       name = ~c"name"
       namespace = ~c"/namespace"
       topic_name = ~c"/topic"
+      service_name = ~c"/set_test_bool"
       node = Nif.rcl_node_init!(context, name, namespace)
-      type_support = Nif.std_msgs_msg_string_type_support!()
+      msg_type_support = Nif.std_msgs_msg_string_type_support!()
+      srv_type_support = Nif.std_srvs_srv_set_bool_type_support!()
 
       subscription =
-        Nif.rcl_subscription_init!(node, type_support, topic_name, QoS.profile_default())
+        Nif.rcl_subscription_init!(node, msg_type_support, topic_name, QoS.profile_default())
 
-      publisher = Nif.rcl_publisher_init!(node, type_support, topic_name, QoS.profile_default())
+      publisher =
+        Nif.rcl_publisher_init!(node, msg_type_support, topic_name, QoS.profile_default())
+
+      service =
+        Nif.rcl_service_init!(
+          node,
+          srv_type_support,
+          service_name,
+          QoS.profile_services_default()
+        )
+
+      client =
+        Nif.rcl_client_init!(node, srv_type_support, service_name, QoS.profile_services_default())
 
       :timer.sleep(50)
 
       on_exit(fn ->
+        :ok = Nif.rcl_client_fini!(client, node)
+        :ok = Nif.rcl_service_fini!(service, node)
         :ok = Nif.rcl_publisher_fini!(publisher, node)
         :ok = Nif.rcl_subscription_fini!(subscription, node)
         :ok = Nif.rcl_node_fini!(node)
         :ok = Nif.rcl_fini!(context)
       end)
 
-      %{node: node, name: name, namespace: namespace, topic_name: topic_name}
+      %{node: node, client: client, name: name, namespace: namespace, topic_name: topic_name}
     end
 
     test "rcl_count_publishers!/2", %{node: node, topic_name: topic_name} do
@@ -332,6 +348,17 @@ defmodule Rclex.NifBenchmarkTest do
 
     test "rcl_count_subscribers!/2", %{node: node, topic_name: topic_name} do
       {time_us, 1} = :timer.tc(&Nif.rcl_count_subscribers!/2, [node, topic_name])
+      assert time_us <= @nif_limit_time_us
+    end
+
+    test "rcl_get_client_names_and_types_by_node!/3", %{
+      node: node,
+      name: name,
+      namespace: namespace
+    } do
+      {time_us, [{~c"/set_test_bool", [~c"std_srvs/srv/SetBool"]}]} =
+        :timer.tc(&Nif.rcl_get_client_names_and_types_by_node!/3, [node, name, namespace])
+
       assert time_us <= @nif_limit_time_us
     end
 
@@ -374,6 +401,24 @@ defmodule Rclex.NifBenchmarkTest do
       assert time_us <= @nif_limit_time_us
     end
 
+    test "rcl_get_service_names_and_types!/1", %{node: node} do
+      {time_us, [{~c"/set_test_bool", [~c"std_srvs/srv/SetBool"]}]} =
+        :timer.tc(&Nif.rcl_get_service_names_and_types!/1, [node])
+
+      assert time_us <= @nif_limit_time_us
+    end
+
+    test "rcl_get_service_names_and_types_by_node!/3", %{
+      node: node,
+      name: name,
+      namespace: namespace
+    } do
+      {time_us, [{~c"/set_test_bool", [~c"std_srvs/srv/SetBool"]}]} =
+        :timer.tc(&Nif.rcl_get_service_names_and_types_by_node!/3, [node, name, namespace])
+
+      assert time_us <= @nif_limit_time_us
+    end
+
     test "rcl_get_subscriber_names_and_types_by_node!/4", %{
       node: node,
       name: name,
@@ -404,6 +449,13 @@ defmodule Rclex.NifBenchmarkTest do
     test "rcl_get_topic_names_and_types!/2", %{topic_name: topic_name, node: node} do
       {time_us, [{^topic_name, [~c"std_msgs/msg/String"]}]} =
         :timer.tc(&Nif.rcl_get_topic_names_and_types!/2, [node, false])
+
+      assert time_us <= @nif_limit_time_us
+    end
+
+    test "rcl_service_server_is_available!/2", %{node: node, client: client} do
+      {time_us, true} =
+        :timer.tc(&Nif.rcl_service_server_is_available!/2, [node, client])
 
       assert time_us <= @nif_limit_time_us
     end

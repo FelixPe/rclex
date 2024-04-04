@@ -31,6 +31,14 @@ defmodule Rclex.Client do
     end
   end
 
+  def is_service_server_available?(service_type, service_name, name, namespace \\ "/") do
+    case GenServer.whereis(name(service_type, service_name, name, namespace)) do
+      nil -> {:error, :not_found}
+      {_atom, _node} -> raise("should not happen")
+      pid -> GenServer.call(pid, {:is_service_server_available})
+    end
+  end
+
   # callbacks
 
   def init(args) do
@@ -70,6 +78,18 @@ defmodule Rclex.Client do
     Nif.rcl_client_fini!(state.client, state.node)
 
     Logger.debug("#{__MODULE__}: #{inspect(reason)} #{Path.join(state.namespace, state.name)}")
+  end
+
+  def handle_call(
+        {:is_service_server_available},
+        _from,
+        %{
+          node: node,
+          client: client
+        } = state
+      ) do
+    is_available = Nif.rcl_service_server_is_available!(node, client)
+    {:reply, is_available, state}
   end
 
   def handle_call(

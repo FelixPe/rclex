@@ -130,6 +130,58 @@ ERL_NIF_TERM nif_rcl_count_subscribers(ErlNifEnv *env, int argc, const ERL_NIF_T
     return raise_with_message(env, __FILE__, __LINE__, "unspecified error");
 }
 
+ERL_NIF_TERM nif_rcl_get_client_names_and_types_by_node(ErlNifEnv *env, int argc,
+                                                        const ERL_NIF_TERM argv[]) {
+  if (argc != 3) return enif_make_badarg(env);
+
+  rcl_node_t *node_p;
+  if (!enif_get_resource(env, argv[0], rt_rcl_node_t, (void **)&node_p))
+    return enif_make_badarg(env);
+  if (!rcl_node_is_valid(node_p)) return raise(env, __FILE__, __LINE__);
+
+  char node_name[256];
+  if (enif_get_string(env, argv[1], node_name, sizeof(node_name), ERL_NIF_LATIN1) <= 0)
+    return enif_make_badarg(env);
+
+  char node_namespace[256];
+  if (enif_get_string(env, argv[2], node_namespace, sizeof(node_name), ERL_NIF_LATIN1) <= 0)
+    return enif_make_badarg(env);
+
+  rcl_ret_t rc;
+  rcl_names_and_types_t client_names_and_types = rmw_get_zero_initialized_names_and_types();
+  rcl_allocator_t allocator                    = get_nif_allocator();
+  ERL_NIF_TERM term                            = atom_error;
+
+  rc = rcl_get_client_names_and_types_by_node(node_p, &allocator, node_name, node_namespace,
+                                              &client_names_and_types);
+  if (rc == RCL_RET_OK) { // if the query was successful
+    term = make_names_and_types(env, &client_names_and_types);
+  } else if (rc == RCL_RET_NODE_INVALID) { // if the node is invalid
+    return raise_with_message(env, __FILE__, __LINE__, "node is invalid");
+  } else if (rc == RCL_RET_INVALID_ARGUMENT) {
+    return raise_with_message(env, __FILE__, __LINE__, "arguments are invalid");
+  } else if (rc == RCL_RET_NODE_INVALID_NAME) {
+    return raise_with_message(env, __FILE__, __LINE__,
+                              "node with an invalid namespace is detected");
+  } else if (rc == RCL_RET_NODE_INVALID_NAMESPACE) {
+    return raise_with_message(env, __FILE__, __LINE__,
+                              "node with an invalid namespace is detected");
+  } else if (rc == RCL_RET_NODE_NAME_NON_EXISTENT) {
+    term = enif_make_tuple2(env, atom_error, enif_make_atom(env, "not_found"));
+    // return raise_with_message(env, __FILE__, __LINE__, "node name was not found");
+  } else if (rc == RCL_RET_ERROR) {
+    return raise_with_message(env, __FILE__, __LINE__, "unspecified error");
+  }
+
+  // cleanup of the names and types struct:
+  rc = rcl_names_and_types_fini(&client_names_and_types);
+  if (rc != RCL_RET_OK) {
+    return raise(env, __FILE__, __LINE__);
+  }
+
+  return term;
+}
+
 ERL_NIF_TERM nif_rcl_get_node_names(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
   if (argc != 1) return enif_make_badarg(env);
 
@@ -276,23 +328,7 @@ ERL_NIF_TERM nif_rcl_get_publisher_names_and_types_by_node(ErlNifEnv *env, int a
   rc = rcl_get_publisher_names_and_types_by_node(node_p, &allocator, no_demangle, node_name,
                                                  node_namespace, &topic_names_and_types);
   if (rc == RCL_RET_OK) { // if the query was successful
-    rcutils_string_array_t names        = topic_names_and_types.names;
-    rcutils_string_array_t *types       = topic_names_and_types.types;
-    int names_length                    = names.size;
-    ERL_NIF_TERM *names_and_types_array = enif_alloc(sizeof(ERL_NIF_TERM) * names_length);
-
-    for (int i = 0; i < names_length; i++) {
-      int types_length          = types[i].size;
-      ERL_NIF_TERM *types_array = enif_alloc(sizeof(ERL_NIF_TERM) * types_length);
-      for (int j = 0; j < types_length; j++) {
-        types_array[j] = enif_make_string(env, types[i].data[j], ERL_NIF_LATIN1);
-      }
-      names_and_types_array[i] =
-          enif_make_tuple2(env, enif_make_string(env, names.data[i], ERL_NIF_LATIN1),
-                           enif_make_list_from_array(env, types_array, types_length));
-    }
-
-    term = enif_make_list_from_array(env, names_and_types_array, names_length);
+    term = make_names_and_types(env, &topic_names_and_types);
   } else if (rc == RCL_RET_NODE_INVALID) { // if the node is invalid
     return raise_with_message(env, __FILE__, __LINE__, "node is invalid");
   } else if (rc == RCL_RET_INVALID_ARGUMENT) {
@@ -363,6 +399,89 @@ ERL_NIF_TERM nif_rcl_get_publishers_info_by_topic(ErlNifEnv *env, int argc,
   // cleanup of the names and types struct:
   rc = rmw_topic_endpoint_info_array_fini(&publishers_info, &allocator);
   if (rc != RMW_RET_OK) {
+    return raise(env, __FILE__, __LINE__);
+  }
+
+  return term;
+}
+
+ERL_NIF_TERM nif_rcl_get_service_names_and_types(ErlNifEnv *env, int argc,
+                                                 const ERL_NIF_TERM argv[]) {
+  if (argc != 1) return enif_make_badarg(env);
+
+  rcl_node_t *node_p;
+  if (!enif_get_resource(env, argv[0], rt_rcl_node_t, (void **)&node_p))
+    return enif_make_badarg(env);
+  if (!rcl_node_is_valid(node_p)) return raise(env, __FILE__, __LINE__);
+
+  rcl_ret_t rc;
+  rcl_names_and_types_t service_names_and_types = rmw_get_zero_initialized_names_and_types();
+  rcl_allocator_t allocator                     = get_nif_allocator();
+  ERL_NIF_TERM term                             = atom_error;
+
+  rc = rcl_get_service_names_and_types(node_p, &allocator, &service_names_and_types);
+  if (rc == RCL_RET_OK) { // if the query was successful
+    term = make_names_and_types(env, &service_names_and_types);
+  } else if (rc == RCL_RET_NODE_INVALID) { // if the node is invalid
+    return raise_with_message(env, __FILE__, __LINE__, "node is invalid");
+  } else if (rc == RCL_RET_INVALID_ARGUMENT) {
+    return raise_with_message(env, __FILE__, __LINE__, "arguments are invalid");
+  } else if (rc == RCL_RET_ERROR) {
+    return raise_with_message(env, __FILE__, __LINE__, "unspecified error");
+  }
+
+  // cleanup of the names and types struct:
+  rc = rcl_names_and_types_fini(&service_names_and_types);
+  if (rc != RCL_RET_OK) {
+    return raise(env, __FILE__, __LINE__);
+  }
+
+  return term;
+}
+
+ERL_NIF_TERM nif_rcl_get_service_names_and_types_by_node(ErlNifEnv *env, int argc,
+                                                         const ERL_NIF_TERM argv[]) {
+  if (argc != 3) return enif_make_badarg(env);
+
+  rcl_node_t *node_p;
+  if (!enif_get_resource(env, argv[0], rt_rcl_node_t, (void **)&node_p))
+    return enif_make_badarg(env);
+  if (!rcl_node_is_valid(node_p)) return raise(env, __FILE__, __LINE__);
+
+  char node_name[256];
+  if (enif_get_string(env, argv[1], node_name, sizeof(node_name), ERL_NIF_LATIN1) <= 0)
+    return enif_make_badarg(env);
+
+  char node_namespace[256];
+  if (enif_get_string(env, argv[2], node_namespace, sizeof(node_name), ERL_NIF_LATIN1) <= 0)
+    return enif_make_badarg(env);
+
+  rcl_ret_t rc;
+  rcl_names_and_types_t service_names_and_types = rmw_get_zero_initialized_names_and_types();
+  rcl_allocator_t allocator                     = get_nif_allocator();
+  ERL_NIF_TERM term                             = atom_error;
+
+  rc = rcl_get_service_names_and_types_by_node(node_p, &allocator, node_name, node_namespace,
+                                               &service_names_and_types);
+  if (rc == RCL_RET_OK) { // if the query was successful
+    term = make_names_and_types(env, &service_names_and_types);
+  } else if (rc == RCL_RET_NODE_INVALID) { // if the node is invalid
+    return raise_with_message(env, __FILE__, __LINE__, "node is invalid");
+  } else if (rc == RCL_RET_INVALID_ARGUMENT) {
+    return raise_with_message(env, __FILE__, __LINE__, "arguments are invalid");
+  } else if (rc == RCL_RET_NODE_INVALID_NAME) {
+    return raise_with_message(env, __FILE__, __LINE__,
+                              "node with an invalid namespace is detected");
+  } else if (rc == RCL_RET_NODE_INVALID_NAMESPACE) {
+    return raise_with_message(env, __FILE__, __LINE__,
+                              "node with an invalid namespace is detected");
+  } else if (rc == RCL_RET_ERROR) {
+    return raise_with_message(env, __FILE__, __LINE__, "unspecified error");
+  }
+
+  // cleanup of the names and types struct:
+  rc = rcl_names_and_types_fini(&service_names_and_types);
+  if (rc != RCL_RET_OK) {
     return raise(env, __FILE__, __LINE__);
   }
 
@@ -508,12 +627,6 @@ ERL_NIF_TERM nif_rcl_get_topic_names_and_types(ErlNifEnv *env, int argc,
     return raise_with_message(env, __FILE__, __LINE__, "node is invalid");
   } else if (rc == RCL_RET_INVALID_ARGUMENT) {
     return raise_with_message(env, __FILE__, __LINE__, "arguments are invalid");
-  } else if (rc == RCL_RET_NODE_INVALID_NAME) {
-    return raise_with_message(env, __FILE__, __LINE__,
-                              "node with an invalid namespace is detected");
-  } else if (rc == RCL_RET_NODE_INVALID_NAMESPACE) {
-    return raise_with_message(env, __FILE__, __LINE__,
-                              "node with an invalid namespace is detected");
   } else if (rc == RCL_RET_ERROR) {
     return raise_with_message(env, __FILE__, __LINE__, "unspecified error");
   }
@@ -524,6 +637,40 @@ ERL_NIF_TERM nif_rcl_get_topic_names_and_types(ErlNifEnv *env, int argc,
     return raise(env, __FILE__, __LINE__);
   }
 
+  return term;
+}
+
+ERL_NIF_TERM nif_rcl_service_server_is_available(ErlNifEnv *env, int argc,
+                                                 const ERL_NIF_TERM argv[]) {
+  if (argc != 2) return enif_make_badarg(env);
+
+  rcl_node_t *node_p;
+  if (!enif_get_resource(env, argv[0], rt_rcl_node_t, (void **)&node_p))
+    return enif_make_badarg(env);
+  if (!rcl_node_is_valid(node_p)) return raise(env, __FILE__, __LINE__);
+
+  rcl_client_t *client_p;
+  if (!enif_get_resource(env, argv[1], rt_rcl_client_t, (void **)&client_p))
+    return enif_make_badarg(env);
+  if (!rcl_client_is_valid(client_p)) return raise(env, __FILE__, __LINE__);
+
+  rcl_ret_t rc;
+  bool is_available;
+  ERL_NIF_TERM term = atom_false;
+
+  rc = rcl_service_server_is_available(node_p, client_p, &is_available);
+  if (rc == RCL_RET_OK) { // if the query was successful
+    if (is_available)
+      term = atom_true;
+    else
+      term = atom_false;
+  } else if (rc == RCL_RET_NODE_INVALID) { // if the node is invalid
+    return raise_with_message(env, __FILE__, __LINE__, "node is invalid");
+  } else if (rc == RCL_RET_INVALID_ARGUMENT) {
+    return raise_with_message(env, __FILE__, __LINE__, "arguments are invalid");
+  } else if (rc == RCL_RET_ERROR) {
+    return raise_with_message(env, __FILE__, __LINE__, "unspecified error");
+  }
   return term;
 }
 

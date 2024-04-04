@@ -540,6 +540,36 @@ defmodule Rclex do
   end
 
   @doc """
+  Return a list of discovered service client topics and its types for a remote node.
+
+  ### opts
+
+  - #{@namespace_doc}
+
+  ## Examples
+
+      iex> Rclex.get_client_names_and_types_by_node("node", "example_node", namespace: "/example")
+      [{"node","/example"}]
+  """
+  @spec get_client_names_and_types_by_node(
+          name :: String.t(),
+          node_name :: String.t(),
+          node_namespace :: String.t(),
+          opts :: [namespace: String.t()]
+        ) :: list()
+  def get_client_names_and_types_by_node(
+        name,
+        node_name,
+        node_namespace,
+        opts \\ []
+      )
+      when is_binary(name) and is_binary(node_name) and is_binary(node_namespace) and
+             is_list(opts) do
+    namespace = Keyword.get(opts, :namespace, "/")
+    Rclex.Node.get_client_names_and_types_by_node(name, namespace, node_name, node_namespace)
+  end
+
+  @doc """
   Return a list of available nodes in the ROS graph.
 
   ### opts
@@ -653,6 +683,50 @@ defmodule Rclex do
   end
 
   @doc """
+  Return a list of service names and their types.
+
+  ### opts
+
+  - #{@namespace_doc}
+
+  ## Examples
+
+      iex> Rclex.get_service_names_and_types("node", namespace: "/example")
+      [{"/set_test_bool", ["std_srvs/srv/SetBool"]}]
+  """
+  @spec get_service_names_and_types(
+          name :: String.t(),
+          opts :: [namespace: String.t()]
+        ) :: list()
+  def get_service_names_and_types(name, opts \\ []) do
+    namespace = Keyword.get(opts, :namespace, "/")
+    Rclex.Node.get_service_names_and_types(name, namespace)
+  end
+
+  @doc """
+  Return a list of service names and types associated with a node.
+
+  ### opts
+
+  - #{@namespace_doc}
+
+  ## Examples
+
+      iex> Rclex.get_service_names_and_types_by_node("node", "example_node", "/example", namespace: "/example")
+      [{"/set_test_bool", ["std_srvs/srv/SetBool"]}]
+  """
+  @spec get_service_names_and_types_by_node(
+          name :: String.t(),
+          node_name :: String.t(),
+          node_namespace :: String.t(),
+          opts :: [namespace: String.t()]
+        ) :: list()
+  def get_service_names_and_types_by_node(name, node_name, node_namespace, opts \\ []) do
+    namespace = Keyword.get(opts, :namespace, "/")
+    Rclex.Node.get_service_names_and_types_by_node(name, namespace, node_name, node_namespace)
+  end
+
+  @doc """
   Return a list of topic names and types for subscriptions associated with a node.
 
   ### opts
@@ -744,5 +818,31 @@ defmodule Rclex do
     namespace = Keyword.get(opts, :namespace, "/")
     no_demangle = Keyword.get(opts, :no_demangle, false)
     Rclex.Node.get_topic_names_and_types(name, namespace, no_demangle)
+  end
+
+  @doc """
+    Check if a service server is available for the given service client.
+    This function will return true, if there is a service server available for the given client.
+
+    - #{@service_name_doc}
+
+    ### opts
+
+    - #{@namespace_doc}
+
+    ## Examples
+
+    iex> Rclex.is_service_server_available?("node", "/set_bool", namespace: "/example")
+    :false
+  """
+  @spec is_service_server_available?(
+          name :: String.t(),
+          service_type :: module(),
+          service_name :: service_name(),
+          opts :: [namespace: String.t()]
+        ) :: boolean
+  def is_service_server_available?(service_type, service_name, name, opts \\ []) do
+    namespace = Keyword.get(opts, :namespace, "/")
+    Rclex.Client.is_service_server_available?(service_type, service_name, name, namespace)
   end
 end

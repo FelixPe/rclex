@@ -352,22 +352,60 @@ defmodule RclexTest do
 
   describe "graph" do
     setup do
+      name = "name"
+      topic_name = "/chatter"
+      service_name = "/set_test_bool"
+      service_type = ExampleInterfaces.Srv.AddTwoInts
+
       :ok = Rclex.start_node("name")
-      :ok = Rclex.start_publisher(StdMsgs.Msg.String, "/chatter", "name")
-      :ok = Rclex.start_subscription(fn _msg -> nil end, StdMsgs.Msg.String, "/chatter", "name")
+      :ok = Rclex.start_publisher(StdMsgs.Msg.String, topic_name, name)
+      :ok = Rclex.start_subscription(fn _msg -> nil end, StdMsgs.Msg.String, topic_name, name)
+
+      service_callback = fn %ExampleInterfaces.Srv.AddTwoIntsRequest{a: a, b: b} ->
+        %ExampleInterfaces.Srv.AddTwoIntsResponse{sum: a + b}
+      end
+
+      receive_callback = fn _request, _response ->
+        nil
+      end
+
+      :ok =
+        Rclex.start_service(
+          service_callback,
+          service_type,
+          service_name,
+          name
+        )
+
+      :ok =
+        Rclex.start_client(receive_callback, service_type, service_name, name)
 
       on_exit(fn -> capture_log(fn -> Rclex.stop_node("name") end) end)
       :timer.sleep(50)
 
-      %{}
+      %{
+        name: name,
+        topic_name: topic_name,
+        service_type: service_type,
+        service_name: service_name
+      }
     end
 
     test "count_publishers/2", %{} do
       assert 1 = Rclex.count_publishers("name", "/chatter")
     end
 
-    test "count_subscribers/2", %{} do
-      assert 1 = Rclex.count_subscribers("name", "/chatter")
+    test "count_subscribers/2", %{name: name, topic_name: topic_name} do
+      assert 1 = Rclex.count_subscribers(name, topic_name)
+    end
+
+    test "get_client_names_and_types_by_node/4", %{name: name} do
+      assert [{"/set_test_bool", ["example_interfaces/srv/AddTwoInts"]}] =
+               Rclex.get_client_names_and_types_by_node(
+                 name,
+                 name,
+                 "/"
+               )
     end
 
     test "get_node_names/2", %{} do
@@ -403,6 +441,14 @@ defmodule RclexTest do
              } = Map.drop(info, [:endpoint_gid, :qos_profile])
     end
 
+    test "get_service_names_and_types/2", %{name: name} do
+      assert [{"/set_test_bool", ["example_interfaces/srv/AddTwoInts"]}] = Rclex.get_service_names_and_types(name)
+    end
+
+    test "get_service_names_and_types_by_node/4", %{name: name} do
+      [{"/set_test_bool", ["example_interfaces/srv/AddTwoInts"]}] = Rclex.get_service_names_and_types_by_node(name, name, "/")
+    end
+
     test "get_subscriber_names_and_types_by_node/4", %{} do
       assert [{"/chatter", ["std_msgs/msg/String"]}] =
                Rclex.get_subscriber_names_and_types_by_node("name", "name", "/")
@@ -430,6 +476,15 @@ defmodule RclexTest do
 
     test "get_topic_names_and_types/2", %{} do
       assert [{"/chatter", ["std_msgs/msg/String"]}] = Rclex.get_topic_names_and_types("name")
+    end
+
+    test "is_service_server_available?/4", %{
+      name: name,
+      service_type: service_type,
+      service_name: service_name
+    } do
+      true = Rclex.is_service_server_available?(service_type, service_name, name)
+      {:error, :not_found} = Rclex.is_service_server_available?(service_type, "/does_not_exist", name)
     end
   end
 end

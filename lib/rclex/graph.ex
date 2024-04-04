@@ -11,6 +11,10 @@ defmodule Rclex.Graph do
     Nif.rcl_count_subscribers!(node, topic_name)
   end
 
+  def get_client_names_and_types_by_node(node, node_name, namespace) do
+    Nif.rcl_get_client_names_and_types_by_node!(node, node_name, namespace)
+  end
+
   def get_node_names(node) do
     Nif.rcl_get_node_names!(node)
   end
@@ -27,6 +31,14 @@ defmodule Rclex.Graph do
     Nif.rcl_get_publishers_info_by_topic!(node, topic_name, no_mangle)
   end
 
+  def get_service_names_and_types(node) do
+    Nif.rcl_get_service_names_and_types!(node)
+  end
+
+  def get_service_names_and_types_by_node(node, node_name, namespace) do
+    Nif.rcl_get_service_names_and_types_by_node!(node, node_name, namespace)
+  end
+
   def get_subscriber_names_and_types_by_node(node, node_name, namespace, no_demangle) do
     Nif.rcl_get_subscriber_names_and_types_by_node!(node, node_name, namespace, no_demangle)
   end
@@ -37,5 +49,9 @@ defmodule Rclex.Graph do
 
   def get_topic_names_and_types(node, no_demangle) do
     Nif.rcl_get_topic_names_and_types!(node, no_demangle)
+  end
+
+  def service_server_is_available(node, client) do
+    Nif.rcl_service_server_is_available!(node, client)
   end
 end

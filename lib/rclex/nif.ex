@@ -164,6 +164,10 @@ defmodule Rclex.Nif do
     :erlang.nif_error(:nif_not_loaded)
   end
 
+  def rcl_get_client_names_and_types_by_node!(_node, _node_name, _namespace) do
+    :erlang.nif_error(:nif_not_loaded)
+  end
+
   def rcl_get_node_names!(_node) do
     :erlang.nif_error(:nif_not_loaded)
   end
@@ -180,6 +184,14 @@ defmodule Rclex.Nif do
     :erlang.nif_error(:nif_not_loaded)
   end
 
+  def rcl_get_service_names_and_types!(_node) do
+    :erlang.nif_error(:nif_not_loaded)
+  end
+
+  def rcl_get_service_names_and_types_by_node!(_node, _node_name, _namespace) do
+    :erlang.nif_error(:nif_not_loaded)
+  end
+
   def rcl_get_subscriber_names_and_types_by_node!(_node, _node_name, _namespace, _no_demangle) do
     :erlang.nif_error(:nif_not_loaded)
   end
@@ -189,6 +201,10 @@ defmodule Rclex.Nif do
   end
 
   def rcl_get_topic_names_and_types!(_node, _no_demangle) do
+    :erlang.nif_error(:nif_not_loaded)
+  end
+
+  def rcl_service_server_is_available!(_node, _client) do
     :erlang.nif_error(:nif_not_loaded)
   end
 
