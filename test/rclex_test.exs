@@ -5,7 +5,7 @@ defmodule RclexTest do
 
   alias Rclex.Pkgs.StdMsgs
   alias Rclex.Pkgs.StdSrvs
-  alias Rclex.Pkgs.ExampleInterfaces
+  alias Rclex.Pkgs.RclInterfaces
   alias Rclex.NodeSupervisor
 
   setup do
@@ -265,8 +265,8 @@ defmodule RclexTest do
 
       :ok = Rclex.start_node(name)
 
-      service_callback = fn %ExampleInterfaces.Srv.AddTwoIntsRequest{a: a, b: b} ->
-        %ExampleInterfaces.Srv.AddTwoIntsResponse{sum: a + b}
+      service_callback = fn %RclInterfaces.Srv.GetParameterTypesRequest{names: names} ->
+        %RclInterfaces.Srv.GetParameterTypesResponse{types: Enum.map(names, fn n -> String.length(to_string(n)) end)}
       end
 
       me = self()
@@ -278,13 +278,13 @@ defmodule RclexTest do
       :ok =
         Rclex.start_service(
           service_callback,
-          ExampleInterfaces.Srv.AddTwoInts,
+          RclInterfaces.Srv.GetParameterTypes,
           service_name,
           name
         )
 
       :ok =
-        Rclex.start_client(receive_callback, ExampleInterfaces.Srv.AddTwoInts, service_name, name)
+        Rclex.start_client(receive_callback, RclInterfaces.Srv.GetParameterTypes, service_name, name)
 
       on_exit(fn -> capture_log(fn -> Rclex.stop_node(name) end) end)
 
@@ -295,9 +295,10 @@ defmodule RclexTest do
     end
 
     test "call/3", %{service_name: service_name, name: name} do
-      for i <- 1..100 do
-        request = struct(ExampleInterfaces.Srv.AddTwoIntsRequest, %{a: i, b: 2 * i})
-        response = struct(ExampleInterfaces.Srv.AddTwoIntsResponse, %{sum: 3 * i})
+      for i <- 1..10 do
+        names = Enum.map(0..i, fn _ -> ~c"abc" end)
+        request = struct(RclInterfaces.Srv.GetParameterTypesRequest, %{names: names})
+        response = struct(RclInterfaces.Srv.GetParameterTypesResponse, %{types: Enum.map(names, fn n -> String.length(to_string(n)) end)})
         assert Rclex.call_async(request, service_name, name) == :ok
         assert_receive ^response
       end
