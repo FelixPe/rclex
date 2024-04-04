@@ -354,15 +354,15 @@ defmodule RclexTest do
     setup do
       name = "name"
       topic_name = "/chatter"
-      service_name = "/set_test_bool"
-      service_type = ExampleInterfaces.Srv.AddTwoInts
+      service_name = "/get_test_params_types"
+      service_type = RclInterfaces.Srv.GetParameterTypes
 
       :ok = Rclex.start_node("name")
       :ok = Rclex.start_publisher(StdMsgs.Msg.String, topic_name, name)
       :ok = Rclex.start_subscription(fn _msg -> nil end, StdMsgs.Msg.String, topic_name, name)
 
-      service_callback = fn %ExampleInterfaces.Srv.AddTwoIntsRequest{a: a, b: b} ->
-        %ExampleInterfaces.Srv.AddTwoIntsResponse{sum: a + b}
+      service_callback = fn %RclInterfaces.Srv.GetParameterTypesRequest{names: names} ->
+        %RclInterfaces.Srv.GetParameterTypesResponse{types: Enum.map(names, fn n -> String.length(to_string(n)) end)}
       end
 
       receive_callback = fn _request, _response ->
@@ -399,8 +399,8 @@ defmodule RclexTest do
       assert 1 = Rclex.count_subscribers(name, topic_name)
     end
 
-    test "get_client_names_and_types_by_node/4", %{name: name} do
-      assert [{"/set_test_bool", ["example_interfaces/srv/AddTwoInts"]}] =
+    test "get_client_names_and_types_by_node/4", %{name: name, service_name: service_name} do
+      assert [{^service_name, ["rcl_interfaces/srv/GetParameterTypes"]}] =
                Rclex.get_client_names_and_types_by_node(
                  name,
                  name,
@@ -416,16 +416,16 @@ defmodule RclexTest do
       assert [{"name", "/", "/"}] = Rclex.get_node_names_with_enclaves("name")
     end
 
-    test "get_publisher_names_and_types_by_node/4", %{} do
-      assert [{"/chatter", ["std_msgs/msg/String"]}] =
+    test "get_publisher_names_and_types_by_node/4", %{topic_name: topic_name} do
+      assert [{^topic_name, ["std_msgs/msg/String"]}] =
                Rclex.get_publisher_names_and_types_by_node("name", "name", "/")
 
       assert {:error, :not_found} =
                Rclex.get_publisher_names_and_types_by_node("name", "non_existent", "/")
     end
 
-    test "get_publishers_info_by_topic/3", %{} do
-      [info] = Rclex.get_publishers_info_by_topic("name", "/chatter")
+    test "get_publishers_info_by_topic/3", %{topic_name: topic_name} do
+      [info] = Rclex.get_publishers_info_by_topic("name", topic_name)
 
       assert is_binary(info.endpoint_gid)
       %qos_type{} = info.qos_profile
@@ -441,26 +441,26 @@ defmodule RclexTest do
              } = Map.drop(info, [:endpoint_gid, :qos_profile])
     end
 
-    test "get_service_names_and_types/2", %{name: name} do
-      assert [{"/set_test_bool", ["example_interfaces/srv/AddTwoInts"]}] =
+    test "get_service_names_and_types/2", %{name: name, service_name: service_name} do
+      assert [{^service_name, ["rcl_interfaces/srv/GetParameterTypes"]}] =
                Rclex.get_service_names_and_types(name)
     end
 
-    test "get_service_names_and_types_by_node/4", %{name: name} do
-      [{"/set_test_bool", ["example_interfaces/srv/AddTwoInts"]}] =
+    test "get_service_names_and_types_by_node/4", %{name: name, service_name: service_name} do
+      [{^service_name, ["rcl_interfaces/srv/GetParameterTypes"]}] =
         Rclex.get_service_names_and_types_by_node(name, name, "/")
     end
 
-    test "get_subscriber_names_and_types_by_node/4", %{} do
-      assert [{"/chatter", ["std_msgs/msg/String"]}] =
+    test "get_subscriber_names_and_types_by_node/4", %{topic_name: topic_name} do
+      assert [{^topic_name, ["std_msgs/msg/String"]}] =
                Rclex.get_subscriber_names_and_types_by_node("name", "name", "/")
 
       assert {:error, :not_found} =
                Rclex.get_subscriber_names_and_types_by_node("name", "non_existent", "/")
     end
 
-    test "get_subscribers_info_by_topic/3", %{} do
-      [info] = Rclex.get_subscribers_info_by_topic("name", "/chatter")
+    test "get_subscribers_info_by_topic/3", %{topic_name: topic_name} do
+      [info] = Rclex.get_subscribers_info_by_topic("name", topic_name)
 
       assert is_binary(info.endpoint_gid)
       %qos_type{} = info.qos_profile
