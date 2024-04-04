@@ -379,8 +379,7 @@ defmodule RclexTest do
           name
         )
 
-      :ok =
-        Rclex.start_client(receive_callback, service_type, service_name, name)
+      :ok = Rclex.start_client(receive_callback, service_type, service_name, name)
 
       on_exit(fn -> capture_log(fn -> Rclex.stop_node("name") end) end)
       :timer.sleep(50)

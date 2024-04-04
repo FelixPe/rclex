@@ -93,8 +93,7 @@ defmodule Rclex.GraphTest do
              {~c"rq/set_test_boolRequest", [~c"std_srvs::srv::dds_::SetBool_Request_"]},
              {~c"rr/set_test_boolReply", [~c"std_srvs::srv::dds_::SetBool_Response_"]},
              {~c"rt/chatter", [~c"std_msgs::msg::dds_::String_"]}
-           ] =
-             Graph.get_publisher_names_and_types_by_node(node, name, namespace, true)
+           ] = Graph.get_publisher_names_and_types_by_node(node, name, namespace, true)
 
     assert {:error, :not_found} =
              Graph.get_publisher_names_and_types_by_node(node, non_existent, namespace, false)
@@ -146,8 +145,7 @@ defmodule Rclex.GraphTest do
              {~c"rq/set_test_boolRequest", [~c"std_srvs::srv::dds_::SetBool_Request_"]},
              {~c"rr/set_test_boolReply", [~c"std_srvs::srv::dds_::SetBool_Response_"]},
              {~c"rt/chatter", [~c"std_msgs::msg::dds_::String_"]}
-           ] =
-             Graph.get_subscriber_names_and_types_by_node(node, name, namespace, true)
+           ] = Graph.get_subscriber_names_and_types_by_node(node, name, namespace, true)
 
     assert {:error, :not_found} =
              Graph.get_subscriber_names_and_types_by_node(node, non_existent, namespace, false)

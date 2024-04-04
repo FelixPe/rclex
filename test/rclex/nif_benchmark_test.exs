@@ -454,8 +454,7 @@ defmodule Rclex.NifBenchmarkTest do
     end
 
     test "rcl_service_server_is_available!/2", %{node: node, client: client} do
-      {time_us, true} =
-        :timer.tc(&Nif.rcl_service_server_is_available!/2, [node, client])
+      {time_us, true} = :timer.tc(&Nif.rcl_service_server_is_available!/2, [node, client])
 
       assert time_us <= @nif_limit_time_us
     end

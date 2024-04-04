@@ -451,8 +451,7 @@ defmodule Rclex.Node do
   end
 
   def handle_call({:service_server_is_available, client}, _from, state) do
-    return =
-      Graph.service_server_is_available(state.node, client)
+    return = Graph.service_server_is_available(state.node, client)
 
     {:reply, return, state}
   end
