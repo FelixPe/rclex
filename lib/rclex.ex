@@ -832,10 +832,10 @@ defmodule Rclex do
 
     ## Examples
 
-    iex> Rclex.is_service_server_available?("node", "/set_bool", namespace: "/example")
+    iex> Rclex.service_server_available?("node", "/set_bool", namespace: "/example")
     :false
   """
-  @spec is_service_server_available?(
+  @spec service_server_available?(
           name :: String.t(),
           service_type :: module(),
           service_name :: service_name(),
