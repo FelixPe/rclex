@@ -1,4 +1,6 @@
 defmodule Rclex.Graph do
+  @moduledoc false
+
   require Logger
 
   alias Rclex.Nif

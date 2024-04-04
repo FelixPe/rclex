@@ -31,11 +31,11 @@ defmodule Rclex.Client do
     end
   end
 
-  def is_service_server_available?(service_type, service_name, name, namespace \\ "/") do
+  def service_server_available?(service_type, service_name, name, namespace \\ "/") do
     case GenServer.whereis(name(service_type, service_name, name, namespace)) do
       nil -> {:error, :not_found}
       {_atom, _node} -> raise("should not happen")
-      pid -> GenServer.call(pid, {:is_service_server_available})
+      pid -> GenServer.call(pid, {:service_server_available})
     end
   end
 

@@ -841,8 +841,8 @@ defmodule Rclex do
           service_name :: service_name(),
           opts :: [namespace: String.t()]
         ) :: boolean
-  def is_service_server_available?(service_type, service_name, name, opts \\ []) do
+  def service_server_available?(service_type, service_name, name, opts \\ []) do
     namespace = Keyword.get(opts, :namespace, "/")
-    Rclex.Client.is_service_server_available?(service_type, service_name, name, namespace)
+    Rclex.Client.service_server_available?(service_type, service_name, name, namespace)
   end
 end
