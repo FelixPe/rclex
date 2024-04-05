@@ -179,11 +179,13 @@ defmodule Mix.Tasks.Rclex.Gen.Msgs do
     dir_path = rclex_dir_path!()
 
     for file_path <-
-          Path.wildcard("lib/rclex/pkgs/*/msg/*.ex") ++
-            Path.wildcard("src/pkgs/*/msg/*.{h,c}") ++
-            Path.wildcard("src/pkgs/*/srv/*___request.{h,c}") ++
-            Path.wildcard("src/pkgs/*/srv/*___response.{h,c}") do
-      File.rm!(Path.join(dir_path, file_path))
+            Path.wildcard(Path.join(dir_path, "lib/rclex/pkgs/*/msg/*.ex")) ++
+            Path.wildcard(Path.join(dir_path, "src/pkgs/*/msg/*.{h,c}")) ++
+            Path.wildcard(Path.join(dir_path, "src/pkgs/*/srv/*___request.{h,c}")) ++
+            Path.wildcard(Path.join(dir_path, "lib/rclex/pkgs/*/srv/*_request.ex")) ++
+            Path.wildcard(Path.join(dir_path, "src/pkgs/*/srv/*___response.{h,c}")) ++
+            Path.wildcard(Path.join(dir_path, "lib/rclex/pkgs/*/srv/*_response.ex")) do
+      File.rm!(file_path)
     end
 
     for file_path <- ["lib/rclex/msg_funcs.ex", "src/msg_funcs.h", "src/msg_funcs.ec"] do

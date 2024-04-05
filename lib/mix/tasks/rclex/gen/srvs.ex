@@ -92,7 +92,7 @@ defmodule Mix.Tasks.Rclex.Gen.Srvs do
     File.write!(Path.join(to, "src/srv_funcs.ec"), generate_srv_funcs_c(srv_types))
   end
 
-  defp is_response_or_request?(f) do
+  defp response_or_request?(f) do
     String.ends_with?(f, "___request.h") or String.ends_with?(f, "___request.c") or
       String.ends_with?(f, "_request.ex") or String.ends_with?(f, "___response.h") or
       String.ends_with?(f, "___response.c") or String.ends_with?(f, "_response.ex")
@@ -104,12 +104,12 @@ defmodule Mix.Tasks.Rclex.Gen.Srvs do
 
     file_pathes =
       Enum.reject(
-        Path.wildcard("lib/rclex/pkgs/*/srv/*.ex") ++ Path.wildcard("src/pkgs/*/srv/*.{c,h}"),
-        &is_response_or_request?/1
+        Path.wildcard(Path.join(dir_path, "lib/rclex/pkgs/*/srv/*.ex")) ++ Path.wildcard(Path.join(dir_path, "src/pkgs/*/srv/*.{c,h}")),
+        &response_or_request?/1
       )
 
     for file_path <- file_pathes do
-      File.rm!(Path.join(dir_path, file_path))
+      File.rm!(file_path)
     end
 
     for file_path <- ["lib/rclex/srv_funcs.ex", "src/srv_funcs.h", "src/srv_funcs.ec"] do
