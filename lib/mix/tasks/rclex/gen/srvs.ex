@@ -104,7 +104,8 @@ defmodule Mix.Tasks.Rclex.Gen.Srvs do
 
     file_pathes =
       Enum.reject(
-        Path.wildcard(Path.join(dir_path, "lib/rclex/pkgs/*/srv/*.ex")) ++ Path.wildcard(Path.join(dir_path, "src/pkgs/*/srv/*.{c,h}")),
+        Path.wildcard(Path.join(dir_path, "lib/rclex/pkgs/*/srv/*.ex")) ++
+          Path.wildcard(Path.join(dir_path, "src/pkgs/*/srv/*.{c,h}")),
         &response_or_request?/1
       )
 
