@@ -11,11 +11,9 @@ defmodule Rclex.Client do
     service_type = Keyword.fetch!(args, :service_type)
     service_name = Keyword.fetch!(args, :service_name)
     name = Keyword.fetch!(args, :name)
-    namespace = Keyword.fetch!(args, :namespace)
+    ns = Keyword.fetch!(args, :namespace)
 
-    GenServer.start_link(__MODULE__, args,
-      name: name(service_type, service_name, name, namespace)
-    )
+    GenServer.start_link(__MODULE__, args, name: name(service_type, service_name, name, ns))
   end
 
   def name(service_type, service_name, name, namespace \\ "/") do
