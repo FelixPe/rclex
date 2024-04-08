@@ -37,7 +37,7 @@ defmodule Rclex.MixProject do
       extra_applications:
         [:logger] ++
           case Mix.target() do
-            :host -> [:runtime_tools, :observer]
+            :host -> [:runtime_tools]
             _ -> []
           end,
       mod: {Rclex.Application, []}
