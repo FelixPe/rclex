@@ -311,6 +311,74 @@ defmodule Rclex.NifTest do
     end
   end
 
+  describe "publish/take with loaned message" do
+    setup do
+      context = Nif.rcl_init!()
+      node = Nif.rcl_node_init!(context, ~c"name", ~c"/namespace")
+      type_support = Nif.std_msgs_msg_string_type_support!()
+      publisher = Nif.rcl_publisher_init!(node, type_support, ~c"/chatter", QoS.profile_default())
+      publisher_message = if Nif.rcl_publisher_can_loan_messages!(publisher) do
+        publisher_message = Nif.rcl_borrow_loaned_message!(publisher, type_support)
+         :ok = Nif.std_msgs_msg_string_set!(publisher_message, {~c"Hello from Rclex"})
+         publisher_message
+      else
+        IO.puts("message loaning not supported")
+      end
+
+        subscription =
+          Nif.rcl_subscription_init!(node, type_support, ~c"/chatter", QoS.profile_default())
+
+        wait_set = Nif.rcl_wait_set_init_subscription!(context)
+
+        on_exit(fn ->
+          if Nif.rcl_subscription_can_loan_messages!(subscription) do
+            Nif.rcl_return_loaned_message_from_publisher!(publisher, publisher_message)
+          end
+          Nif.rcl_wait_set_fini!(wait_set)
+          Nif.rcl_publisher_fini!(publisher, node)
+          Nif.rcl_subscription_fini!(subscription, node)
+          Nif.rcl_node_fini!(node)
+          Nif.rcl_fini!(context)
+        end)
+
+        %{
+          publisher: publisher,
+          subscription: subscription,
+          wait_set: wait_set,
+          publisher_message: publisher_message
+        }
+    end
+
+    test "publish!/2", %{publisher: publisher, publisher_message: publisher_message} do
+      if Nif.rcl_publisher_can_loan_messages!(publisher) do
+        assert Nif.rcl_publish_loaned_message!(publisher, publisher_message) == :ok
+      end
+    end
+
+    test "take!/2 return :error", %{
+      subscription: subscription,
+    } do
+      if Nif.rcl_subscription_can_loan_messages!(subscription) do
+        assert Nif.rcl_take_loaned_message!(subscription) == :error
+      end
+    end
+
+    test "take!/2", %{
+      publisher: publisher,
+      subscription: subscription,
+      wait_set: wait_set,
+      publisher_message: publisher_message
+    } do
+      if Nif.rcl_subscription_can_loan_messages!(subscription) do
+        :ok = Nif.rcl_publish_loaned_message!(publisher, publisher_message)
+        :ok = Nif.rcl_wait_subscription!(wait_set, 1000, subscription)
+        {:ok, message} = Nif.rcl_take_loaned_message!(subscription)
+        assert Nif.std_msgs_msg_string_get!(message) == {~c"Hello from Rclex"}
+        Nif.rcl_return_loaned_message_from_subscription!(subscription, message)
+      end
+    end
+  end
+
   # describe "graph" do
   #   setup do
   #     name = ~c"name"

@@ -99,3 +99,78 @@ ERL_NIF_TERM nif_rcl_take(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
   if (rc == RCL_RET_SUBSCRIPTION_TAKE_FAILED) return atom_error;
   return raise(env, __FILE__, __LINE__);
 }
+
+ERL_NIF_TERM nif_rcl_subscription_can_loan_messages(ErlNifEnv *env, int argc,
+                                                    const ERL_NIF_TERM argv[]) {
+  if (argc != 1) return enif_make_badarg(env);
+
+  rcl_subscription_t *subscription_p;
+  if (!enif_get_resource(env, argv[0], rt_rcl_subscription_t, (void **)&subscription_p))
+    return enif_make_badarg(env);
+  if (!rcl_subscription_is_valid(subscription_p)) return raise(env, __FILE__, __LINE__);
+
+  if (rcl_subscription_can_loan_messages(subscription_p)) {
+    return atom_true;
+  } else {
+    return atom_false;
+  }
+}
+
+ERL_NIF_TERM nif_rcl_take_loaned_message(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
+  if (argc != 1) return enif_make_badarg(env);
+
+  rcl_ret_t rc;
+
+  rcl_subscription_t *subscription_p;
+  if (!enif_get_resource(env, argv[0], rt_rcl_subscription_t, (void **)&subscription_p))
+    return enif_make_badarg(env);
+  if (!rcl_subscription_is_valid(subscription_p)) return raise(env, __FILE__, __LINE__);
+
+  rmw_message_info_t message_info;
+  void *ros_message_p;
+  rc = rcl_take_loaned_message(subscription_p, &ros_message_p, &message_info, NULL);
+  if (rc == RCL_RET_OK) {
+    void **obj        = enif_alloc_resource(rt_ros_message, sizeof(void *));
+    *obj              = (void *)ros_message_p;
+    ERL_NIF_TERM term = enif_make_resource(env, obj);
+    enif_release_resource(obj);
+    return enif_make_tuple2(env, atom_ok, term);
+  } else if (rc == RCL_RET_SUBSCRIPTION_TAKE_FAILED)
+    return atom_error;
+  else if (rc == RCL_RET_SUBSCRIPTION_INVALID) // if the passed subscription is invalid
+    return raise_with_message(env, __FILE__, __LINE__, "passed subscription is invalid");
+  else if (rc == RCL_RET_INVALID_ARGUMENT) // if any arguments are invalid
+    return enif_make_badarg(env);
+  else if (rc == RCL_RET_UNSUPPORTED)
+    return raise_with_message(env, __FILE__, __LINE__, "middleware does not support that feature");
+  else // (rc == RCL_RET_ERROR)
+    return raise_with_message(env, __FILE__, __LINE__, "unspecified error");
+}
+
+ERL_NIF_TERM nif_rcl_return_loaned_message_from_subscription(ErlNifEnv *env, int argc,
+                                                             const ERL_NIF_TERM argv[]) {
+  if (argc != 2) return enif_make_badarg(env);
+
+  rcl_ret_t rc;
+
+  rcl_subscription_t *subscription_p;
+  if (!enif_get_resource(env, argv[0], rt_rcl_subscription_t, (void **)&subscription_p))
+    return enif_make_badarg(env);
+  if (!rcl_subscription_is_valid(subscription_p)) return raise(env, __FILE__, __LINE__);
+
+  void **ros_message_pp;
+  if (!enif_get_resource(env, argv[1], rt_ros_message, (void **)&ros_message_pp))
+    return enif_make_badarg(env);
+
+  rc = rcl_return_loaned_message_from_subscription(subscription_p, *ros_message_pp);
+  if (rc == RCL_RET_OK)
+    return atom_ok;
+  else if (rc == RCL_RET_SUBSCRIPTION_INVALID) // if the passed subscription is invalid
+    return raise_with_message(env, __FILE__, __LINE__, "passed subscription is invalid");
+  else if (rc == RCL_RET_INVALID_ARGUMENT) // if any arguments are invalid
+    return enif_make_badarg(env);
+  else if (rc == RCL_RET_UNSUPPORTED)
+    return raise_with_message(env, __FILE__, __LINE__, "middleware does not support that feature");
+  else // (rc == RCL_RET_ERROR)
+    return raise_with_message(env, __FILE__, __LINE__, "unspecified error");
+}

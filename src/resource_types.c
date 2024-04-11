@@ -15,6 +15,8 @@ ErlNifResourceType *rt_rosidl_message_type_support_t;
 ErlNifResourceType *rt_rosidl_service_type_support_t;
 ErlNifResourceType *rt_rmw_service_info_t;
 ErlNifResourceType *rt_ros_message;
+ErlNifResourceType *rt_ros_loaned_publisher_message;
+ErlNifResourceType *rt_ros_loaned_subscription_message;
 
 #define open_rt_return_if_error(env, module, name, flags)                                          \
   rt_##name = enif_open_resource_type(env, module, #name, NULL, flags, NULL);                      \

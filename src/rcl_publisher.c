@@ -99,3 +99,109 @@ ERL_NIF_TERM nif_rcl_publish(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]
 
   return atom_ok;
 }
+
+ERL_NIF_TERM nif_rcl_publisher_can_loan_messages(ErlNifEnv *env, int argc,
+                                                 const ERL_NIF_TERM argv[]) {
+  if (argc != 1) return enif_make_badarg(env);
+
+  rcl_publisher_t *publisher_p;
+  if (!enif_get_resource(env, argv[0], rt_rcl_publisher_t, (void **)&publisher_p))
+    return enif_make_badarg(env);
+  if (!rcl_publisher_is_valid(publisher_p)) return raise(env, __FILE__, __LINE__);
+
+  if (rcl_publisher_can_loan_messages(publisher_p)) {
+    return atom_true;
+  } else {
+    return atom_false;
+  }
+}
+
+ERL_NIF_TERM nif_rcl_borrow_loaned_message(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
+  if (argc != 2) return enif_make_badarg(env);
+
+  rcl_ret_t rc;
+
+  rcl_publisher_t *publisher_p;
+  if (!enif_get_resource(env, argv[0], rt_rcl_publisher_t, (void **)&publisher_p))
+    return enif_make_badarg(env);
+  if (!rcl_publisher_is_valid(publisher_p)) return raise(env, __FILE__, __LINE__);
+
+  rosidl_message_type_support_t *ts_p;
+  if (!enif_get_resource(env, argv[1], rt_rosidl_message_type_support_t, (void **)&ts_p))
+    return enif_make_badarg(env);
+
+  void *ros_message_p;
+  rc = rcl_borrow_loaned_message(publisher_p, ts_p, &ros_message_p);
+  if (rc == RCL_RET_OK) {
+    void **obj        = enif_alloc_resource(rt_ros_message, sizeof(void *));
+    *obj              = (void *)ros_message_p;
+    ERL_NIF_TERM term = enif_make_resource(env, obj);
+    enif_release_resource(obj);
+    return term;
+  } else if (rc == RCL_RET_PUBLISHER_INVALID) // if the passed publisher is invalid
+    return raise_with_message(env, __FILE__, __LINE__, "passed publisher is invalid");
+  else if (rc == RCL_RET_INVALID_ARGUMENT) // if any arguments are invalid
+    return enif_make_badarg(env);
+  else if (rc == RCL_RET_BAD_ALLOC)
+    return raise_with_message(env, __FILE__, __LINE__,
+                              "ros message could not be correctly created");
+  else if (rc == RCL_RET_UNSUPPORTED)
+    return raise_with_message(env, __FILE__, __LINE__, "middleware does not support that feature");
+  else // (rc == RCL_RET_ERROR)
+    return raise_with_message(env, __FILE__, __LINE__, "unspecified error");
+}
+
+ERL_NIF_TERM nif_rcl_publish_loaned_message(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
+  if (argc != 2) return enif_make_badarg(env);
+
+  rcl_ret_t rc;
+
+  rcl_publisher_t *publisher_p;
+  if (!enif_get_resource(env, argv[0], rt_rcl_publisher_t, (void **)&publisher_p))
+    return enif_make_badarg(env);
+  if (!rcl_publisher_is_valid(publisher_p)) return raise(env, __FILE__, __LINE__);
+
+  void **ros_message_pp;
+  if (!enif_get_resource(env, argv[1], rt_ros_message, (void **)&ros_message_pp))
+    return enif_make_badarg(env);
+
+  rc = rcl_publish_loaned_message(publisher_p, *ros_message_pp, NULL);
+  if (rc == RCL_RET_OK)
+    return atom_ok;
+  else if (rc == RCL_RET_PUBLISHER_INVALID) // if the passed publisher is invalid
+    return raise_with_message(env, __FILE__, __LINE__, "passed publisher is invalid");
+  else if (rc == RCL_RET_INVALID_ARGUMENT) // if any arguments are invalid
+    return enif_make_badarg(env);
+  else if (rc == RCL_RET_UNSUPPORTED)
+    return raise_with_message(env, __FILE__, __LINE__, "middleware does not support that feature");
+  else // (rc == RCL_RET_ERROR)
+    return raise_with_message(env, __FILE__, __LINE__, "unspecified error");
+}
+
+ERL_NIF_TERM nif_rcl_return_loaned_message_from_publisher(ErlNifEnv *env, int argc,
+                                                          const ERL_NIF_TERM argv[]) {
+  if (argc != 2) return enif_make_badarg(env);
+
+  rcl_ret_t rc;
+
+  rcl_publisher_t *publisher_p;
+  if (!enif_get_resource(env, argv[0], rt_rcl_publisher_t, (void **)&publisher_p))
+    return enif_make_badarg(env);
+  if (!rcl_publisher_is_valid(publisher_p)) return raise(env, __FILE__, __LINE__);
+
+  void **ros_message_pp;
+  if (!enif_get_resource(env, argv[1], rt_ros_message, (void **)&ros_message_pp))
+    return enif_make_badarg(env);
+
+  rc = rcl_return_loaned_message_from_publisher(publisher_p, *ros_message_pp);
+  if (rc == RCL_RET_OK)
+    return atom_ok;
+  else if (rc == RCL_RET_PUBLISHER_INVALID) // if the passed publisher is invalid
+    return raise_with_message(env, __FILE__, __LINE__, "passed publisher is invalid");
+  else if (rc == RCL_RET_INVALID_ARGUMENT) // if any arguments are invalid
+    return enif_make_badarg(env);
+  else if (rc == RCL_RET_UNSUPPORTED)
+    return raise_with_message(env, __FILE__, __LINE__, "middleware does not support that feature");
+  else // (rc == RCL_RET_ERROR)
+    return raise_with_message(env, __FILE__, __LINE__, "unspecified error");
+}

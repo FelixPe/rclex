@@ -52,11 +52,39 @@ defmodule Rclex.Nif do
     :erlang.nif_error(:nif_not_loaded)
   end
 
+  def rcl_publisher_can_loan_messages!(_publisher) do
+    :erlang.nif_error(:nif_not_loaded)
+  end
+
+  def rcl_borrow_loaned_message!(_publisher, _type_support) do
+    :erlang.nif_error(:nif_not_loaded)
+  end
+
+  def rcl_publish_loaned_message!(_publisher, _loaned_ros_message) do
+    :erlang.nif_error(:nif_not_loaded)
+  end
+
+  def rcl_return_loaned_message_from_publisher!(_publisher, _loaned_ros_message) do
+    :erlang.nif_error(:nif_not_loaded)
+  end
+
   def rcl_subscription_init!(_node, _type_support, _topic_name, _qos) do
     :erlang.nif_error(:nif_not_loaded)
   end
 
   def rcl_subscription_fini!(_subscription, _node) do
+    :erlang.nif_error(:nif_not_loaded)
+  end
+
+  def rcl_subscription_can_loan_messages!(_subscription) do
+    :erlang.nif_error(:nif_not_loaded)
+  end
+
+  def rcl_take_loaned_message!(_subscription) do
+    :erlang.nif_error(:nif_not_loaded)
+  end
+
+  def rcl_return_loaned_message_from_subscription!(_subscription, _loaned_ros_message) do
     :erlang.nif_error(:nif_not_loaded)
   end
 

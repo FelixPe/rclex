@@ -38,6 +38,11 @@ defmodule Rclex.Subscription do
 
     type_support = apply(message_type, :type_support!, [])
     subscription = Nif.rcl_subscription_init!(node, type_support, ~c"#{topic_name}", qos)
+
+    loan_messages =
+      Keyword.get(args, :loan_messages, true) and
+        Nif.rcl_subscription_can_loan_messages!(subscription)
+
     wait_set = Nif.rcl_wait_set_init_subscription!(context)
 
     send(self(), :take)
@@ -51,38 +56,93 @@ defmodule Rclex.Subscription do
        name: name,
        namespace: namespace,
        subscription: subscription,
-       wait_set: wait_set
+       wait_set: wait_set,
+       loan_messages: loan_messages
      }}
   end
 
-  def terminate(reason, state) do
-    Nif.rcl_wait_set_fini!(state.wait_set)
-    Nif.rcl_subscription_fini!(state.subscription, state.node)
+  def terminate(
+        reason,
+        %{
+          node: node,
+          subscription: subscription,
+          namespace: namespace,
+          name: name,
+          wait_set: wait_set
+        } = _state
+      ) do
+    Nif.rcl_wait_set_fini!(wait_set)
+    Nif.rcl_subscription_fini!(subscription, node)
 
-    Logger.debug("#{__MODULE__}: #{inspect(reason)} #{Path.join(state.namespace, state.name)}")
+    Logger.debug("#{__MODULE__}: #{inspect(reason)} #{Path.join(namespace, name)}")
   end
 
-  def handle_info(:take, state) do
-    case Nif.rcl_wait_subscription!(state.wait_set, 1000, state.subscription) do
+  def handle_info(
+        :take,
+        %{
+          loan_messages: false,
+          subscription: subscription,
+          wait_set: wait_set,
+          message_type: message_type,
+          callback: callback
+        } = state
+      ) do
+    case Nif.rcl_wait_subscription!(wait_set, 1000, subscription) do
       :ok ->
-        message = apply(state.message_type, :create!, [])
+        message = apply(message_type, :create!, [])
 
         try do
-          case Nif.rcl_take!(state.subscription, message) do
+          case Nif.rcl_take!(subscription, message) do
             :ok ->
-              message_struct = apply(state.message_type, :get!, [message])
+              message_struct = apply(message_type, :get!, [message])
 
               {:ok, _pid} =
                 Task.Supervisor.start_child(
                   {:via, PartitionSupervisor, {Rclex.TaskSupervisors, self()}},
-                  fn -> state.callback.(message_struct) end
+                  fn -> callback.(message_struct) end
                 )
 
             :error ->
               Logger.error("#{__MODULE__}: take failed but no error occurred in the middleware")
           end
         after
-          :ok = apply(state.message_type, :destroy!, [message])
+          :ok = apply(message_type, :destroy!, [message])
+        end
+
+      :timeout ->
+        nil
+    end
+
+    send(self(), :take)
+
+    {:noreply, state}
+  end
+
+  def handle_info(
+        :take,
+        %{
+          loan_messages: true,
+          subscription: subscription,
+          wait_set: wait_set,
+          message_type: message_type,
+          callback: callback
+        } = state
+      ) do
+    case Nif.rcl_wait_subscription!(wait_set, 1000, subscription) do
+      :ok ->
+        case Nif.rcl_take_loaned_message!(subscription) do
+          :error ->
+            Logger.error("#{__MODULE__}: take failed but no error occurred in the middleware")
+
+          {:ok, message} ->
+            message_struct = apply(message_type, :get!, [message])
+            :ok = Nif.rcl_return_loaned_message_from_subscription!(subscription, message)
+
+            {:ok, _pid} =
+              Task.Supervisor.start_child(
+                {:via, PartitionSupervisor, {Rclex.TaskSupervisors, self()}},
+                fn -> callback.(message_struct) end
+              )
         end
 
       :timeout ->
