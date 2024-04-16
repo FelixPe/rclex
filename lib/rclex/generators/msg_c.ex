@@ -18,26 +18,36 @@ defmodule Rclex.Generators.MsgC do
   end
 
   def to_header_name(ros2_message_type) do
-    [_interfaces, "msg", type] = ros2_message_type |> String.split("/")
+    [_interfaces, _interface_type, type] = ros2_message_type |> String.split("/")
     Util.to_down_snake(type)
   end
 
   def to_deps_header_prefix_list(ros2_message_type, ros2_message_type_map) do
     get_deps_types(ros2_message_type, ros2_message_type_map)
     |> Enum.map(fn ros2_message_type ->
-      [interfaces, "msg", type] = ros2_message_type |> String.split("/")
-      [interfaces, "msg", "detail", Util.to_down_snake(type)] |> Path.join()
+      [interfaces, interface_type, type] = ros2_message_type |> String.split("/")
+      [interfaces, interface_type, "detail", Util.to_down_snake(type)] |> Path.join()
     end)
   end
 
   def to_header_prefix(ros2_message_type) do
-    [interfaces, "msg", type] = ros2_message_type |> String.split("/")
-    [interfaces, "msg", "detail", Util.to_down_snake(type)] |> Path.join()
+    [interfaces, interface_type, type] = ros2_message_type |> String.split("/")
+
+    type =
+      if interface_type == "srv" do
+        type
+        |> String.trim_trailing("_Request")
+        |> String.trim_trailing("_Response")
+      else
+        type
+      end
+
+    [interfaces, interface_type, "detail", Util.to_down_snake(type)] |> Path.join()
   end
 
   def rosidl_get_msg_type_support(ros2_message_type) do
-    [interfaces, "msg", type] = ros2_message_type |> String.split("/")
-    "ROSIDL_GET_MSG_TYPE_SUPPORT(#{interfaces}, msg, #{type})"
+    [interfaces, interface_type, type] = ros2_message_type |> String.split("/")
+    "ROSIDL_GET_MSG_TYPE_SUPPORT(#{interfaces}, #{interface_type}, #{type})"
   end
 
   @doc """
@@ -48,8 +58,8 @@ defmodule Rclex.Generators.MsgC do
   "std_msgs__msg__UInt32MultiArray"
   """
   def to_c_type(ros2_message_type) do
-    [interfaces, "msg", type] = ros2_message_type |> String.split("/")
-    [interfaces, "_msg_", type] |> Enum.join("_")
+    [interfaces, interface_type, type] = ros2_message_type |> String.split("/")
+    [interfaces, "_#{interface_type}_", type] |> Enum.join("_")
   end
 
   defmodule Acc do
@@ -147,12 +157,39 @@ defmodule Rclex.Generators.MsgC do
     """
   end
 
+  def enif_get({:builtin_type_array, _type = "uint8[]"}, acc, _ros2_message_type_map) do
+    var = Enum.join(acc.vars, "_")
+    mbr = Enum.join(acc.mbrs, ".")
+    term = Enum.join(acc.terms, "_")
+
+    sequence = "rosidl_runtime_c__uint8__Sequence"
+
+    """
+    ErlNifBinary #{var}_bin;
+    if(!enif_inspect_binary(env, #{term}, &#{var}_bin))
+      return enif_make_badarg(env);
+
+    unsigned int #{var}_length = #{var}_bin.size;
+    #{sequence} #{var};
+    if(!#{sequence}__init(&#{var}, #{var}_length))
+      return enif_make_badarg(env);
+    message_p->#{mbr} = #{var};
+    memcpy(message_p->#{mbr}.data, #{var}_bin.data, #{var}_length);
+    """
+  end
+
   def enif_get({:builtin_type_array, type}, acc, ros2_message_type_map) do
     var = Enum.join(acc.vars, "_")
     mbr = Enum.join(acc.mbrs, ".")
     term = Enum.join(acc.terms, "_")
 
-    sequence = "rosidl_runtime_c__#{get_array_type(type)}__Sequence"
+    array_type =
+      case get_array_type(type) do
+        "string" -> "String"
+        t -> t
+      end
+
+    sequence = "rosidl_runtime_c__#{array_type}__Sequence"
 
     binary =
       (fn ->
@@ -306,23 +343,37 @@ defmodule Rclex.Generators.MsgC do
       var = Enum.join(acc.vars, "_")
       mbr = Enum.join(acc.mbrs, ".")
 
-      binary =
-        build_get_fun_fragments(
-          to_not_array_acc(acc),
-          "#{var}[#{var}_i] =",
-          ros2_message_type_map
-        )
-        |> format()
+      case acc.type do
+        {:builtin_type_array, "uint8[]"} ->
+          """
+          ErlNifBinary #{var}_bin;
+          if(!enif_alloc_binary(message_p->#{mbr}.size, &#{var}_bin))
+            return raise(env, __FILE__, __LINE__);
 
-      """
-      ERL_NIF_TERM #{var}[message_p->#{mbr}.size];
+          memcpy(#{var}_bin.data, message_p->#{mbr}.data, #{var}_bin.size);
+          ERL_NIF_TERM #{var} = enif_make_binary(env, &#{var}_bin);
 
-      for (size_t #{var}_i = 0; #{var}_i < message_p->#{mbr}.size; ++#{var}_i)
-      {
-      #{binary}
-      }
+          """
 
-      """
+        _ ->
+          binary =
+            build_get_fun_fragments(
+              to_not_array_acc(acc),
+              "#{var}[#{var}_i] =",
+              ros2_message_type_map
+            )
+            |> format()
+
+          """
+          ERL_NIF_TERM #{var}[message_p->#{mbr}.size];
+
+          for (size_t #{var}_i = 0; #{var}_i < message_p->#{mbr}.size; ++#{var}_i)
+          {
+          #{binary}
+          }
+
+          """
+      end
     end) <> "#{lhs} #{rhs};"
   end
 
@@ -368,6 +419,11 @@ defmodule Rclex.Generators.MsgC do
   def enif_make({:builtin_type, type}, acc, _ros2_message_type_map) do
     mbr = Enum.join(acc.mbrs, ".")
     {enif_make_builtin(type, mbr), [acc]}
+  end
+
+  defp enif_make_array("uint8[]", acc, _ros2_message_type_map) do
+    var = Enum.join(acc.vars, "_")
+    "#{var}"
   end
 
   defp enif_make_array(_type, acc, _ros2_message_type_map) do
