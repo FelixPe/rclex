@@ -267,7 +267,7 @@ defmodule RclexTest do
 
       service_callback = fn %RclInterfaces.Srv.GetParameterTypesRequest{names: names} ->
         %RclInterfaces.Srv.GetParameterTypesResponse{
-          types: Enum.map(names, fn n -> String.length(to_string(n)) end)
+          types: Enum.map(names, fn n -> String.length(to_string(n)) end) |> Enum.join()
         }
       end
 
@@ -308,7 +308,7 @@ defmodule RclexTest do
 
         response =
           struct(RclInterfaces.Srv.GetParameterTypesResponse, %{
-            types: Enum.map(names, fn n -> String.length(to_string(n)) end)
+            types: Enum.map(names, fn n -> String.length(to_string(n)) end) |> Enum.join()
           })
 
         assert Rclex.call_async(request, service_name, name) == :ok
