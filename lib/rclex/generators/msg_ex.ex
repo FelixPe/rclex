@@ -80,7 +80,7 @@ defmodule Rclex.Generators.MsgEx do
           "#{name}: #{@ros2_elixir_type_map[type]}"
 
         [{:builtin_type_array, "uint8[]"}, name] ->
-            "#{name}: binary()"
+          "#{name}: binary()"
 
         [{:builtin_type_array, type}, name] ->
           "#{name}: list(#{@ros2_elixir_type_map[get_array_type(type)]})"

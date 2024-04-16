@@ -342,18 +342,20 @@ defmodule Rclex.Generators.MsgC do
     Enum.map_join(array_accs, fn acc ->
       var = Enum.join(acc.vars, "_")
       mbr = Enum.join(acc.mbrs, ".")
+
       case acc.type do
         {:builtin_type_array, "uint8[]"} ->
           """
           ErlNifBinary #{var}_bin;
           if(!enif_alloc_binary(message_p->#{mbr}.size, &#{var}_bin))
             return raise(env, __FILE__, __LINE__);
-          
+
           memcpy(#{var}_bin.data, message_p->#{mbr}.data, #{var}_bin.size);
           ERL_NIF_TERM #{var} = enif_make_binary(env, &#{var}_bin);
-          
+
           """
-        _ -> 
+
+        _ ->
           binary =
             build_get_fun_fragments(
               to_not_array_acc(acc),
@@ -371,7 +373,7 @@ defmodule Rclex.Generators.MsgC do
           }
 
           """
-        end
+      end
     end) <> "#{lhs} #{rhs};"
   end
 
