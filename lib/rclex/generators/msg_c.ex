@@ -5,6 +5,9 @@ defmodule Rclex.Generators.MsgC do
   alias Rclex.Parsers.TypeParser
 
   def generate(type, ros2_message_type_map) do
+    set_fun_fragments = set_fun_fragments(type, ros2_message_type_map)
+    is_empty_type? = set_fun_fragments == ""
+
     EEx.eval_file(Path.join(Util.templates_dir_path(), "msg_c.eex"),
       header_name: to_header_name(type),
       deps_header_prefix_list: to_deps_header_prefix_list(type, ros2_message_type_map),
@@ -12,8 +15,9 @@ defmodule Rclex.Generators.MsgC do
       function_prefix: "nif_" <> Util.type_down_snake(type),
       rosidl_get_msg_type_support: rosidl_get_msg_type_support(type),
       c_type: to_c_type(type),
-      set_fun_fragments: set_fun_fragments(type, ros2_message_type_map),
-      get_fun_fragments: get_fun_fragments(type, ros2_message_type_map)
+      set_fun_fragments: set_fun_fragments,
+      get_fun_fragments: get_fun_fragments(type, ros2_message_type_map),
+      is_empty_type?: is_empty_type?
     )
   end
 
@@ -179,10 +183,11 @@ defmodule Rclex.Generators.MsgC do
     mbr = Enum.join(acc.mbrs, ".")
     term = Enum.join(acc.terms, "_")
 
-    sequence = case type do
-      "string" -> "rosidl_runtime_c__String__Sequence"
-      _ -> "rosidl_runtime_c__#{type}__Sequence"
-    end
+    sequence =
+      case type do
+        "string" -> "rosidl_runtime_c__String__Sequence"
+        _ -> "rosidl_runtime_c__#{type}__Sequence"
+      end
 
     vars = acc.vars ++ [type]
     mbrs = acc.mbrs ++ ["data[#{var}_i]"]
@@ -450,11 +455,19 @@ defmodule Rclex.Generators.MsgC do
     binary = Enum.join(binaries, ",\n") |> format()
 
     binary =
-      """
-      enif_make_tuple(env, #{Enum.count(binaries)},
-      #{binary}
-      )
-      """
+      case Enum.count(binaries) do
+        0 ->
+          """
+          enif_make_tuple(env, 0)
+          """
+
+        _ ->
+          """
+          enif_make_tuple(env, #{Enum.count(binaries)},
+          #{binary}
+          )
+          """
+      end
       |> String.replace_suffix("\n", "")
 
     {binary, accs}

@@ -70,17 +70,6 @@ ERL_NIF_TERM nif_std_msgs_msg_empty_set(ErlNifEnv *env, int argc, const ERL_NIF_
   if (!enif_get_resource(env, argv[0], rt_ros_message, (void **)&ros_message_pp))
     return enif_make_badarg(env);
 
-  std_msgs__msg__Empty *message_p = (std_msgs__msg__Empty *)*ros_message_pp;
-
-  int arity;
-  const ERL_NIF_TERM *tuple;
-  if (!enif_get_tuple(env, argv[1], &arity, &tuple)) return enif_make_badarg(env);
-
-  unsigned int structure_needs_at_least_one_member;
-  if (!enif_get_uint(env, tuple[0], &structure_needs_at_least_one_member))
-    return enif_make_badarg(env);
-  message_p->structure_needs_at_least_one_member = structure_needs_at_least_one_member;
-
   return atom_ok;
 }
 
@@ -91,10 +80,6 @@ ERL_NIF_TERM nif_std_msgs_msg_empty_get(ErlNifEnv *env, int argc, const ERL_NIF_
   if (!enif_get_resource(env, argv[0], rt_ros_message, (void **)&ros_message_pp))
     return enif_make_badarg(env);
 
-  std_msgs__msg__Empty *message_p = (std_msgs__msg__Empty *)*ros_message_pp;
-
-  return enif_make_tuple(env, 1,
-    enif_make_uint(env, message_p->structure_needs_at_least_one_member)
-  );
+  return enif_make_tuple(env, 0);
 }
 // clang-format on

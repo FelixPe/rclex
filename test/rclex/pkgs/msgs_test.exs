@@ -15,6 +15,17 @@ defmodule Rclex.Pkgs.MsgsTest do
     |> tap(&Rclex.Pkgs.GeometryMsgs.Msg.Twist.destroy!(&1))
   end
 
+  test "std_msgs/msg/Empty" do
+    struct = %Rclex.Pkgs.StdMsgs.Msg.Empty{}
+
+    Rclex.Pkgs.StdMsgs.Msg.Empty.create!()
+    |> tap(&Rclex.Pkgs.StdMsgs.Msg.Empty.set!(&1, struct))
+    |> tap(fn message ->
+      assert ^struct = Rclex.Pkgs.StdMsgs.Msg.Empty.get!(message)
+    end)
+    |> tap(&Rclex.Pkgs.StdMsgs.Msg.Empty.destroy!(&1))
+  end
+
   test "std_msgs/msg/UInt8MultiArray" do
     struct = %Rclex.Pkgs.StdMsgs.Msg.UInt8MultiArray{
       layout: %Rclex.Pkgs.StdMsgs.Msg.MultiArrayLayout{
@@ -132,8 +143,9 @@ defmodule Rclex.Pkgs.MsgsTest do
       assert ^struct = Rclex.Pkgs.RclInterfaces.Srv.GetParameterTypesResponse.get!(message)
     end)
     |> tap(&Rclex.Pkgs.RclInterfaces.Srv.GetParameterTypesResponse.destroy!(&1))
+  end
 
-    test "action_msgs/msg/GoalInfo" do
+  test "action_msgs/msg/GoalInfo" do
     struct = %Rclex.Pkgs.ActionMsgs.Msg.GoalInfo{
       goal_id: %Rclex.Pkgs.UniqueIdentifierMsgs.Msg.UUID{uuid: for(i <- 0..15, do: i)},
       stamp: %Rclex.Pkgs.BuiltinInterfaces.Msg.Time{sec: -1, nanosec: 1}
@@ -146,5 +158,4 @@ defmodule Rclex.Pkgs.MsgsTest do
     end)
     |> tap(&Rclex.Pkgs.ActionMsgs.Msg.GoalInfo.destroy!(&1))
   end
-end
 end

@@ -372,11 +372,6 @@ defmodule Mix.Tasks.Rclex.Gen.Msgs do
     end
   end
 
-  # The empty message type contains one hardcoded uint8 member
-  defp to_complete_fields([], _) do
-    [[{:builtin_type, "uint8"}, "structure_needs_at_least_one_member"]]
-  end
-
   defp to_complete_fields(fields, ros2_message_type) do
     Enum.map(fields, fn field ->
       [head | tail] = field
