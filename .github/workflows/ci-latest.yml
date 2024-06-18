@@ -19,7 +19,7 @@ jobs:
       - name: Checkout rclex repo
         uses: actions/checkout@v4
         with:
-          repository: rclex/rclex
+          repository: FelixPe/rclex
           path: rclex
 
       - name: Retrieve cached dependencies
@@ -54,7 +54,7 @@ jobs:
       - name: Checkout rclex repo
         uses: actions/checkout@v4
         with:
-          repository: rclex/rclex
+          repository: FelixPe/rclex
           path: rclex
 
       - name: Retrieve cached dependencies
@@ -128,7 +128,7 @@ jobs:
       - name: Checkout rclex repo
         uses: actions/checkout@v4
         with:
-          repository: rclex/rclex
+          repository: FelixPe/rclex
           path: rclex
 
       - name: Checkout rclex_connection_tests repo
