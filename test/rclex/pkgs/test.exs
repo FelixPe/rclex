@@ -99,5 +99,19 @@ defmodule Rclex.Pkgs.Test do
       assert ^struct = Rclex.Pkgs.RclInterfaces.Srv.GetParameterTypesResponse.get!(message)
     end)
     |> tap(&Rclex.Pkgs.RclInterfaces.Srv.GetParameterTypesResponse.destroy!(&1))
+
+    test "action_msgs/msg/GoalInfo" do
+    struct = %Rclex.Pkgs.ActionMsgs.Msg.GoalInfo{
+      goal_id: %Rclex.Pkgs.UniqueIdentifierMsgs.Msg.UUID{uuid: for(i <- 0..15, do: i)},
+      stamp: %Rclex.Pkgs.BuiltinInterfaces.Msg.Time{sec: -1, nanosec: 1}
+    }
+
+    Rclex.Pkgs.ActionMsgs.Msg.GoalInfo.create!()
+    |> tap(&Rclex.Pkgs.ActionMsgs.Msg.GoalInfo.set!(&1, struct))
+    |> tap(fn message ->
+      assert ^struct = Rclex.Pkgs.ActionMsgs.Msg.GoalInfo.get!(message)
+    end)
+    |> tap(&Rclex.Pkgs.ActionMsgs.Msg.GoalInfo.destroy!(&1))
   end
+end
 end

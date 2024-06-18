@@ -15,6 +15,7 @@ defmodule Rclex.Generators.MsgCTest do
   alias Rclex.Generators.Util
 
   for ros2_message_type <- [
+        "action_msgs/msg/GoalInfo",
         "sensor_msgs/msg/PointCloud",
         "std_msgs/msg/Empty",
         "std_msgs/msg/String",
@@ -24,8 +25,7 @@ defmodule Rclex.Generators.MsgCTest do
         "geometry_msgs/msg/Vector3",
         "geometry_msgs/msg/Twist",
         "std_srvs/srv/SetBool_Request",
-        "std_srvs/srv/SetBool_Response",
-        "rcl_interfaces/srv/GetParameterTypes_Response"
+        "std_srvs/srv/SetBool_Response"
       ] do
     test "generate/2 #{ros2_message_type}" do
       ros2_message_type = unquote(ros2_message_type)
