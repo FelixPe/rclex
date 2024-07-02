@@ -131,10 +131,19 @@ defmodule Mix.Tasks.Rclex.Gen.Msgs do
     generate(ros_directories, to)
   end
 
+  defp msg_types_for_actions([]) do
+    []
+  end
+
+  defp msg_types_for_actions(_action_types) do
+    ["action_msgs/msg/GoalStatusArray", "action_msgs/srv/CancelGoal_Request", "action_msgs/srv/CancelGoal_Response"]
+  end
+
   @doc false
   def generate(from, to) when is_list(from) and is_binary(to) do
     msg_types = Application.get_env(:rclex, :ros2_message_types, [])
     srv_types = Application.get_env(:rclex, :ros2_service_types, [])
+    action_types = Application.get_env(:rclex, :ros2_action_types, [])
 
     if Enum.empty?(msg_types) do
       Mix.raise("ros2_message_types is not specified in config.")
@@ -144,8 +153,10 @@ defmodule Mix.Tasks.Rclex.Gen.Msgs do
       Enum.map(srv_types, fn type -> String.replace_suffix(type, "", "_Request") end) ++
         Enum.map(srv_types, fn type -> String.replace_suffix(type, "", "_Response") end)
 
+    action_msg_types = msg_types_for_actions(action_types)
+
     ros2_message_type_map =
-      Enum.reduce(msg_types ++ srv_msg_types, %{}, fn type, acc ->
+      Enum.reduce(msg_types ++ srv_msg_types ++ action_msg_types, %{}, fn type, acc ->
         get_ros2_message_type_map(type, from, acc)
       end)
 

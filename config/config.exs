@@ -16,4 +16,7 @@ config :rclex,
     "std_srvs/srv/SetBool",
     "rcl_interfaces/srv/GetParameterTypes"
     # "action_msgs/srv/CancelGoal"
+  ],
+  ros2_action_types: [
+    "tf2_msgs/action/LookupTransform"
   ]
