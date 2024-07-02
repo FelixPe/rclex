@@ -26,10 +26,41 @@ defmodule Rclex.Generators.MsgC do
     Util.to_down_snake(type)
   end
 
+
+
+  defp trim_subtypes("srv", type) do
+    type
+    |> String.trim_trailing("_Request")
+    |> String.trim_trailing("_Response")
+  end
+
+  defp trim_subtypes("action", type) do
+    type
+    |> String.trim_trailing("_Result")
+    |> String.trim_trailing("_Goal")
+    |> String.trim_trailing("_FeedbackMessage")
+    |> String.trim_trailing("_Feedback")
+    |> String.trim_trailing("_GetResult_Request")
+    |> String.trim_trailing("_GetResult_Response")
+    |> String.trim_trailing("_SendGoal_Request")
+    |> String.trim_trailing("_SendGoal_Response")
+  end
+
+  defp trim_subtypes(_, type) do
+    type
+  end
+
   def to_deps_header_prefix_list(ros2_message_type, ros2_message_type_map) do
     get_deps_types(ros2_message_type, ros2_message_type_map)
     |> Enum.map(fn ros2_message_type ->
       [interfaces, interface_type, type] = ros2_message_type |> String.split("/")
+
+      type = if interface_type == "action" do
+        trim_subtypes(interface_type, type)
+      else
+        type
+      end
+
       [interfaces, interface_type, "detail", Util.to_down_snake(type)] |> Path.join()
     end)
   end
@@ -37,14 +68,7 @@ defmodule Rclex.Generators.MsgC do
   def to_header_prefix(ros2_message_type) do
     [interfaces, interface_type, type] = ros2_message_type |> String.split("/")
 
-    type =
-      if interface_type == "srv" do
-        type
-        |> String.trim_trailing("_Request")
-        |> String.trim_trailing("_Response")
-      else
-        type
-      end
+    type = trim_subtypes(interface_type, type)
 
     [interfaces, interface_type, "detail", Util.to_down_snake(type)] |> Path.join()
   end

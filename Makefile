@@ -48,13 +48,17 @@ OBJ    = $(SRC_C:$(SRC_DIR)/%.c=$(OBJ_DIR)/%.o)
 # ROS 2 package-related setting, especially for msg types
 MSG_PKGS = $(patsubst src/pkgs/%/msg,%,$(wildcard src/pkgs/*/msg))
 SRV_PKGS = $(patsubst src/pkgs/%/srv,%,$(wildcard src/pkgs/*/srv))
+ACTION_PKGS = $(patsubst src/pkgs/%/action,%,$(wildcard src/pkgs/*/action))
 ifneq ($(MSG_PKGS), "")
 MSG_PKGS     = $(patsubst src/pkgs/%/msg, %, $(wildcard src/pkgs/*/msg))
 SRV_PKGS     = $(patsubst src/pkgs/%/srv, %, $(wildcard src/pkgs/*/srv))
+ACTION_PKGS     = $(patsubst src/pkgs/%/action, %, $(wildcard src/pkgs/*/action))
 SRC_C       += $(wildcard $(MSG_PKGS:%=src/pkgs/%/msg/*.c))
 SRC_C       += $(wildcard $(SRV_PKGS:%=src/pkgs/%/srv/*.c))
+SRC_C       += $(wildcard $(ACTION_PKGS:%=src/pkgs/%/action/*.c))
 MSG_OBJ_DIR  = $(MSG_PKGS:%=$(OBJ_DIR)/pkgs/%/msg)
 SRV_OBJ_DIR  = $(SRV_PKGS:%=$(OBJ_DIR)/pkgs/%/srv)
+ACTION_OBJ_DIR  = $(ACTION_PKGS:%=$(OBJ_DIR)/pkgs/%/action)
 ifeq ($(ROS_DISTRO), humble)
 ROS_CFLAGS  += $(addprefix -I,$(wildcard $(addprefix $(ROS_DIR)/include/, $(MSG_PKGS))))
 ROS_CFLAGS  += $(addprefix -I,$(wildcard $(foreach dir,$(subst :, ,$(ROS2_DIRECTORIES)),$(MSG_PKGS:%=$(dir)/include/%/))))
@@ -86,7 +90,7 @@ MSG_TEMPLATES = lib/rclex/msg_funcs.ex src/msg_funcs.h src/msg_funcs.ec
 SRV_TEMPLATES = lib/rclex/srv_funcs.ex src/srv_funcs.h src/srv_funcs.ec
 
 .PHONY: all
-all: $(OBJ_DIR) $(PRIV_DIR) $(MSG_OBJ_DIR) $(SRV_OBJ_DIR) $(MSG_TEMPLATES) $(SRV_TEMPLATES) $(NIF_SO)
+all: $(OBJ_DIR) $(PRIV_DIR) $(MSG_OBJ_DIR) $(SRV_OBJ_DIR) $(ACTION_OBJ_DIR) $(MSG_TEMPLATES) $(SRV_TEMPLATES) $(NIF_SO)
 
 $(NIF_SO): $(OBJ)
 	$(CC) -o $@ $^ $(LDFLAGS) $(ERL_LDFLAGS) $(ROS_LDFLAGS)
@@ -94,7 +98,7 @@ $(NIF_SO): $(OBJ)
 $(OBJ_DIR)/%.o: $(SRC_DIR)/%.c Makefile $(SRC_H)
 	$(CC) -DROS_DISTRO_$(ROS_DISTRO) -o $@ -c $(CFLAGS) $(ERL_CFLAGS) $(ROS_CFLAGS) $<
 
-$(OBJ_DIR) $(PRIV_DIR) $(MSG_OBJ_DIR) $(SRV_OBJ_DIR):
+$(OBJ_DIR) $(PRIV_DIR) $(MSG_OBJ_DIR) $(SRV_OBJ_DIR) $(ACTION_OBJ_DIR):
 	@mkdir -p $@
 
 $(MSG_TEMPLATES):

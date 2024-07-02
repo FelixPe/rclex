@@ -32,7 +32,14 @@ defmodule Rclex.Generators.Util do
   "u_int32_multi_array"
   """
   def to_down_snake(type_name) do
-    String.split(type_name, ~r/[A-Z][a-z0-9]+/, include_captures: true, trim: true)
-    |> Enum.map_join("_", &String.downcase(&1))
+
+    # insert an underscore before any upper case letter
+    # which is not followed by another upper case letter
+    underscore_before_words = Regex.replace(~r/(.)([A-Z][a-z]+)/, type_name, "\\g{1}_\\g{2}")
+    # insert an underscore before any upper case letter
+    # which is preseded by a lower case letter or number
+    underscore_after_words = Regex.replace(~r/([a-z0-9])([A-Z])/, underscore_before_words, "\\g{1}_\\g{2}")
+
+    String.downcase(underscore_after_words)
   end
 end

@@ -131,14 +131,6 @@ defmodule Mix.Tasks.Rclex.Gen.Msgs do
     generate(ros_directories, to)
   end
 
-  defp msg_types_for_actions([]) do
-    []
-  end
-
-  defp msg_types_for_actions(_action_types) do
-    ["action_msgs/msg/GoalStatusArray", "action_msgs/srv/CancelGoal_Request", "action_msgs/srv/CancelGoal_Response"]
-  end
-
   @doc false
   def generate(from, to) when is_list(from) and is_binary(to) do
     msg_types = Application.get_env(:rclex, :ros2_message_types, [])
@@ -165,7 +157,7 @@ defmodule Mix.Tasks.Rclex.Gen.Msgs do
     for {:msg_type, type} <- types do
       [interfaces, interface_type, type_name] = String.split(type, "/")
 
-      if interface_type != "msg" and interface_type != "srv" do
+      if interface_type != "msg" and interface_type != "srv" and interface_type != "action" do
         raise "unknown interface type #{interface_type}"
       end
 
@@ -276,6 +268,82 @@ defmodule Mix.Tasks.Rclex.Gen.Msgs do
     EEx.eval_file(Path.join(Util.templates_dir_path(), "msg_funcs.eex"), msg_funcs: msg_funcs)
   end
 
+  # tf2_msgs/action/LookupTransform_FeedbackMessage
+  @doc """
+  # _Goal
+  string target_frame
+  string source_frame
+  builtin_interfaces/Time source_time
+  builtin_interfaces/Duration timeout
+  builtin_interfaces/Time target_time
+  string fixed_frame
+  bool advanced
+  ---
+  # _Result
+  geometry_msgs/TransformStamped transform
+  tf2_msgs/TF2Error error
+  ---
+  # _Feedback
+
+
+  # _SendGoal_Request => {
+    unique_identifier_msgs__msg__UUID goal_id,
+    _Goal goal
+  }
+
+  # _SendGoal_Response => {
+    bool accepted;
+    builtin_interfaces__msg__Time stamp;
+  }
+
+  # _GetResult_Request => {
+    unique_identifier_msgs__msg__UUID goal_id
+  }
+
+  # _GetResult_Response => {
+      int8_t status;
+      _Result result;
+  }
+
+  # _FeedbackMessage => {
+      unique_identifier_msgs__msg__UUID goal_id;
+      _Feedback feedback;
+  }
+
+  """
+  defp msg_types_for_actions([]) do
+    []
+  end
+
+  defp msg_types_for_actions(action_types) do
+    action_msg_suffixes =
+      [
+        "_Feedback",
+        "_Goal",
+        "_Result",
+        "_FeedbackMessage",
+        "_SendGoal_Request",
+        "_SendGoal_Response",
+        "_GetResult_Request",
+        "_GetResult_Response"
+      ]
+
+    msgs =
+      Enum.reduce(action_types, [], fn action, acc ->
+        Enum.map(action_msg_suffixes, fn s -> action <> s end) ++ acc
+      end)
+
+    # srv_suffixes =
+    # ["_SendGoal", "_GetResult"]
+    # ["action_msgs/srv/CancelGoal"]
+
+    [
+      "action_msgs/msg/GoalStatusArray",
+      "action_msgs/srv/CancelGoal_Request",
+      "action_msgs/srv/CancelGoal_Response"
+    ] ++ msgs
+  end
+
   defp get_msg_path(ros2_message_type, from) do
     [package, _, type_name] = String.split(ros2_message_type, "/")
 
@@ -312,6 +380,24 @@ defmodule Mix.Tasks.Rclex.Gen.Msgs do
     ret
   end
 
+  defp get_action_path(ros2_message_type, from) do
+    [package, "action", type_name] = String.split(ros2_message_type, "/")
+
+    pathes =
+      Enum.reduce(from, [], fn dir, acc ->
+        Path.wildcard("#{dir}/#{package}/**/#{type_name}.action") ++ acc
+      end)
+
+    if pathes == [] do
+      raise "#{ros2_message_type}.action not found"
+    end
+
+    # The first match wins, so the order of the defined directories is relevant.
+    [ret | _] = pathes
+
+    ret
+  end
+
   defp service_response_message_type?(ros2_message_type) do
     [_, interface_type, type] = String.split(ros2_message_type, "/")
     interface_type == "srv" and String.ends_with?(type, "_Response")
@@ -322,8 +408,101 @@ defmodule Mix.Tasks.Rclex.Gen.Msgs do
     interface_type == "srv" and String.ends_with?(type, "_Request")
   end
 
+  defp action_feedback_type?(ros2_message_type) do
+    [_, interface_type, type] = String.split(ros2_message_type, "/")
+    interface_type == "action" and String.ends_with?(type, "_Feedback")
+  end
+
+  defp action_feedback_message_type?(ros2_message_type) do
+    [_, interface_type, type] = String.split(ros2_message_type, "/")
+    interface_type == "action" and String.ends_with?(type, "_FeedbackMessage")
+  end
+
+  defp action_goal_type?(ros2_message_type) do
+    [_, interface_type, type] = String.split(ros2_message_type, "/")
+    interface_type == "action" and String.ends_with?(type, "_Goal")
+  end
+
+  defp action_result_type?(ros2_message_type) do
+    [_, interface_type, type] = String.split(ros2_message_type, "/")
+    interface_type == "action" and String.ends_with?(type, "_Result")
+  end
+
+  defp action_send_goal_request_type?(ros2_message_type) do
+    [_, interface_type, type] = String.split(ros2_message_type, "/")
+    interface_type == "action" and String.ends_with?(type, "_SendGoal_Request")
+  end
+
+  defp action_send_goal_response_type?(ros2_message_type) do
+    [_, interface_type, type] = String.split(ros2_message_type, "/")
+    interface_type == "action" and String.ends_with?(type, "_SendGoal_Response")
+  end
+
+  defp action_get_result_request_type?(ros2_message_type) do
+    [_, interface_type, type] = String.split(ros2_message_type, "/")
+    interface_type == "action" and String.ends_with?(type, "_GetResult_Request")
+  end
+
+  defp action_get_result_response_type?(ros2_message_type) do
+    [_, interface_type, type] = String.split(ros2_message_type, "/")
+    interface_type == "action" and String.ends_with?(type, "_GetResult_Response")
+  end
+
   defp get_msg_definition(ros2_message_type, from) do
     cond do
+      action_feedback_type?(ros2_message_type) ->
+        path = get_action_path(String.trim_trailing(ros2_message_type, "_Feedback"), from)
+        [_goal_msg, _result_msg, feedback_msg] = Regex.split(~r/^---\n/m, File.read!(path))
+        feedback_msg
+
+      action_feedback_message_type?(ros2_message_type) ->
+        [_, "action", type] = String.split(ros2_message_type, "/")
+        action_type = String.trim_trailing(type, "_FeedbackMessage")
+
+        """
+        unique_identifier_msgs/UUID goal_id
+        #{action_type}_Feedback feedback
+        """
+
+      action_goal_type?(ros2_message_type) ->
+        path = get_action_path(String.trim_trailing(ros2_message_type, "_Goal"), from)
+        [goal_msg, _result_msg, _feedback_msg] = Regex.split(~r/^---\n/m, File.read!(path))
+        goal_msg
+
+      action_send_goal_request_type?(ros2_message_type) ->
+        [_, "action", type] = String.split(ros2_message_type, "/")
+        action_type = String.trim_trailing(type, "_SendGoal_Request")
+
+        """
+        unique_identifier_msgs/UUID goal_id
+        #{action_type}_Goal goal
+        """
+
+      action_send_goal_response_type?(ros2_message_type) ->
+        """
+        bool accepted
+        builtin_interfaces/Time stamp
+        """
+
+      action_get_result_request_type?(ros2_message_type) ->
+        """
+        unique_identifier_msgs/UUID goal_id
+        """
+
+      action_get_result_response_type?(ros2_message_type) ->
+        [_, "action", type] = String.split(ros2_message_type, "/")
+        action_type = String.trim_trailing(type, "_GetResult_Response")
+
+        """
+        uint8 status
+        #{action_type}_Result result
+        """
+
+      action_result_type?(ros2_message_type) ->
+        path = get_action_path(String.trim_trailing(ros2_message_type, "_Result"), from)
+        [_goal_msg, result_msg, _feedback_msg] = Regex.split(~r/^---\n/m, File.read!(path))
+        result_msg
+
       service_response_message_type?(ros2_message_type) ->
         path = get_srv_path(String.trim_trailing(ros2_message_type, "_Response"), from)
         [_request_msg, response_msg] = Regex.split(~r/^---\n/m, File.read!(path))
@@ -409,11 +588,16 @@ defmodule Mix.Tasks.Rclex.Gen.Msgs do
     else
       [interfaces, interface_type, _] = String.split(ros2_message_type, "/")
 
-      if interface_type == "srv" and
-           (String.ends_with?(type, "_Request") or String.ends_with?(type, "_Response")) do
-        [interfaces, "srv", type]
-      else
-        [interfaces, "msg", type]
+      cond do
+        interface_type == "srv" and
+            (String.ends_with?(type, "_Request") or String.ends_with?(type, "_Response")) ->
+          [interfaces, "srv", type]
+
+        interface_type == "action" ->
+          [interfaces, "action", type]
+
+        true ->
+          [interfaces, "msg", type]
       end
     end
     |> Path.join()
