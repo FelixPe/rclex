@@ -190,9 +190,9 @@ defmodule Mix.Tasks.Rclex.Gen.Msgs do
     for file_path <-
           Path.wildcard(Path.join(dir_path, "lib/rclex/pkgs/*/msg/*.ex")) ++
             Path.wildcard(Path.join(dir_path, "src/pkgs/*/msg/*.{h,c}")) ++
-            Path.wildcard(Path.join(dir_path, "src/pkgs/*/srv/*___request.{h,c}")) ++
+            Path.wildcard(Path.join(dir_path, "src/pkgs/*/srv/*__request.{h,c}")) ++
             Path.wildcard(Path.join(dir_path, "lib/rclex/pkgs/*/srv/*_request.ex")) ++
-            Path.wildcard(Path.join(dir_path, "src/pkgs/*/srv/*___response.{h,c}")) ++
+            Path.wildcard(Path.join(dir_path, "src/pkgs/*/srv/*__response.{h,c}")) ++
             Path.wildcard(Path.join(dir_path, "lib/rclex/pkgs/*/srv/*_response.ex")) do
       File.rm!(file_path)
     end
@@ -268,49 +268,6 @@ defmodule Mix.Tasks.Rclex.Gen.Msgs do
     EEx.eval_file(Path.join(Util.templates_dir_path(), "msg_funcs.eex"), msg_funcs: msg_funcs)
   end
 
-  # tf2_msgs/action/LookupTransform_FeedbackMessage
-  @doc """
-  # _Goal
-  string target_frame
-  string source_frame
-  builtin_interfaces/Time source_time
-  builtin_interfaces/Duration timeout
-  builtin_interfaces/Time target_time
-  string fixed_frame
-  bool advanced
-  ---
-  # _Result
-  geometry_msgs/TransformStamped transform
-  tf2_msgs/TF2Error error
-  ---
-  # _Feedback
-
-
-  # _SendGoal_Request => {
-    unique_identifier_msgs__msg__UUID goal_id,
-    _Goal goal
-  }
-
-  # _SendGoal_Response => {
-    bool accepted;
-    builtin_interfaces__msg__Time stamp;
-  }
-
-  # _GetResult_Request => {
-    unique_identifier_msgs__msg__UUID goal_id
-  }
-
-  # _GetResult_Response => {
-      int8_t status;
-      _Result result;
-  }
-
-  # _FeedbackMessage => {
-      unique_identifier_msgs__msg__UUID goal_id;
-      _Feedback feedback;
-  }
-
-  """
   defp msg_types_for_actions([]) do
     []
   end

@@ -99,9 +99,9 @@ defmodule Mix.Tasks.Rclex.Gen.Srvs do
   end
 
   defp response_or_request?(f) do
-    String.ends_with?(f, "___request.h") or String.ends_with?(f, "___request.c") or
-      String.ends_with?(f, "_request.ex") or String.ends_with?(f, "___response.h") or
-      String.ends_with?(f, "___response.c") or String.ends_with?(f, "_response.ex")
+    String.ends_with?(f, "__request.h") or String.ends_with?(f, "__request.c") or
+      String.ends_with?(f, "_request.ex") or String.ends_with?(f, "__response.h") or
+      String.ends_with?(f, "__response.c") or String.ends_with?(f, "_response.ex")
   end
 
   @doc false

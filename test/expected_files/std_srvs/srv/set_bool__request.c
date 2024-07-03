@@ -1,5 +1,5 @@
 // clang-format off
-#include "set_bool___request.h"
+#include "set_bool__request.h"
 #include "../../../macros.h"
 #include "../../../resource_types.h"
 #include "../../../terms.h"
@@ -20,7 +20,7 @@
 #include <stdint.h>
 #include <string.h>
 
-ERL_NIF_TERM nif_std_srvs_srv_set_bool___request_type_support(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
+ERL_NIF_TERM nif_std_srvs_srv_set_bool__request_type_support(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
   ignore_unused(argv);
 
   if (argc != 0) return enif_make_badarg(env);
@@ -34,7 +34,7 @@ ERL_NIF_TERM nif_std_srvs_srv_set_bool___request_type_support(ErlNifEnv *env, in
   return term;
 }
 
-ERL_NIF_TERM nif_std_srvs_srv_set_bool___request_create(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
+ERL_NIF_TERM nif_std_srvs_srv_set_bool__request_create(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
   ignore_unused(argv);
 
   if (argc != 0) return enif_make_badarg(env);
@@ -50,7 +50,7 @@ ERL_NIF_TERM nif_std_srvs_srv_set_bool___request_create(ErlNifEnv *env, int argc
   return term;
 }
 
-ERL_NIF_TERM nif_std_srvs_srv_set_bool___request_destroy(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
+ERL_NIF_TERM nif_std_srvs_srv_set_bool__request_destroy(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
   if (argc != 1) return enif_make_badarg(env);
 
   void **ros_message_pp;
@@ -63,7 +63,7 @@ ERL_NIF_TERM nif_std_srvs_srv_set_bool___request_destroy(ErlNifEnv *env, int arg
   return atom_ok;
 }
 
-ERL_NIF_TERM nif_std_srvs_srv_set_bool___request_set(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
+ERL_NIF_TERM nif_std_srvs_srv_set_bool__request_set(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
   if (argc != 2) return enif_make_badarg(env);
 
   void **ros_message_pp;
@@ -89,7 +89,7 @@ ERL_NIF_TERM nif_std_srvs_srv_set_bool___request_set(ErlNifEnv *env, int argc, c
   return atom_ok;
 }
 
-ERL_NIF_TERM nif_std_srvs_srv_set_bool___request_get(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
+ERL_NIF_TERM nif_std_srvs_srv_set_bool__request_get(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
   if (argc != 1) return enif_make_badarg(env);
 
   void **ros_message_pp;
