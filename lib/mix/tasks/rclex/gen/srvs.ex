@@ -66,20 +66,41 @@ defmodule Mix.Tasks.Rclex.Gen.Srvs do
     end
   end
 
+  defp srv_types_for_actions([]) do
+    []
+  end
+
+  defp srv_types_for_actions(action_types) do
+    action_srv_suffixes =
+      ["_SendGoal", "_GetResult"]
+
+      srvs =
+        Enum.reduce(action_types, [], fn action, acc ->
+          Enum.map(action_srv_suffixes, fn s -> action <> s end) ++ acc
+        end)
+
+    ["action_msgs/srv/CancelGoal"] ++ srvs
+  end
+
   @doc false
   def generate(to) when is_binary(to) do
     srv_types = Application.get_env(:rclex, :ros2_service_types, [])
+    action_types = Application.get_env(:rclex, :ros2_action_types, [])
 
-    if Enum.empty?(srv_types) do
+    action_srv_types = srv_types_for_actions(action_types)
+
+
+
+    if Enum.empty?(srv_types ++ action_srv_types) do
       Mix.raise("ros2_service_types is not specified in config.")
     end
 
-    for type <- srv_types do
-      [interfaces, "srv", type_name] = String.split(type, "/")
+    for type <- srv_types ++ action_srv_types do
+      [interfaces, interface_type, type_name] = String.split(type, "/")
       type_name = Util.to_down_snake(type_name)
 
-      dir_path_ex = Path.join(to, "lib/rclex/pkgs/#{interfaces}/srv")
-      dir_path_c = Path.join(to, "src/pkgs/#{interfaces}/srv")
+      dir_path_ex = Path.join(to, "lib/rclex/pkgs/#{interfaces}/#{interface_type}")
+      dir_path_c = Path.join(to, "src/pkgs/#{interfaces}/#{interface_type}")
 
       File.mkdir_p!(dir_path_ex)
       File.mkdir_p!(dir_path_c)
@@ -175,8 +196,8 @@ defmodule Mix.Tasks.Rclex.Gen.Srvs do
   @doc false
   def generate_srv_funcs_h(types) do
     Enum.map_join(types, fn type ->
-      [interfaces, "srv", type] = String.split(type, "/")
-      file_path = Path.join([interfaces, "srv", Util.to_down_snake(type)]) <> ".h"
+      [interfaces, interface_type, type] = String.split(type, "/")
+      file_path = Path.join([interfaces, interface_type, Util.to_down_snake(type)]) <> ".h"
 
       """
       #include "pkgs/#{file_path}"

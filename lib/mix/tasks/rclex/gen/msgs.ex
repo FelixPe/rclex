@@ -290,10 +290,6 @@ defmodule Mix.Tasks.Rclex.Gen.Msgs do
         Enum.map(action_msg_suffixes, fn s -> action <> s end) ++ acc
       end)
 
-    # srv_suffixes =
-    # ["_SendGoal", "_GetResult"]
-    # ["action_msgs/srv/CancelGoal"]
-
     [
       "action_msgs/msg/GoalStatusArray",
       "action_msgs/srv/CancelGoal_Request",

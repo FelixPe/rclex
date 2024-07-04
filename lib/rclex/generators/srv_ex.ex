@@ -15,7 +15,7 @@ defmodule Rclex.Generators.SrvEx do
   "StdSrvs.Srv.SetBool"
   """
   def module_name(ros2_service_type) do
-    [pkg, srv = "srv", type] = String.split(ros2_service_type, "/")
+    [pkg, interface_type, type] = String.split(ros2_service_type, "/")
 
     pkg =
       pkg
@@ -23,6 +23,6 @@ defmodule Rclex.Generators.SrvEx do
       |> String.split("_")
       |> Enum.map_join(&String.capitalize(&1))
 
-    Enum.join([pkg, String.capitalize(srv), type], ".")
+    Enum.join([pkg, String.capitalize(interface_type), type], ".")
   end
 end
