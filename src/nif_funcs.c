@@ -48,8 +48,14 @@ static ErlNifFunc nif_funcs[] = {
     nif_regular_func(rcl_subscription_clear_message_callback, 2),
 #endif
     nif_regular_func(rcl_take, 2),
-    nif_io_bound_func(rcl_clock_init, 0),
+    nif_io_bound_func(rcl_clock_init, 1),
     nif_io_bound_func(rcl_clock_fini, 1),
+    nif_regular_func(rcl_clock_get_now, 1),
+    nif_regular_func(rcl_clock_time_started, 1),
+    nif_regular_func(rcl_clock_valid, 1),
+    nif_regular_func(rcl_enable_ros_time_override, 1),
+    nif_regular_func(rcl_disable_ros_time_override, 1),
+    nif_regular_func(rcl_set_ros_time_override, 2),
     nif_io_bound_func(rcl_timer_init, 3),
     nif_io_bound_func(rcl_timer_fini, 1),
     nif_io_bound_func(rcl_timer_is_ready, 1),
@@ -114,6 +120,7 @@ static int load(ErlNifEnv *env, void **priv_data, ERL_NIF_TERM load_info) {
   make_subscription_atom(env);
   make_service_atom(env);
   make_client_atom(env);
+  make_clock_atom(env);
 
   // open_resource_types/2 the 2nd argument is module_str, but document says following.
   // > Argument module_str is not (yet) used and must be NULL

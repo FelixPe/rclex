@@ -68,11 +68,35 @@ defmodule Rclex.Nif do
     :erlang.nif_error(:nif_not_loaded)
   end
 
-  def rcl_clock_init!() do
+  def rcl_clock_init!(_opts) do
     :erlang.nif_error(:nif_not_loaded)
   end
 
   def rcl_clock_fini!(_clock) do
+    :erlang.nif_error(:nif_not_loaded)
+  end
+
+  def rcl_clock_get_now!(_opts) do
+    :erlang.nif_error(:nif_not_loaded)
+  end
+
+  def rcl_clock_time_started!(_clock) do
+    :erlang.nif_error(:nif_not_loaded)
+  end
+
+  def rcl_clock_valid!(_clock) do
+    :erlang.nif_error(:nif_not_loaded)
+  end
+
+  def rcl_enable_ros_time_override!(_clock) do
+    :erlang.nif_error(:nif_not_loaded)
+  end
+
+  def rcl_disable_ros_time_override!(_clock) do
+    :erlang.nif_error(:nif_not_loaded)
+  end
+
+  def rcl_set_ros_time_override!(_clock, _time_value) do
     :erlang.nif_error(:nif_not_loaded)
   end
 
