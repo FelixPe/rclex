@@ -89,13 +89,13 @@ defmodule Mix.Tasks.Rclex.Gen.Srvs do
 
     action_srv_types = srv_types_for_actions(action_types)
 
+    srv_types = srv_types ++ action_srv_types
 
-
-    if Enum.empty?(srv_types ++ action_srv_types) do
+    if Enum.empty?(srv_types) do
       Mix.raise("ros2_service_types is not specified in config.")
     end
 
-    for type <- srv_types ++ action_srv_types do
+    for type <- srv_types do
       [interfaces, interface_type, type_name] = String.split(type, "/")
       type_name = Util.to_down_snake(type_name)
 
@@ -119,10 +119,17 @@ defmodule Mix.Tasks.Rclex.Gen.Srvs do
     File.write!(Path.join(to, "src/srv_funcs.ec"), generate_srv_funcs_c(srv_types))
   end
 
-  defp response_or_request?(f) do
-    String.ends_with?(f, "__request.h") or String.ends_with?(f, "__request.c") or
-      String.ends_with?(f, "_request.ex") or String.ends_with?(f, "__response.h") or
-      String.ends_with?(f, "__response.c") or String.ends_with?(f, "_response.ex")
+  defp response_or_request_or_action?(f) do
+    suffixes = ["__request.h", "__request.c", "_request.ex",
+     "__response.h", "__response.c", "_response.ex",
+     "__feedback_message.ex", "__feedback_message.h", "__feedback_message.c",
+     "__feedback.ex", "__feedback.h", "__feedback.c",
+     "__goal.ex", "__goal.h", "__goal.c",
+     "__result.ex", "__result.h", "__result.c"]
+
+
+    String.ends_with?(f, suffixes)
+
   end
 
   @doc false
@@ -132,11 +139,14 @@ defmodule Mix.Tasks.Rclex.Gen.Srvs do
     file_pathes =
       Enum.reject(
         Path.wildcard(Path.join(dir_path, "lib/rclex/pkgs/*/srv/*.ex")) ++
-          Path.wildcard(Path.join(dir_path, "src/pkgs/*/srv/*.{c,h}")),
-        &response_or_request?/1
+          Path.wildcard(Path.join(dir_path, "src/pkgs/*/srv/*.{c,h}")) ++
+          Path.wildcard(Path.join(dir_path, "lib/pkgs/*/action/*.ex")) ++
+          Path.wildcard(Path.join(dir_path, "src/pkgs/*/action/*.{c,h}")),
+        &response_or_request_or_action?/1
       )
 
     for file_path <- file_pathes do
+      dbg(file_path)
       File.rm!(file_path)
     end
 

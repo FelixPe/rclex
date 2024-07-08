@@ -90,6 +90,8 @@ ROS_LDFLAGS += $(MSG_PKGS:%=-l%__rosidl_typesupport_c)
 ROS_LDFLAGS += $(MSG_PKGS:%=-l%__rosidl_generator_c)
 ROS_LDFLAGS += $(SRV_PKGS:%=-l%__rosidl_typesupport_c)
 ROS_LDFLAGS += $(SRV_PKGS:%=-l%__rosidl_generator_c)
+ROS_LDFLAGS += $(ACTION_PKGS:%=-l%__rosidl_typesupport_c)
+ROS_LDFLAGS += $(ACTION_PKGS:%=-l%__rosidl_generator_c)
 endif
 
 MSG_TEMPLATES = lib/rclex/msg_funcs.ex src/msg_funcs.h src/msg_funcs.ec
