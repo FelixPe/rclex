@@ -6,12 +6,12 @@ defmodule Rclex.Generators.MsgEx do
 
   @ros2_elixir_type_map %{
     "bool" => "boolean()",
-    "byte" => "0..255",
+    "byte" => "byte()",
     "char" => "-128..127",
     "float32" => "float()",
     "float64" => "float()",
     "int8" => "-128..127",
-    "uint8" => "0..255",
+    "uint8" => "byte()",
     "int16" => "integer()",
     "uint16" => "non_neg_integer()",
     "int32" => "integer()",
@@ -54,7 +54,7 @@ defmodule Rclex.Generators.MsgEx do
           [{:builtin_type, _type}, name, default] ->
             "#{name}: #{inspect(default)}"
 
-          [{:builtin_type_array, "uint8[]"}, name] ->
+          [{:builtin_type_array, "uint8[" <> _}, name] ->
             "#{name}: <<>>"
 
           [{:builtin_type_array, _type}, name] ->
@@ -90,7 +90,7 @@ defmodule Rclex.Generators.MsgEx do
           [{:builtin_type, type}, name] ->
             "#{name}: #{@ros2_elixir_type_map[type]}"
 
-          [{:builtin_type_array, "uint8[]"}, name] ->
+          [{:builtin_type_array, "uint8[" <> _}, name] ->
             "#{name}: binary()"
 
           [{:builtin_type_array, type}, name] ->
@@ -143,7 +143,7 @@ defmodule Rclex.Generators.MsgEx do
           [{:builtin_type, _type}, name] ->
             "#{name}"
 
-          [{:builtin_type_array, "uint8[]"}, name] ->
+          [{:builtin_type_array, "uint8[" <> _}, name] ->
             "#{name} |> to_charlist()"
 
           [{:builtin_type_array, _type}, name] ->
@@ -186,7 +186,7 @@ defmodule Rclex.Generators.MsgEx do
           [{:builtin_type, _type}, name] ->
             "#{name}: #{name}"
 
-          [{:builtin_type_array, "uint8[]"}, name] ->
+          [{:builtin_type_array, "uint8[" <> _}, name] ->
             "#{name}: #{name} |> IO.iodata_to_binary()"
 
           [{:builtin_type_array, _type}, name] ->
