@@ -26,8 +26,6 @@ defmodule Rclex.Generators.MsgC do
     Util.to_down_snake(type)
   end
 
-
-
   defp trim_subtypes("srv", type) do
     type
     |> String.trim_trailing("_Request")
@@ -55,11 +53,12 @@ defmodule Rclex.Generators.MsgC do
     |> Enum.map(fn ros2_message_type ->
       [interfaces, interface_type, type] = ros2_message_type |> String.split("/")
 
-      type = if interface_type == "action" do
-        trim_subtypes(interface_type, type)
-      else
-        type
-      end
+      type =
+        if interface_type == "action" do
+          trim_subtypes(interface_type, type)
+        else
+          type
+        end
 
       [interfaces, interface_type, "detail", Util.to_down_snake(type)] |> Path.join()
     end)

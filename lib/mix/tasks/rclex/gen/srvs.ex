@@ -74,10 +74,10 @@ defmodule Mix.Tasks.Rclex.Gen.Srvs do
     action_srv_suffixes =
       ["_SendGoal", "_GetResult"]
 
-      srvs =
-        Enum.reduce(action_types, [], fn action, acc ->
-          Enum.map(action_srv_suffixes, fn s -> action <> s end) ++ acc
-        end)
+    srvs =
+      Enum.reduce(action_types, [], fn action, acc ->
+        Enum.map(action_srv_suffixes, fn s -> action <> s end) ++ acc
+      end)
 
     ["action_msgs/srv/CancelGoal"] ++ srvs
   end
@@ -120,16 +120,28 @@ defmodule Mix.Tasks.Rclex.Gen.Srvs do
   end
 
   defp response_or_request_or_action?(f) do
-    suffixes = ["__request.h", "__request.c", "_request.ex",
-     "__response.h", "__response.c", "_response.ex",
-     "__feedback_message.ex", "__feedback_message.h", "__feedback_message.c",
-     "__feedback.ex", "__feedback.h", "__feedback.c",
-     "__goal.ex", "__goal.h", "__goal.c",
-     "__result.ex", "__result.h", "__result.c"]
-
+    suffixes = [
+      "__request.h",
+      "__request.c",
+      "_request.ex",
+      "__response.h",
+      "__response.c",
+      "_response.ex",
+      "__feedback_message.ex",
+      "__feedback_message.h",
+      "__feedback_message.c",
+      "__feedback.ex",
+      "__feedback.h",
+      "__feedback.c",
+      "__goal.ex",
+      "__goal.h",
+      "__goal.c",
+      "__result.ex",
+      "__result.h",
+      "__result.c"
+    ]
 
     String.ends_with?(f, suffixes)
-
   end
 
   @doc false
