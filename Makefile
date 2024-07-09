@@ -26,13 +26,13 @@ ERL_CFLAGS  ?= -I$(ERTS_INCLUDE_DIR) -I$(ERL_EI_INCLUDE_DIR)
 ERL_LDFLAGS ?= -L$(ERL_EI_LIBDIR) -lei
 
 ifeq ($(ROS_DISTRO), humble)
-ROS_INCS    ?= rcl rcutils rmw rcl_yaml_param_parser rosidl_runtime_c rosidl_typesupport_interface
+ROS_INCS    ?= rcl rcutils rmw rcl_yaml_param_parser rosidl_runtime_c rosidl_typesupport_interface rcl_action action_msgs unique_identifier_msgs
 ROS_CFLAGS  ?= $(addprefix -I$(ROS_DIR)/include/, $(ROS_INCS))
 else ifeq ($(ROS_DISTRO), iron)
-ROS_INCS    ?= rcl rcutils rmw rcl_yaml_param_parser type_description_interfaces rosidl_runtime_c service_msgs builtin_interfaces rosidl_typesupport_interface rosidl_dynamic_typesupport
+ROS_INCS    ?= rcl rcutils rmw rcl_yaml_param_parser type_description_interfaces rosidl_runtime_c service_msgs builtin_interfaces rosidl_typesupport_interface rosidl_dynamic_typesupport rcl_action action_msgs unique_identifier_msgs
 ROS_CFLAGS  ?= $(addprefix -I$(ROS_DIR)/include/, $(ROS_INCS))
 else ifeq ($(ROS_DISTRO), jazzy)
-ROS_INCS    ?= rcl rcutils rmw rcl_yaml_param_parser type_description_interfaces rosidl_runtime_c service_msgs builtin_interfaces rosidl_typesupport_interface rosidl_dynamic_typesupport
+ROS_INCS    ?= rcl rcutils rmw rcl_yaml_param_parser type_description_interfaces rosidl_runtime_c service_msgs builtin_interfaces rosidl_typesupport_interface rosidl_dynamic_typesupport rcl_action action_msgs unique_identifier_msgs
 ROS_CFLAGS  ?= $(addprefix -I$(ROS_DIR)/include/, $(ROS_INCS))
 else ifeq ($(ROS_DISTRO), foxy)
 ROS_CFLAGS  ?= -I$(ROS_DIR)/include
@@ -96,9 +96,10 @@ endif
 
 MSG_TEMPLATES = lib/rclex/msg_funcs.ex src/msg_funcs.h src/msg_funcs.ec
 SRV_TEMPLATES = lib/rclex/srv_funcs.ex src/srv_funcs.h src/srv_funcs.ec
+ACTION_TEMPLATES = lib/rclex/action_funcs.ex src/action_funcs.h src/action_funcs.ec
 
 .PHONY: all
-all: $(OBJ_DIR) $(PRIV_DIR) $(MSG_OBJ_DIR) $(SRV_OBJ_DIR) $(ACTION_OBJ_DIR) $(MSG_TEMPLATES) $(SRV_TEMPLATES) $(NIF_SO)
+all: $(OBJ_DIR) $(PRIV_DIR) $(MSG_OBJ_DIR) $(SRV_OBJ_DIR) $(ACTION_OBJ_DIR) $(MSG_TEMPLATES) $(SRV_TEMPLATES) $(ACTION_TEMPLATES) $(NIF_SO)
 
 $(NIF_SO): $(OBJ)
 	$(CC) -o $@ $^ $(LDFLAGS) $(ERL_LDFLAGS) $(ROS_LDFLAGS)
@@ -115,9 +116,13 @@ $(MSG_TEMPLATES):
 $(SRV_TEMPLATES):
 	@test ! -f $@ && cp $(PRIV_DIR)/templates/rclex.gen.srvs/$@ $@
 
+$(ACTION_TEMPLATES):
+	@test ! -f $@ && cp $(PRIV_DIR)/templates/rclex.gen.action/$@ $@
+
 .PHONY: clean
 clean:
 	$(RM) $(NIF_SO) $(OBJ)
 	$(RM) $(MSG_TEMPLATES)
 	$(RM) $(SRV_TEMPLATES)
+	$(RM) $(ACTION_TEMPLATES)
 	$(RM) -r lib/rclex/pkgs src/pkgs

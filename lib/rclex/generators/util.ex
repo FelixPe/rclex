@@ -5,6 +5,7 @@ defmodule Rclex.Generators.Util do
     case interface do
       :msg -> Path.join(Application.app_dir(:rclex), "priv/templates/rclex.gen.msgs")
       :srv -> Path.join(Application.app_dir(:rclex), "priv/templates/rclex.gen.srvs")
+      :action -> Path.join(Application.app_dir(:rclex), "priv/templates/rclex.gen.action")
       _ -> raise "ros2 interface type not supported"
     end
   end
@@ -17,8 +18,8 @@ defmodule Rclex.Generators.Util do
   "std_msgs_msg_u_int32_multi_array"
   """
   def type_down_snake(ros2_message_type) do
-    [interfaces, msg, type] = ros2_message_type |> String.split("/")
-    [interfaces, msg, to_down_snake(type)] |> Enum.join("_")
+    [interfaces, interface_type, type] = ros2_message_type |> String.split("/")
+    [interfaces, interface_type, to_down_snake(type)] |> Enum.join("_")
   end
 
   @doc """
