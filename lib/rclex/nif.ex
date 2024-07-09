@@ -204,6 +204,198 @@ defmodule Rclex.Nif do
     :erlang.nif_error(:nif_not_loaded)
   end
 
+  def rcl_action_client_init!(
+        _node,
+        _type_support,
+        _action_name,
+        _goal_service_qos,
+        _result_service_qos,
+        _cancel_service_qos,
+        _feedback_topic_qos,
+        _status_topic_qos
+      ) do
+    :erlang.nif_error(:nif_not_loaded)
+  end
+
+  def rcl_action_client_fini!(_action_client, _node) do
+    :erlang.nif_error(:nif_not_loaded)
+  end
+
+  def rcl_action_client_set_cancel_client_callback!(_action_client) do
+    :erlang.nif_error(:nif_not_loaded)
+  end
+
+  def rcl_action_client_set_feedback_subscription_callback!(_action_client) do
+    :erlang.nif_error(:nif_not_loaded)
+  end
+
+  def rcl_action_client_set_goal_client_callback!(_action_client) do
+    :erlang.nif_error(:nif_not_loaded)
+  end
+
+  def rcl_action_client_set_result_client_callback!(_action_client) do
+    :erlang.nif_error(:nif_not_loaded)
+  end
+
+  def rcl_action_client_set_status_subscription_callback!(_action_client) do
+    :erlang.nif_error(:nif_not_loaded)
+  end
+
+  def rcl_action_client_clear_cancel_client_callback!(_action_client, _callback_resource) do
+    :erlang.nif_error(:nif_not_loaded)
+  end
+
+  def rcl_action_client_clear_feedback_subscription_callback!(_action_client, _callback_resource) do
+    :erlang.nif_error(:nif_not_loaded)
+  end
+
+  def rcl_action_client_clear_goal_client_callback!(_action_client, _callback_resource) do
+    :erlang.nif_error(:nif_not_loaded)
+  end
+
+  def rcl_action_client_clear_result_client_callback!(_action_client, _callback_resource) do
+    :erlang.nif_error(:nif_not_loaded)
+  end
+
+  def rcl_action_client_clear_status_subscription_callback!(_action_client, _callback_resource) do
+    :erlang.nif_error(:nif_not_loaded)
+  end
+
+  def rcl_action_send_cancel_request!(_action_client, _cancel_request_message) do
+    :erlang.nif_error(:nif_not_loaded)
+  end
+
+  def rcl_action_send_goal_request!(_action_client, _goal_request_message) do
+    :erlang.nif_error(:nif_not_loaded)
+  end
+
+  def rcl_action_send_result_request!(_action_client, _result_request_message) do
+    :erlang.nif_error(:nif_not_loaded)
+  end
+
+  def rcl_action_take_cancel_response!(_action_client, _cancel_response_message) do
+    :erlang.nif_error(:nif_not_loaded)
+  end
+
+  def rcl_action_take_feedback!(_action_client, _feedback_message) do
+    :erlang.nif_error(:nif_not_loaded)
+  end
+
+  def rcl_action_take_goal_response!(_action_client, _goal_response_message) do
+    :erlang.nif_error(:nif_not_loaded)
+  end
+
+  def rcl_action_take_result_response!(_action_client, _result_response_message) do
+    :erlang.nif_error(:nif_not_loaded)
+  end
+
+  def rcl_action_take_status!(_action_client, _status_message) do
+    :erlang.nif_error(:nif_not_loaded)
+  end
+
+  def rcl_action_server_is_available!(_node, _action_client) do
+    :erlang.nif_error(:nif_not_loaded)
+  end
+
+  def rcl_action_server_init!(
+        _node,
+        _type_support,
+        _action_name,
+        _clock,
+        _goal_service_qos,
+        _result_service_qos,
+        _cancel_service_qos,
+        _feedback_topic_qos,
+        _status_topic_qos,
+        _result_timeout
+      ) do
+    :erlang.nif_error(:nif_not_loaded)
+  end
+
+  def rcl_action_server_fini!(_action_server, _node) do
+    :erlang.nif_error(:nif_not_loaded)
+  end
+
+  def rcl_action_accept_new_goal!(_action_server, _goal_info) do
+    :erlang.nif_error(:nif_not_loaded)
+  end
+
+  def rcl_action_expire_goals!(_action_server, _goals_list) do
+    :erlang.nif_error(:nif_not_loaded)
+  end
+
+  # def rcl_action_get_goal_status_array!()
+  # def rcl_action_notify_goal_done!()
+  # def rcl_action_process_cancel_request!()
+
+  def rcl_action_publish_feedback!(_action_server, _feedback_message) do
+    :erlang.nif_error(:nif_not_loaded)
+  end
+
+  def rcl_action_publish_status!(_action_server, _status_message) do
+    :erlang.nif_error(:nif_not_loaded)
+  end
+
+  def rcl_action_send_cancel_response!(_action_server, _request_id, _response_message) do
+    :erlang.nif_error(:nif_not_loaded)
+  end
+
+  def rcl_action_send_goal_response!(_action_server, _request_id, _response_message) do
+    :erlang.nif_error(:nif_not_loaded)
+  end
+
+  def rcl_action_send_result_response!(_action_server, _request_id, _response_message) do
+    :erlang.nif_error(:nif_not_loaded)
+  end
+
+  def rcl_action_server_get_goal_handles!(_action_server) do
+    :erlang.nif_error(:nif_not_loaded)
+  end
+
+  def rcl_action_server_goal_exists!(_action_server, _goal_info) do
+    :erlang.nif_error(:nif_not_loaded)
+  end
+
+  def rcl_action_server_set_cancel_service_callback!(_action_server) do
+    :erlang.nif_error(:nif_not_loaded)
+  end
+
+  def rcl_action_server_set_goal_service_callback!(_action_server) do
+    :erlang.nif_error(:nif_not_loaded)
+  end
+
+  def rcl_action_server_set_result_service_callback!(_action_server) do
+    :erlang.nif_error(:nif_not_loaded)
+  end
+
+  def rcl_action_server_clear_cancel_service_callback!(_action_server, _callback_resource) do
+    :erlang.nif_error(:nif_not_loaded)
+  end
+
+  def rcl_action_server_clear_goal_service_callback!(_action_server, _callback_resource) do
+    :erlang.nif_error(:nif_not_loaded)
+  end
+
+  def rcl_action_server_clear_result_service_callback!(_action_server, _callback_resource) do
+    :erlang.nif_error(:nif_not_loaded)
+  end
+
+  def rcl_action_take_cancel_request!(_action_server, _request_message) do
+    :erlang.nif_error(:nif_not_loaded)
+  end
+
+  def rcl_action_take_goal_request!(_action_server, _request_message) do
+    :erlang.nif_error(:nif_not_loaded)
+  end
+
+  def rcl_action_take_result_request!(_action_server, _request_message) do
+    :erlang.nif_error(:nif_not_loaded)
+  end
+
+  def rcl_action_goal_handle_fini!(_goal_handle) do
+    :erlang.nif_error(:nif_not_loaded)
+  end
+
   def rcl_count_publishers!(_node, _topic_name) do
     :erlang.nif_error(:nif_not_loaded)
   end
@@ -288,6 +480,11 @@ defmodule Rclex.Nif do
     :erlang.nif_error(:nif_not_loaded)
   end
 
+  def rcl_action_qos_profile_status_default!() do
+    :erlang.nif_error(:nif_not_loaded)
+  end
+
   @before_compile Rclex.MsgFuncs
   @before_compile Rclex.SrvFuncs
+  @before_compile Rclex.ActionFuncs
 end
