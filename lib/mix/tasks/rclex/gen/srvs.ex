@@ -24,7 +24,7 @@ defmodule Mix.Tasks.Rclex.Gen.Srvs do
   mix rclex.gen.srvs
   ```
 
-  in addition it is required to generate the msg types for requests and responses of each service type by running
+  It is required to generate the msg types for requests and responses of each service type first by running
 
   ```
   mix  rclex.gen.srvs
@@ -66,30 +66,9 @@ defmodule Mix.Tasks.Rclex.Gen.Srvs do
     end
   end
 
-  defp srv_types_for_actions([]) do
-    []
-  end
-
-  defp srv_types_for_actions(action_types) do
-    action_srv_suffixes =
-      ["_SendGoal", "_GetResult"]
-
-    srvs =
-      Enum.reduce(action_types, [], fn action, acc ->
-        Enum.map(action_srv_suffixes, fn s -> action <> s end) ++ acc
-      end)
-
-    ["action_msgs/srv/CancelGoal"] ++ srvs
-  end
-
   @doc false
   def generate(to) when is_binary(to) do
     srv_types = Application.get_env(:rclex, :ros2_service_types, [])
-    action_types = Application.get_env(:rclex, :ros2_action_types, [])
-
-    action_srv_types = srv_types_for_actions(action_types)
-
-    srv_types = srv_types ++ action_srv_types
 
     if Enum.empty?(srv_types) do
       Mix.raise("ros2_service_types is not specified in config.")
@@ -151,9 +130,7 @@ defmodule Mix.Tasks.Rclex.Gen.Srvs do
     file_pathes =
       Enum.reject(
         Path.wildcard(Path.join(dir_path, "lib/rclex/pkgs/*/srv/*.ex")) ++
-          Path.wildcard(Path.join(dir_path, "src/pkgs/*/srv/*.{c,h}")) ++
-          Path.wildcard(Path.join(dir_path, "lib/pkgs/*/action/*.ex")) ++
-          Path.wildcard(Path.join(dir_path, "src/pkgs/*/action/*.{c,h}")),
+          Path.wildcard(Path.join(dir_path, "src/pkgs/*/srv/*.{c,h}")),
         &response_or_request_or_action?/1
       )
 

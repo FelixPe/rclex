@@ -12,7 +12,7 @@ defmodule Mix.Tasks.Rclex.Gen.Action do
   > #### Info {: .info }
   > Be careful, ros2 action type is case sensitive.
 
-  ## How to show service types
+  ## How to show action types
 
   ```
   mix rclex.gen.action --show-types
@@ -24,7 +24,7 @@ defmodule Mix.Tasks.Rclex.Gen.Action do
   mix rclex.gen.action
   ```
 
-  in addition it is required to generate the msg types for requests and responses of each action type by running
+  It is required to generate the msg types for goal, result and feedback of each action type first by running
 
   ```
   mix  rclex.gen.msgs
@@ -93,7 +93,11 @@ defmodule Mix.Tasks.Rclex.Gen.Action do
       end
     end
 
-    File.write!(Path.join(to, "lib/rclex/action_funcs.ex"), generate_action_funcs_ex(action_types))
+    File.write!(
+      Path.join(to, "lib/rclex/action_funcs.ex"),
+      generate_action_funcs_ex(action_types)
+    )
+
     File.write!(Path.join(to, "src/action_funcs.h"), generate_action_funcs_h(action_types))
     File.write!(Path.join(to, "src/action_funcs.ec"), generate_action_funcs_c(action_types))
   end
@@ -129,7 +133,7 @@ defmodule Mix.Tasks.Rclex.Gen.Action do
 
     file_pathes =
       Enum.reject(
-          Path.wildcard(Path.join(dir_path, "lib/pkgs/*/action/*.ex")) ++
+        Path.wildcard(Path.join(dir_path, "lib/pkgs/*/action/*.ex")) ++
           Path.wildcard(Path.join(dir_path, "src/pkgs/*/action/*.{c,h}")),
         &response_or_request_or_action?/1
       )

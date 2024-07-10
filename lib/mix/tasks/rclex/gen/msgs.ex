@@ -191,9 +191,21 @@ defmodule Mix.Tasks.Rclex.Gen.Msgs do
           Path.wildcard(Path.join(dir_path, "lib/rclex/pkgs/*/msg/*.ex")) ++
             Path.wildcard(Path.join(dir_path, "src/pkgs/*/msg/*.{h,c}")) ++
             Path.wildcard(Path.join(dir_path, "src/pkgs/*/srv/*__request.{h,c}")) ++
-            Path.wildcard(Path.join(dir_path, "lib/rclex/pkgs/*/srv/*_request.ex")) ++
+            Path.wildcard(Path.join(dir_path, "lib/rclex/pkgs/*/srv/*__request.ex")) ++
             Path.wildcard(Path.join(dir_path, "src/pkgs/*/srv/*__response.{h,c}")) ++
-            Path.wildcard(Path.join(dir_path, "lib/rclex/pkgs/*/srv/*_response.ex")) do
+            Path.wildcard(Path.join(dir_path, "lib/rclex/pkgs/*/srv/*__response.ex")) ++
+            Path.wildcard(Path.join(dir_path, "lib/rclex/pkgs/*/action/*__response.ex")) ++
+            Path.wildcard(Path.join(dir_path, "lib/rclex/pkgs/*/action/*__request.ex")) ++
+            Path.wildcard(Path.join(dir_path, "lib/rclex/pkgs/*/action/*__feedback_message.ex")) ++
+            Path.wildcard(Path.join(dir_path, "lib/rclex/pkgs/*/action/*__feedback.ex")) ++
+            Path.wildcard(Path.join(dir_path, "lib/rclex/pkgs/*/action/*__goal.ex")) ++
+            Path.wildcard(Path.join(dir_path, "lib/rclex/pkgs/*/action/*__result.ex")) ++
+            Path.wildcard(Path.join(dir_path, "src/pkgs/*/action/*__response.{h,c}")) ++
+            Path.wildcard(Path.join(dir_path, "src/pkgs/*/action/*__request.{h,c}")) ++
+            Path.wildcard(Path.join(dir_path, "src/pkgs/*/action/*__feedback_message.{h,c}")) ++
+            Path.wildcard(Path.join(dir_path, "src/pkgs/*/action/*__feedback.{h,c}")) ++
+            Path.wildcard(Path.join(dir_path, "src/pkgs/*/action/*__goal.{h,c}")) ++
+            Path.wildcard(Path.join(dir_path, "src/pkgs/*/action/*__result.{h,c}")) do
       File.rm!(file_path)
     end
 
