@@ -201,6 +201,27 @@ defmodule Rclex.Generators.MsgC do
     end
   end
 
+  def enif_get({:builtin_type_array_unbounded, _type = "uint8"}, acc, _ros2_message_type_map) do
+    var = Enum.join(acc.vars, "_")
+    mbr = Enum.join(acc.mbrs, ".")
+    term = Enum.join(acc.terms, "_")
+
+    sequence = "rosidl_runtime_c__uint8__Sequence"
+
+    """
+    ErlNifBinary #{var}_bin;
+    if(!enif_inspect_binary(env, #{term}, &#{var}_bin))
+      return enif_make_badarg(env);
+
+    unsigned int #{var}_length = #{var}_bin.size;
+    #{sequence} #{var};
+    if(!#{sequence}__init(&#{var}, #{var}_length))
+      return enif_make_badarg(env);
+    message_p->#{mbr} = #{var};
+    memcpy(message_p->#{mbr}.data, #{var}_bin.data, #{var}_length);
+    """
+  end
+
   def enif_get({:builtin_type_array_unbounded, type}, acc, ros2_message_type_map) do
     var = Enum.join(acc.vars, "_")
     mbr = Enum.join(acc.mbrs, ".")
@@ -238,6 +259,24 @@ defmodule Rclex.Generators.MsgC do
 
     #{binary}
     }
+    """
+  end
+
+  def enif_get({:builtin_type_array_static, "uint8" = _type, size}, acc, _ros2_message_type_map) do
+    var = Enum.join(acc.vars, "_")
+    mbr = Enum.join(acc.mbrs, ".")
+    term = Enum.join(acc.terms, "_")
+
+    """
+    ErlNifBinary #{var}_bin;
+    if(!enif_inspect_binary(env, #{term}, &#{var}_bin))
+      return enif_make_badarg(env);
+
+    unsigned int #{var}_length = #{var}_bin.size;
+    if(#{var}_length > #{size})
+      return enif_make_badarg(env);
+
+    memcpy(message_p->#{mbr}, #{var}_bin.data, #{var}_length);
     """
   end
 
@@ -416,6 +455,21 @@ defmodule Rclex.Generators.MsgC do
     end
   end
 
+  defp array_for({:unbounded, "uint8" = _type}, acc, ros2_message_type_map) do
+    var = Enum.join(acc.vars, "_")
+    mbr = Enum.join(acc.mbrs, ".")
+
+    """
+    ErlNifBinary #{var}_bin;
+    if(!enif_alloc_binary(message_p->#{mbr}.size, &#{var}_bin))
+      return raise(env, __FILE__, __LINE__);
+
+    memcpy(#{var}_bin.data, message_p->#{mbr}.data, message_p->#{mbr}.size);
+    ERL_NIF_TERM #{var} = enif_make_binary(env, &#{var}_bin);
+
+    """
+  end
+
   defp array_for({:unbounded, _type}, acc, ros2_message_type_map) do
     var = Enum.join(acc.vars, "_")
     mbr = Enum.join(acc.mbrs, ".")
@@ -435,6 +489,21 @@ defmodule Rclex.Generators.MsgC do
     {
     #{binary}
     }
+
+    """
+  end
+
+  defp array_for({:static, "uint8" = _type, size}, acc, _ros2_message_type_map) do
+    var = Enum.join(acc.vars, "_")
+    mbr = Enum.join(acc.mbrs, ".")
+
+    """
+    ErlNifBinary #{var}_bin;
+    if(!enif_alloc_binary(#{size}, &#{var}_bin))
+      return raise(env, __FILE__, __LINE__);
+
+    memcpy(#{var}_bin.data, message_p->#{mbr}, #{size});
+    ERL_NIF_TERM #{var} = enif_make_binary(env, &#{var}_bin);
 
     """
   end
@@ -517,10 +586,20 @@ defmodule Rclex.Generators.MsgC do
     {enif_make_builtin(type, mbr), [acc]}
   end
 
+  defp enif_make_array({:unbounded, "uint8" = _type}, acc) do
+    var = Enum.join(acc.vars, "_")
+    "#{var}"
+  end
+
   defp enif_make_array({:unbounded, _type}, acc) do
     var = Enum.join(acc.vars, "_")
     mbr = Enum.join(acc.mbrs, ".")
     "enif_make_list_from_array(env, #{var}, message_p->#{mbr}.size)"
+  end
+
+  defp enif_make_array({:static, "uint8" = _type, _size}, acc) do
+    var = Enum.join(acc.vars, "_")
+    "#{var}"
   end
 
   defp enif_make_array({:static, _type, size}, acc) do

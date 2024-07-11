@@ -14,8 +14,8 @@ defmodule Rclex.Generators.ActionEx do
   iex> Rclex.Generators.SrvEx.module_name("turtlesim/action/RotateAbsolute")
   "Turtlesim.Action.RotateAbsolute"
   """
-  def module_name(ros2_service_type) do
-    [pkg, interface_type, type] = String.split(ros2_service_type, "/")
+  def module_name(ros2_action_type) do
+    [pkg, interface_type, type] = String.split(ros2_action_type, "/")
 
     pkg =
       pkg
