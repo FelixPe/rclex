@@ -473,6 +473,5 @@ defmodule Rclex.NifBenchmarkTest do
       Rclex.Pkgs.RclInterfaces.Srv.GetParameterTypesResponse.destroy!(msg)
       assert struct_in == struct_out
     end
-
   end
 end
