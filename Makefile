@@ -39,7 +39,7 @@ ROS_CFLAGS  ?= -I$(ROS_DIR)/include
 endif
 
 ROS_LDFLAGS ?= -L$(ROS_DIR)/lib
-ROS_LDFLAGS += -lrcl
+ROS_LDFLAGS += -lrcl -lrcl_action
 
 SRC_C  = $(wildcard $(SRC_DIR)/*.c)
 SRC_H  = $(wildcard $(SRC_DIR)/*.h)
@@ -98,14 +98,21 @@ MSG_TEMPLATES = lib/rclex/msg_funcs.ex src/msg_funcs.h src/msg_funcs.ec
 SRV_TEMPLATES = lib/rclex/srv_funcs.ex src/srv_funcs.h src/srv_funcs.ec
 ACTION_TEMPLATES = lib/rclex/action_funcs.ex src/action_funcs.h src/action_funcs.ec
 
+COLOUR_GREEN=\033[0;32m
+COLOUR_RED=\033[0;31m
+COLOUR_BLUE=\033[0;34m
+END_COLOUR=\033[0m
+
 .PHONY: all
 all: $(OBJ_DIR) $(PRIV_DIR) $(MSG_OBJ_DIR) $(SRV_OBJ_DIR) $(ACTION_OBJ_DIR) $(MSG_TEMPLATES) $(SRV_TEMPLATES) $(ACTION_TEMPLATES) $(NIF_SO)
 
 $(NIF_SO): $(OBJ)
-	$(CC) -o $@ $^ $(LDFLAGS) $(ERL_LDFLAGS) $(ROS_LDFLAGS)
+	@echo "$(COLOUR_BLUE)Linking $@$(END_COLOUR)"
+	@$(CC) -o $@ $^ $(LDFLAGS) $(ERL_LDFLAGS) $(ROS_LDFLAGS)
 
 $(OBJ_DIR)/%.o: $(SRC_DIR)/%.c Makefile $(SRC_H)
-	$(CC) -DROS_DISTRO_$(ROS_DISTRO) -o $@ -c $(CFLAGS) $(ERL_CFLAGS) $(ROS_CFLAGS) $<
+	@echo "$(COLOUR_BLUE)Compiling $@$(END_COLOUR)"
+	@$(CC) -DROS_DISTRO_$(ROS_DISTRO) -o $@ -c $(CFLAGS) $(ERL_CFLAGS) $(ROS_CFLAGS) $<
 
 $(OBJ_DIR) $(PRIV_DIR) $(MSG_OBJ_DIR) $(SRV_OBJ_DIR) $(ACTION_OBJ_DIR):
 	@mkdir -p $@

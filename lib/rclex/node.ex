@@ -60,6 +60,64 @@ defmodule Rclex.Node do
     GenServer.call(server, {:stop_client, service_type, service_name})
   end
 
+  def start_action_server(
+        execute_callback,
+        goal_callback,
+        handle_accepted_callback,
+        cancel_callback,
+        action_type,
+        action_name,
+        name,
+        namespace,
+        clock_type,
+        goal_service_qos,
+        result_service_qos,
+        cancel_service_qos,
+        feedback_topic_qos,
+        status_topic_qos,
+        result_timeout
+      ) do
+    server = name(name, namespace)
+
+    GenServer.call(
+      server,
+      {:start_action_server, execute_callback, goal_callback, handle_accepted_callback,
+       cancel_callback, action_type, action_name, clock_type, goal_service_qos,
+       result_service_qos, cancel_service_qos, feedback_topic_qos, status_topic_qos,
+       result_timeout}
+    )
+  end
+
+  def stop_action_server(action_type, action_name, name, namespace \\ "/") do
+    server = name(name, namespace)
+    GenServer.call(server, {:stop_action_server, action_type, action_name})
+  end
+
+  def start_action_client(
+        action_type,
+        action_name,
+        name,
+        namespace,
+        goal_service_qos,
+        result_service_qos,
+        cancel_service_qos,
+        feedback_topic_qos,
+        status_topic_qos
+      ) do
+    server = name(name, namespace)
+
+    GenServer.call(
+      server,
+      {:start_action_client, action_type, action_name, goal_service_qos, result_service_qos,
+       cancel_service_qos, feedback_topic_qos, status_topic_qos}
+    )
+  end
+
+  def stop_action_client(action_type, action_name, name, namespace \\ "/") do
+    server = name(name, namespace)
+    GenServer.call(server, {:stop_action_client, action_type, action_name})
+  end
+
   def start_timer(period_ms, callback, timer_name, name, namespace \\ "/") do
     server = name(name, namespace)
     GenServer.call(server, {:start_timer, period_ms, callback, timer_name})
@@ -277,6 +335,74 @@ defmodule Rclex.Node do
 
   def handle_call({:stop_client, message_type, service_name}, _from, state) do
     return = ES.stop_client(message_type, service_name, state.name, state.namespace)
+
+    {:reply, return, state}
+  end
+
+  def handle_call(
+        {:start_action_server, execute_callback, goal_callback, handle_accepted_callback,
+         cancel_callback, action_type, action_name, clock_type, goal_service_qos,
+         result_service_qos, cancel_service_qos, feedback_topic_qos, status_topic_qos,
+         result_timeout},
+        _from,
+        state
+      ) do
+    return =
+      ES.start_action_server(
+        state.context,
+        execute_callback,
+        goal_callback,
+        handle_accepted_callback,
+        cancel_callback,
+        state.node,
+        action_type,
+        action_name,
+        state.name,
+        state.namespace,
+        clock_type,
+        goal_service_qos,
+        result_service_qos,
+        cancel_service_qos,
+        feedback_topic_qos,
+        status_topic_qos,
+        result_timeout
+      )
+
+    {:reply, return, state}
+  end
+
+  def handle_call({:stop_action_server, action_type, action_name}, _from, state) do
+    return = ES.stop_action_server(action_type, action_name, state.name, state.namespace)
+
+    {:reply, return, state}
+  end
+
+  def handle_call(
+        {:start_action_client, action_type, action_name, goal_service_qos, result_service_qos,
+         cancel_service_qos, feedback_topic_qos, status_topic_qos},
+        _from,
+        state
+      ) do
+    return =
+      ES.start_action_client(
+        state.context,
+        state.node,
+        action_type,
+        action_name,
+        state.name,
+        state.namespace,
+        goal_service_qos,
+        result_service_qos,
+        cancel_service_qos,
+        feedback_topic_qos,
+        status_topic_qos
+      )
+
+    {:reply, return, state}
+  end
+
+  def handle_call({:stop_action_client, action_type, action_name}, _from, state) do
+    return = ES.stop_action_client(action_type, action_name, state.name, state.namespace)
 
     {:reply, return, state}
   end

@@ -20,6 +20,28 @@ defmodule Rclex.ActionClient do
     {:global, {:action_client, action_type, action_name, name, namespace}}
   end
 
+  def send_goal_async(%request_type{} = goal, action_name, name, namespace \\ "/") do
+    action_type =
+      String.to_existing_atom(String.trim_trailing(to_string(request_type), "_SendGoalRequest"))
+
+    case GenServer.whereis(name(action_type, action_name, name, namespace)) do
+      nil -> {:error, :not_found}
+      {_atom, _node} -> raise("should not happen")
+      pid -> GenServer.call(pid, {:send_goal_async, goal})
+    end
+  end
+
+  def get_result_async(%request_type{} = goal_handle, action_name, name, namespace \\ "/") do
+    action_type =
+      String.to_existing_atom(String.trim_trailing(to_string(request_type), "_SendGoalRequest"))
+
+    case GenServer.whereis(name(action_type, action_name, name, namespace)) do
+      nil -> {:error, :not_found}
+      {_atom, _node} -> raise("should not happen")
+      pid -> GenServer.call(pid, {:get_result_async, goal_handle})
+    end
+  end
+
   def call_async(%request_type{} = request, service_name, name, namespace \\ "/") do
     service_type =
       String.to_existing_atom(String.trim_trailing(to_string(request_type), "Request"))
@@ -39,11 +61,17 @@ defmodule Rclex.ActionClient do
     end
   end
 
-  defp generate_uuid() do
+
+  defmodule UUID do
+    defdelegate create!(param), to: Rclex.Pkgs.UniqueIdentifierMsgs.Msg.UUID
+  end
+
+  defp gen_msg_uuid() do
     unix_time = DateTime.utc_now() |> DateTime.to_unix()
 
     <<_r0::32, r1::16, _r2::4, r3::12, _r4::2, r5::62>> = :crypto.strong_rand_bytes(16)
-    <<unix_time::32, r1::16, 4::4, r3::12, 2::2, r5::62>>
+
+    UUID.create(uuid: <<unix_time::32, r1::16, 4::4, r3::12, 2::2, r5::62>>)
   end
 
   # callbacks
@@ -107,40 +135,20 @@ defmodule Rclex.ActionClient do
         reason,
         %{
           node: node,
-          action_client: action_client,
-          cancel_client_callback_resource: cancel_client_callback_resource,
-          feedback_subscription_callback_resource: feedback_subscription_callback_resource,
-          goal_client_callback_resource: goal_client_callback_resource,
-          result_client_callback_resource: result_client_callback_resource,
-          status_subscription_callback_resource: status_subscription_callback_resource
+          action_client: ac,
+          cancel_client_callback_resource: cancel_client_cr,
+          feedback_subscription_callback_resource: feedback_subscription_cr,
+          goal_client_callback_resource: goal_client_cr,
+          result_client_callback_resource: result_client_cr,
+          status_subscription_callback_resource: status_subscription_cr
         } = state
       ) do
-    Nif.rcl_action_client_clear_cancel_client_callback!(
-      action_client,
-      cancel_client_callback_resource
-    )
-
-    Nif.rcl_action_client_clear_feedback_subscription_callback!(
-      action_client,
-      feedback_subscription_callback_resource
-    )
-
-    Nif.rcl_action_client_clear_goal_client_callback!(
-      action_client,
-      goal_client_callback_resource
-    )
-
-    Nif.rcl_action_client_clear_result_client_callback!(
-      action_client,
-      result_client_callback_resource
-    )
-
-    Nif.rcl_action_client_clear_status_subscription_callback!(
-      action_client,
-      status_subscription_callback_resource
-    )
-
-    Nif.rcl_action_client_fini!(action_client, node)
+    Nif.rcl_action_client_clear_cancel_client_callback!(ac, cancel_client_cr)
+    Nif.rcl_action_client_clear_feedback_subscription_callback!(ac, feedback_subscription_cr)
+    Nif.rcl_action_client_clear_goal_client_callback!(ac, goal_client_cr)
+    Nif.rcl_action_client_clear_result_client_callback!(ac, result_client_cr)
+    Nif.rcl_action_client_clear_status_subscription_callback!(ac, status_subscription_cr)
+    Nif.rcl_action_client_fini!(ac, node)
 
     Logger.debug("#{__MODULE__}: #{inspect(reason)} #{Path.join(state.namespace, state.name)}")
   end

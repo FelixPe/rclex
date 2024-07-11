@@ -6,11 +6,6 @@ defmodule Rclex.ActionServer do
   require Logger
 
   alias Rclex.Nif
-  alias Rclex.Pkgs.ActionMsgs.Msg.GoalInfo
-  alias Rclex.Pkgs.ActionMsgs.Msg.GoalStatus
-
-  @reject 1
-  @accept 2
 
   def start_link(args) do
     action_type = Keyword.fetch!(args, :action_type)
@@ -101,26 +96,14 @@ defmodule Rclex.ActionServer do
           node: node,
           action_server: action_server,
           clock: clock,
-          cancel_service_callback_resource: cancel_service_callback_resource,
-          goal_service_callback_resource: goal_service_callback_resource,
-          result_service_callback_resource: result_service_callback_resource
+          cancel_service_callback_resource: cancel_service_cr,
+          goal_service_callback_resource: goal_service_cr,
+          result_service_callback_resource: result_service_cr
         } = state
       ) do
-    Nif.rcl_action_server_clear_cancel_service_callback!(
-      action_server,
-      cancel_service_callback_resource
-    )
-
-    Nif.rcl_action_server_clear_goal_service_callback!(
-      action_server,
-      goal_service_callback_resource
-    )
-
-    Nif.rcl_action_server_clear_result_service_callback!(
-      action_server,
-      result_service_callback_resource
-    )
-
+    Nif.rcl_action_server_clear_cancel_service_callback!(action_server, cancel_service_cr)
+    Nif.rcl_action_server_clear_goal_service_callback!(action_server, goal_service_cr)
+    Nif.rcl_action_server_clear_result_service_callback!(action_server, result_service_cr)
     Nif.rcl_action_server_fini!(action_server, node)
     Nif.rcl_clock_fini!(clock)
 
@@ -128,21 +111,16 @@ defmodule Rclex.ActionServer do
   end
 
   def handle_continue(nil, %{action_server: action_server} = state) do
-    cancel_service_callback_resource =
-      Nif.rcl_action_server_set_cancel_service_callback!(action_server)
-
-    goal_service_callback_resource =
-      Nif.rcl_action_server_set_goal_service_callback!(action_server)
-
-    result_service_callback_resource =
-      Nif.rcl_action_server_set_result_service_callback!(action_server)
+    cancel_service_cr = Nif.rcl_action_server_set_cancel_service_callback!(action_server)
+    goal_service_cr = Nif.rcl_action_server_set_goal_service_callback!(action_server)
+    result_service_cr = Nif.rcl_action_server_set_result_service_callback!(action_server)
 
     {:noreply,
      %{
        state
-       | cancel_service_callback_resource: cancel_service_callback_resource,
-         goal_service_callback_resource: goal_service_callback_resource,
-         result_service_callback_resource: result_service_callback_resource
+       | cancel_service_callback_resource: cancel_service_cr,
+         goal_service_callback_resource: goal_service_cr,
+         result_service_callback_resource: result_service_cr
      }}
   end
 
