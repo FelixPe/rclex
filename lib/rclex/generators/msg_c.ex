@@ -455,7 +455,7 @@ defmodule Rclex.Generators.MsgC do
     end
   end
 
-  defp array_for({:unbounded, "uint8" = _type}, acc, ros2_message_type_map) do
+  defp array_for({:unbounded, "uint8" = _type}, acc, _ros2_message_type_map) do
     var = Enum.join(acc.vars, "_")
     mbr = Enum.join(acc.mbrs, ".")
 

@@ -33,8 +33,8 @@ defmodule Rclex.ActionServer do
     namespace = Keyword.fetch!(args, :namespace)
     execute_callback = Keyword.fetch!(args, :execute_callback)
     goal_callback = Keyword.fetch!(args, :goal_callback)
-    handle_accepted_callback = Keyword.fetch!(args, :handle_accepted_callback)
-    cancel_callback = Keyword.fetch!(args, :cancel_callback)
+    handle_accepted_callback = Keyword.get(args, :handle_accepted_callback, fn _req -> true end)
+    cancel_callback = Keyword.get(args, :cancel_callback, fn _req -> false end)
     clock_type = Keyword.get(args, :clock_type, :steady_time)
     clock = Nif.rcl_clock_init!(clock_type)
 
@@ -79,14 +79,15 @@ defmodule Rclex.ActionServer do
        action_type: action_type,
        action_name: action_name,
        clock: clock,
+       execute_callback: execute_callback,
        goal_callback: goal_callback,
        handle_accepted_callback: handle_accepted_callback,
        cancel_callback: cancel_callback,
        name: name,
        namespace: namespace,
-       #  request_type: apply(action_type, :request_type, []),
-       #  response_type: apply(action_type, :response_type, []),
-       callback_resource: nil
+       cancel_service_callback_resource: nil,
+       goal_service_callback_resource: nil,
+       result_service_callback_resource: nil
      }, {:continue, nil}}
   end
 
@@ -111,8 +112,8 @@ defmodule Rclex.ActionServer do
   end
 
   def handle_continue(nil, %{action_server: action_server} = state) do
-    cancel_service_cr = Nif.rcl_action_server_set_cancel_service_callback!(action_server)
     goal_service_cr = Nif.rcl_action_server_set_goal_service_callback!(action_server)
+    cancel_service_cr = Nif.rcl_action_server_set_cancel_service_callback!(action_server)
     result_service_cr = Nif.rcl_action_server_set_result_service_callback!(action_server)
 
     {:noreply,

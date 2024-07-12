@@ -42,17 +42,6 @@ defmodule Rclex.ActionClient do
     end
   end
 
-  def call_async(%request_type{} = request, service_name, name, namespace \\ "/") do
-    service_type =
-      String.to_existing_atom(String.trim_trailing(to_string(request_type), "Request"))
-
-    case GenServer.whereis(name(service_type, service_name, name, namespace)) do
-      nil -> {:error, :not_found}
-      {_atom, _node} -> raise("should not happen")
-      pid -> GenServer.call(pid, {:call, request})
-    end
-  end
-
   def action_server_available?(action_type, action_name, name, namespace \\ "/") do
     case GenServer.whereis(name(action_type, action_name, name, namespace)) do
       nil -> {:error, :not_found}
@@ -61,17 +50,20 @@ defmodule Rclex.ActionClient do
     end
   end
 
-
   defmodule UUID do
-    defdelegate create!(param), to: Rclex.Pkgs.UniqueIdentifierMsgs.Msg.UUID
-  end
+    defdelegate unique_identifier_msgs_msg_uuid_set!(msg, tuple), to: Nif
+    defdelegate unique_identifier_msgs_msg_uuid_create!(), to: Nif
+    defdelegate unique_identifier_msgs_msg_uuid_get!(msg), to: Nif
+    defdelegate unique_identifier_msgs_msg_uuid_destroy!(msg), to: Nif
 
-  defp gen_msg_uuid() do
-    unix_time = DateTime.utc_now() |> DateTime.to_unix()
 
-    <<_r0::32, r1::16, _r2::4, r3::12, _r4::2, r5::62>> = :crypto.strong_rand_bytes(16)
-
-    UUID.create(uuid: <<unix_time::32, r1::16, 4::4, r3::12, 2::2, r5::62>>)
+    def gen_msg() do
+      msg = unique_identifier_msgs_msg_uuid_create!()
+      unix_time = DateTime.utc_now() |> DateTime.to_unix()
+      <<_r0::32, r1::16, _r2::4, r3::12, _r4::2, r5::62>> = :crypto.strong_rand_bytes(16)
+      unique_identifier_msgs_msg_uuid_set!(msg, {<<unix_time::32, r1::16, 4::4, r3::12, 2::2, r5::62>>})
+      msg
+    end
   end
 
   # callbacks
@@ -180,20 +172,23 @@ defmodule Rclex.ActionClient do
   end
 
   def handle_call(
-        {:call, request_struct},
+        {:send_goal_async, request_struct},
         _from,
         %{
-          client: client,
-          request_type: request_type,
+          action_client: action_client,
+          action_type: action_type,
           requests: requests
         } = state
       ) do
+
+    request_type = apply(action_type, :send_goal_request_type, [])
+
     request_message = apply(request_type, :create!, [])
 
     {:ok, sequence_number} =
       try do
         :ok = apply(request_type, :set!, [request_message, request_struct])
-        Nif.rcl_send_request!(client, request_message)
+        Nif.rcl_action_send_goal_request!(action_client, request_message)
       after
         :ok = apply(request_type, :destroy!, [request_message])
       end

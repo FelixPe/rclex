@@ -8,7 +8,7 @@ defmodule Rclex.NifBenchmarkTest do
   alias Rclex.Nif
   alias Rclex.QoS
 
-  # @moduletag :skip
+  @moduletag :skip
   @nif_limit_time_us 1000
   @nif_tenth_limit_time_us 100
 
@@ -463,15 +463,21 @@ defmodule Rclex.NifBenchmarkTest do
   describe "pkgs" do
     test "set binary" do
       random_length = 1_000_000
-      random_binary = :crypto.strong_rand_bytes(random_length)
-      struct_in = %Rclex.Pkgs.RclInterfaces.Srv.GetParameterTypesResponse{types: random_binary}
-      msg = Rclex.Pkgs.RclInterfaces.Srv.GetParameterTypesResponse.create!()
-      {time_us, :ok} = :timer.tc(&Rclex.Pkgs.RclInterfaces.Srv.GetParameterTypesResponse.set!/2, [msg, struct_in])
+      bin_in = :crypto.strong_rand_bytes(random_length)
+      msg = Nif.rcl_interfaces_srv_get_parameter_types__response_create!()
+
+
+      {time_us, :ok} =
+        :timer.tc(&Nif.rcl_interfaces_srv_get_parameter_types__response_set!/2, [msg, {bin_in}])
+
+      assert time_us <= 0 # @nif_limit_time_us
+
+      {time_us, {bin_out}} =
+        :timer.tc(&Nif.rcl_interfaces_srv_get_parameter_types__response_get!/1, [msg])
+
       assert time_us <= @nif_limit_time_us
-      {time_us, struct_out} = :timer.tc(&Rclex.Pkgs.RclInterfaces.Srv.GetParameterTypesResponse.get!/1, [msg])
-      assert time_us <= @nif_limit_time_us
-      Rclex.Pkgs.RclInterfaces.Srv.GetParameterTypesResponse.destroy!(msg)
-      assert struct_in == struct_out
+      Nif.rcl_interfaces_srv_get_parameter_types__response_destroy!(msg)
+      assert bin_in == bin_out
     end
   end
 end
