@@ -484,6 +484,11 @@ defmodule Rclex do
   running `mix rclex.gen.action`.
 
   - #{@action_name_doc}
+  -
+  - The purpose of the `cancel_callback` is to decide if a request to cancel an on-going (or queued) goal should be accepted or rejected. The callback should take one parameter containing the cancel request (a goal handle) and must return a CancelResponse value.
+  - The purpose of the `execute_callback` is to execute the action goal and return a result when finished. The callback should take one parameter containing goal request and must return a result struct for the action type.
+  - The purpose of the `goal_callback` is to decide if a new goal should be accepted or rejected. The callback should take the goal request message as a parameter and must return a GoalResponse value.
+  - The `handle_accepted_callback` function is called whenever a new goal has been accepted by this action server. The function should expect an instance of ServerGoalHandle as an argument, which represents a handle to the goal that was accepted. The goal handle can be used to interact with the goal, e.g. publish feedback, update the status, or execute a deferred goal.
 
   ### opts
 

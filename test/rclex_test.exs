@@ -462,7 +462,7 @@ defmodule RclexTest do
       on_exit(fn -> capture_log(fn -> Rclex.stop_node("name") end) end)
 
       %{
-        action_type: Action.RotateAbsolute,
+        action_type: Action.RotateAbsolute
       }
     end
 
