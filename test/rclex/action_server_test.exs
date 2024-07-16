@@ -36,10 +36,13 @@ defmodule Rclex.ActionServerTest do
                name: name,
                namespace: namespace,
                execute_callback: fn _req -> nil end,
-               goal_callback: fn _req -> nil end
+               goal_callback: fn _req ->
+                 %Action.RotateAbsolute_SendGoalResponse{
+                   accepted: false,
+                   stamp: %Rclex.Pkgs.BuiltinInterfaces.Msg.Time{sec: 12_345_678, nanosec: 0}
+                 }
+               end
              )
-
-    Process.sleep(1000)
 
     assert capture_log(fn -> :ok = GenServer.stop(pid, :shutdown) end) =~
              "ActionServer: :shutdown"

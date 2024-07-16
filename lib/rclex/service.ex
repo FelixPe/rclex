@@ -89,13 +89,17 @@ defmodule Rclex.Service do
                         response_message_struct = state.callback.(request_message_struct)
                         response_message = apply(state.response_type, :create!, [])
 
-                        apply(state.response_type, :set!, [
-                          response_message,
-                          response_message_struct
-                        ])
+                        try do
+                          :ok =
+                            apply(state.response_type, :set!, [
+                              response_message,
+                              response_message_struct
+                            ])
 
-                        :ok =
-                          Nif.rcl_send_response!(state.service, request_header, response_message)
+                          :ok = Nif.rcl_send_response!(service, request_header, response_message)
+                        after
+                          :ok = apply(response_type, :destroy!, [response_message])
+                        end
                       end
                     )
 
@@ -160,12 +164,17 @@ defmodule Rclex.Service do
                       response_message_struct = callback.(request_message_struct)
                       response_message = apply(response_type, :create!, [])
 
-                      apply(response_type, :set!, [
-                        response_message,
-                        response_message_struct
-                      ])
+                      try do
+                        :ok =
+                          apply(response_type, :set!, [
+                            response_message,
+                            response_message_struct
+                          ])
 
-                      :ok = Nif.rcl_send_response!(service, request_header, response_message)
+                        :ok = Nif.rcl_send_response!(service, request_header, response_message)
+                      after
+                        :ok = apply(response_type, :destroy!, [response_message])
+                      end
                     end
                   )
 

@@ -6,6 +6,9 @@ defmodule RclexTest do
   alias Rclex.Pkgs.StdMsgs
   alias Rclex.Pkgs.StdSrvs
   alias Rclex.Pkgs.RclInterfaces
+  # alias Rclex.Pkgs.ActionMsgs
+  alias Rclex.Pkgs.Turtlesim.Action
+  alias Rclex.Pkgs.UniqueIdentifierMsgs
   alias Rclex.NodeSupervisor
 
   setup do
@@ -317,6 +320,213 @@ defmodule RclexTest do
         assert Rclex.call_async(request, service_name, name) == :ok
         assert_receive ^response
       end
+    end
+  end
+
+  describe "action server" do
+    setup do
+      :ok = Rclex.start_node("name")
+      on_exit(fn -> capture_log(fn -> Rclex.stop_node("name") end) end)
+
+      execute_callback = fn _req -> nil end
+
+      goal_callback = fn %Action.RotateAbsolute_SendGoalRequest{
+                           goal_id: %UniqueIdentifierMsgs.Msg.UUID{},
+                           goal: %Action.RotateAbsolute_Goal{}
+                         } = req ->
+        IO.puts("#{inspect(req)}")
+
+        %Action.RotateAbsolute_SendGoalResponse{
+          accepted: false,
+          stamp: %Rclex.Pkgs.BuiltinInterfaces.Msg.Time{sec: 12_345_678, nanosec: 0}
+        }
+      end
+
+      handle_accepted_callback = fn _req -> nil end
+      cancel_callback = fn _req -> nil end
+
+      %{
+        action_type: Action.RotateAbsolute,
+        execute_callback: execute_callback,
+        goal_callback: goal_callback,
+        handle_accepted_callback: handle_accepted_callback,
+        cancel_callback: cancel_callback
+      }
+    end
+
+    test "start_action_server/7", %{
+      execute_callback: execute_callback,
+      goal_callback: goal_callback,
+      cancel_callback: cancel_callback,
+      handle_accepted_callback: handle_accepted_callback,
+      action_type: action_type
+    } do
+      assert :ok =
+               Rclex.start_action_server(
+                 execute_callback,
+                 goal_callback,
+                 handle_accepted_callback,
+                 cancel_callback,
+                 action_type,
+                 "/rotate_absolute",
+                 "name"
+               )
+
+      assert {:error, :already_started} =
+               Rclex.start_action_server(
+                 execute_callback,
+                 goal_callback,
+                 handle_accepted_callback,
+                 cancel_callback,
+                 action_type,
+                 "/rotate_absolute",
+                 "name"
+               )
+    end
+
+    test "start_action_server/7, node doesn't exist", %{
+      execute_callback: execute_callback,
+      goal_callback: goal_callback,
+      cancel_callback: cancel_callback,
+      handle_accepted_callback: handle_accepted_callback,
+      action_type: action_type
+    } do
+      assert {:noproc, _} =
+               catch_exit(
+                 Rclex.start_action_server(
+                   execute_callback,
+                   goal_callback,
+                   handle_accepted_callback,
+                   cancel_callback,
+                   action_type,
+                   "/rotate_absolute",
+                   "not_exist"
+                 )
+               )
+    end
+
+    test "start_action_server/7, wrong action name", %{
+      execute_callback: execute_callback,
+      goal_callback: goal_callback,
+      cancel_callback: cancel_callback,
+      handle_accepted_callback: handle_accepted_callback,
+      action_type: action_type
+    } do
+      assert {:error, _} =
+               Rclex.start_action_server(
+                 execute_callback,
+                 goal_callback,
+                 handle_accepted_callback,
+                 cancel_callback,
+                 action_type,
+                 "rotate_absolute",
+                 "name"
+               )
+    end
+
+    test "stop_action_server/3", %{
+      execute_callback: execute_callback,
+      goal_callback: goal_callback,
+      cancel_callback: cancel_callback,
+      handle_accepted_callback: handle_accepted_callback,
+      action_type: action_type
+    } do
+      :ok =
+        Rclex.start_action_server(
+          execute_callback,
+          goal_callback,
+          handle_accepted_callback,
+          cancel_callback,
+          action_type,
+          "/rotate_absolute",
+          "name"
+        )
+
+      assert capture_log(fn ->
+               :ok = Rclex.stop_action_server(action_type, "/rotate_absolute", "name")
+             end) =~ "ActionServer: :shutdown"
+
+      assert {:error, :not_found} =
+               Rclex.stop_action_server(action_type, "/rotate_absolute", "name")
+    end
+
+    test "stop_action_server/3, node doesn't exist", %{action_type: action_type} do
+      assert {:noproc, _} =
+               catch_exit(Rclex.stop_action_server(action_type, "/rotate_absolute", "notexists"))
+    end
+  end
+
+  describe "action client" do
+    setup do
+      :ok = Rclex.start_node("name")
+      on_exit(fn -> capture_log(fn -> Rclex.stop_node("name") end) end)
+
+      %{
+        action_type: Action.RotateAbsolute,
+      }
+    end
+
+    test "start_action_client/3", %{
+      action_type: action_type
+    } do
+      assert :ok =
+               Rclex.start_action_client(
+                 action_type,
+                 "/rotate_absolute",
+                 "name"
+               )
+
+      assert {:error, :already_started} =
+               Rclex.start_action_client(
+                 action_type,
+                 "/rotate_absolute",
+                 "name"
+               )
+    end
+
+    test "start_action_client/3, node doesn't exist", %{
+      action_type: action_type
+    } do
+      assert {:noproc, _} =
+               catch_exit(
+                 Rclex.start_action_client(
+                   action_type,
+                   "/rotate_absolute",
+                   "not_exist"
+                 )
+               )
+    end
+
+    test "start_action_client/3, wrong action name", %{
+      action_type: action_type
+    } do
+      assert {:error, _} =
+               Rclex.start_action_client(
+                 action_type,
+                 "rotate_absolute",
+                 "name"
+               )
+    end
+
+    test "stop_action_client/3", %{action_type: action_type} do
+      :ok =
+        Rclex.start_action_client(
+          action_type,
+          "/rotate_absolute",
+          "name"
+        )
+
+      assert capture_log(fn ->
+               :ok = Rclex.stop_action_client(action_type, "/rotate_absolute", "name")
+             end) =~ "ActionClient: :shutdown"
+
+      assert {:error, :not_found} =
+               Rclex.stop_action_client(action_type, "/rotate_absolute", "name")
+    end
+
+    test "stop_action_client/3, node doesn't exist", %{action_type: action_type} do
+      assert {:noproc, _} =
+               catch_exit(Rclex.stop_action_client(action_type, "/rotate_absolute", "notexists"))
     end
   end
 

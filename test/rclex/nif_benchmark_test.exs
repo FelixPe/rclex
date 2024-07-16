@@ -466,11 +466,11 @@ defmodule Rclex.NifBenchmarkTest do
       bin_in = :crypto.strong_rand_bytes(random_length)
       msg = Nif.rcl_interfaces_srv_get_parameter_types__response_create!()
 
-
       {time_us, :ok} =
         :timer.tc(&Nif.rcl_interfaces_srv_get_parameter_types__response_set!/2, [msg, {bin_in}])
 
-      assert time_us <= 0 # @nif_limit_time_us
+      # @nif_limit_time_us
+      assert time_us <= 0
 
       {time_us, {bin_out}} =
         :timer.tc(&Nif.rcl_interfaces_srv_get_parameter_types__response_get!/1, [msg])

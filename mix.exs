@@ -89,7 +89,9 @@ defmodule Rclex.MixProject do
         Publisher: &(&1[:section] == :publisher),
         Service: &(&1[:section] == :service),
         Subscription: &(&1[:section] == :subscription),
-        Timer: &(&1[:section] == :time)
+        Timer: &(&1[:section] == :time),
+        Action_Server: &(&1[:section] == :action_server),
+        Action_Client: &(&1[:section] == :action_client)
       ]
     ]
   end

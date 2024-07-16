@@ -147,7 +147,7 @@ ERL_NIF_TERM nif_rcl_action_accept_new_goal(ErlNifEnv *env, int argc, const ERL_
   if (goal_handle_p == NULL)
     return raise_with_message(env, __FILE__, __LINE__, rcutils_get_error_string().str);
 
-  void **obj = enif_alloc_resource(rt_rcl_action_goal_handle_p, sizeof(rcl_action_goal_handle_t *));
+  void **obj = enif_alloc_resource(rt_rcl_action_goal_handle, sizeof(rcl_action_goal_handle_t *));
   *obj       = (void *)goal_handle_p;
   ERL_NIF_TERM term = enif_make_resource(env, obj);
   enif_release_resource(obj);
@@ -329,9 +329,8 @@ ERL_NIF_TERM nif_rcl_action_server_get_goal_handles(ErlNifEnv *env, int argc,
   ERL_NIF_TERM *goal_handles_terms = enif_alloc(num_goals * sizeof(ERL_NIF_TERM));
   for (i = 0; i < num_goals; i++) {
     rcl_action_goal_handle_t *goal_handle_p = goal_handles[i];
-    void **obj =
-        enif_alloc_resource(rt_rcl_action_goal_handle_p, sizeof(rcl_action_goal_handle_t *));
-    *obj                  = (void *)goal_handle_p;
+    void **obj = enif_alloc_resource(rt_rcl_action_goal_handle, sizeof(rcl_action_goal_handle_t *));
+    *obj       = (void *)goal_handle_p;
     goal_handles_terms[i] = enif_make_resource(env, obj);
     enif_release_resource(obj);
   }
@@ -562,8 +561,9 @@ static void new_cancel_request_callback(const void *user_data, size_t number_of_
   ErlNifPid *pid_p = (ErlNifPid *)user_data;
 
   ErlNifEnv *env = enif_alloc_env();
-  enif_send(env, pid_p, env,
-            enif_make_tuple(env, 2, atom_new_cancel_request, enif_make_int(env, number_of_events)));
+  enif_send(
+      env, pid_p, env,
+      enif_make_tuple(env, 2, atom_new_cancel_request, enif_make_uint(env, number_of_events)));
   enif_free_env(env);
 }
 
@@ -572,7 +572,7 @@ static void new_goal_request_callback(const void *user_data, size_t number_of_ev
 
   ErlNifEnv *env = enif_alloc_env();
   enif_send(env, pid_p, env,
-            enif_make_tuple(env, 2, atom_new_goal_request, enif_make_int(env, number_of_events)));
+            enif_make_tuple(env, 2, atom_new_goal_request, enif_make_uint(env, number_of_events)));
   enif_free_env(env);
 }
 
@@ -580,8 +580,9 @@ static void new_result_request_callback(const void *user_data, size_t number_of_
   ErlNifPid *pid_p = (ErlNifPid *)user_data;
 
   ErlNifEnv *env = enif_alloc_env();
-  enif_send(env, pid_p, env,
-            enif_make_tuple(env, 2, atom_new_result_request, enif_make_int(env, number_of_events)));
+  enif_send(
+      env, pid_p, env,
+      enif_make_tuple(env, 2, atom_new_result_request, enif_make_uint(env, number_of_events)));
   enif_free_env(env);
 }
 
@@ -725,7 +726,7 @@ ERL_NIF_TERM nif_rcl_action_goal_handle_fini(ErlNifEnv *env, int argc, const ERL
   if (argc != 1) return enif_make_badarg(env);
 
   rcl_action_goal_handle_t *goal_handle_p;
-  if (!enif_get_resource(env, argv[0], rt_rcl_action_goal_handle_p, (void **)&goal_handle_p))
+  if (!enif_get_resource(env, argv[0], rt_rcl_action_goal_handle, (void **)&goal_handle_p))
     return enif_make_badarg(env);
 
   rcl_ret_t rc;

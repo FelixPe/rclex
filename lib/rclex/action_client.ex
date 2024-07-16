@@ -56,12 +56,16 @@ defmodule Rclex.ActionClient do
     defdelegate unique_identifier_msgs_msg_uuid_get!(msg), to: Nif
     defdelegate unique_identifier_msgs_msg_uuid_destroy!(msg), to: Nif
 
-
     def gen_msg() do
       msg = unique_identifier_msgs_msg_uuid_create!()
       unix_time = DateTime.utc_now() |> DateTime.to_unix()
       <<_r0::32, r1::16, _r2::4, r3::12, _r4::2, r5::62>> = :crypto.strong_rand_bytes(16)
-      unique_identifier_msgs_msg_uuid_set!(msg, {<<unix_time::32, r1::16, 4::4, r3::12, 2::2, r5::62>>})
+
+      unique_identifier_msgs_msg_uuid_set!(
+        msg,
+        {<<unix_time::32, r1::16, 4::4, r3::12, 2::2, r5::62>>}
+      )
+
       msg
     end
   end
@@ -180,7 +184,6 @@ defmodule Rclex.ActionClient do
           requests: requests
         } = state
       ) do
-
     request_type = apply(action_type, :send_goal_request_type, [])
 
     request_message = apply(request_type, :create!, [])

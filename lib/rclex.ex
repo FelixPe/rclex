@@ -1,12 +1,22 @@
 defmodule Rclex do
+  alias Rclex.QoS
+
   @moduledoc """
   User API for `#{__MODULE__}`.
   """
 
   @namespace_doc "`:namespace` must lead with \"/\". if not specified, the default is \"/\""
-  @qos_doc "`:qos` if not specified, applied the default which equals return of `Rclex.QoS.profile_default/0`"
+  @clock_type_doc "':clock_type` can be `:system_time`, `:ros_time` or `:steady_time` If not specified, it becomes `:steady_time`."
+  @qos_doc "`:qos` if not specified, applied the default, which equals return of `Rclex.QoS.profile_default/0`"
+  @qos_goal_service_doc "`:goal_service_qos` if not specified, applied the default, which equals return of `Rclex.QoS.profile_services_default/0`"
+  @qos_result_service_doc "`:result_service_qos` if not specified, applied the default, which equals return of `Rclex.QoS.profile_services_default/0`"
+  @qos_cancel_service_doc "`:cancel_service_qos` if not specified, applied the default, which equals return of `Rclex.QoS.profile_services_default/0`"
+  @qos_feedback_topic_doc "`:feedback_topic_qos` if not specified, applied the default, which equals return of `Rclex.QoS.profile_default/0`"
+  @qos_status_topic_doc "`:status_topic_qos` if not specified, applied the default, which equals return of `Rclex.QoS.profile_status_default/0`"
+
   @topic_name_doc "`topic_name` must lead with \"/\". See all [constraints](https://design.ros2.org/articles/topic_and_service_names.html#ros-2-topic-and-service-name-constraints)"
   @service_name_doc "`service_name` must lead with \"/\". See all [constraints](https://design.ros2.org/articles/topic_and_service_names.html#ros-2-topic-and-service-name-constraints)"
+  @action_name_doc "`action_name` must lead with \"/\". See all [constraints](https://design.ros2.org/articles/topic_and_service_names.html#ros-2-topic-and-service-name-constraints)"
   @no_demangle_doc "`:no_demangle` if `true`, return all topics without any demangling. if not specified, the default is `false`"
   @no_mangle_doc "`:no_mangle` if `true`, `topic_name` needs to be a valid middleware topic name, otherwise it should be a valid ROS topic name. if not specified, the default is `false`"
 
@@ -15,6 +25,9 @@ defmodule Rclex do
 
   @typedoc "#{@service_name_doc}."
   @type service_name :: String.t()
+
+  @typedoc "#{@action_name_doc}."
+  @type action_name :: String.t()
 
   @doc """
   Start a ROS node. The name of the node must not be `nil` and cannot coincide with another node of the same name.
@@ -95,7 +108,7 @@ defmodule Rclex do
       when is_atom(message_type) and is_binary(topic_name) and is_binary(node_name) and
              is_list(opts) do
     namespace = Keyword.get(opts, :namespace, "/")
-    qos = Keyword.get(opts, :qos, Rclex.QoS.profile_default())
+    qos = Keyword.get(opts, :qos, QoS.profile_default())
 
     case Rclex.Node.start_publisher(message_type, topic_name, node_name, namespace, qos) do
       {:ok, _pid} -> :ok
@@ -195,14 +208,14 @@ defmodule Rclex do
           message_type :: module(),
           topic_name :: topic_name(),
           node_name :: String.t(),
-          opts :: [namespace: String.t(), qos: Rclex.QoS.t()]
+          opts :: [namespace: String.t(), qos: QoS.t()]
         ) ::
           :ok | {:error, :already_started} | {:error, term()}
   def start_subscription(callback, message_type, topic_name, node_name, opts \\ [])
       when is_function(callback) and is_atom(message_type) and is_binary(topic_name) and
              is_binary(node_name) and is_list(opts) do
     namespace = Keyword.get(opts, :namespace, "/")
-    qos = Keyword.get(opts, :qos, Rclex.QoS.profile_default())
+    qos = Keyword.get(opts, :qos, QoS.profile_default())
 
     case Rclex.Node.start_subscription(
            callback,
@@ -281,14 +294,14 @@ defmodule Rclex do
           service_type :: module(),
           service_name :: service_name(),
           node_name :: String.t(),
-          opts :: [namespace: String.t(), qos: Rclex.QoS.t()]
+          opts :: [namespace: String.t(), qos: QoS.t()]
         ) ::
           :ok | {:error, :already_started} | {:error, term()}
   def start_service(callback, service_type, service_name, node_name, opts \\ [])
       when is_function(callback) and is_atom(service_type) and is_binary(service_name) and
              is_binary(node_name) and is_list(opts) do
     namespace = Keyword.get(opts, :namespace, "/")
-    qos = Keyword.get(opts, :qos, Rclex.QoS.profile_services_default())
+    qos = Keyword.get(opts, :qos, QoS.profile_services_default())
 
     case Rclex.Node.start_service(
            callback,
@@ -371,14 +384,14 @@ defmodule Rclex do
           service_type :: module(),
           service_name :: service_name(),
           node_name :: String.t(),
-          opts :: [namespace: String.t(), qos: Rclex.QoS.t()]
+          opts :: [namespace: String.t(), qos: QoS.t()]
         ) ::
           :ok | {:error, :already_started} | {:error, term()}
   def start_client(callback, service_type, service_name, node_name, opts \\ [])
       when is_function(callback) and is_atom(service_type) and is_binary(service_name) and
              is_binary(node_name) and is_list(opts) do
     namespace = Keyword.get(opts, :namespace, "/")
-    qos = Keyword.get(opts, :qos, Rclex.QoS.profile_services_default())
+    qos = Keyword.get(opts, :qos, QoS.profile_services_default())
 
     case Rclex.Node.start_client(
            callback,
@@ -460,6 +473,238 @@ defmodule Rclex do
              is_list(opts) do
     namespace = Keyword.get(opts, :namespace, "/")
     Rclex.Node.stop_client(service_type, service_name, node_name, namespace)
+  end
+
+  @doc """
+  Start a ROS action server. After calling this function for a ROS action type, it's listening for action goals. The given `node_name` must be valid and the resulting action server is only
+  valid as long as the given node remains valid.
+
+  The message type modules for all requests and responses of the action type can to be generated by running `mix rclex.gen.msgs`,
+  after adding the action type to `config :rclex, ros2_action_types`. The action type is generated by
+  running `mix rclex.gen.action`.
+
+  - #{@action_name_doc}
+
+  ### opts
+
+  - #{@namespace_doc}
+  - #{@qos_goal_service_doc}
+  - #{@qos_result_service_doc}
+  - #{@qos_cancel_service_doc}
+  - #{@qos_feedback_topic_doc}
+  - #{@qos_status_topic_doc}
+  - #{@clock_type_doc}
+  - `:result_timeout`, defines how long the result for a goal will be available after execution. If not defined, it is 10.0 seconds.
+
+  ### Examples
+
+      iex> alias Rclex.Pkgs.Turtlesim.Action
+      iex> Rclex.start_action_server(execute_callback, goal_callback, handle_accepted_callback, cancel_callback, Action.RotateAbsolute, "/rotate_absolute", "node", namespace: "/example")
+      :ok
+      iex> Rclex.start_action_server(execute_callback, goal_callback, handle_accepted_callback, cancel_callback, Action.RotateAbsolute, "/rotate_absolute", "node", namespace: "/example")
+      {:error, :already_started}
+  """
+  @doc section: :action_server
+  @spec start_action_server(
+          execute_callback :: function(),
+          goal_callback :: function(),
+          handle_accepted_callback :: function(),
+          cancel_callback :: function(),
+          action_type :: module(),
+          action_name :: service_name(),
+          node_name :: String.t(),
+          opts :: [
+            namespace: String.t(),
+            goal_service_qos: QoS.t(),
+            result_service_qos: QoS.t(),
+            cancel_service_qos: QoS.t(),
+            feedback_topic_qos: QoS.t(),
+            status_topic_qos: QoS.t(),
+            clock_type: atom(),
+            return_timeout: float()
+          ]
+        ) :: :ok | {:error, :already_started} | {:error, term()}
+  def start_action_server(
+        execute_callback,
+        goal_callback,
+        handle_accepted_callback,
+        cancel_callback,
+        action_type,
+        action_name,
+        node_name,
+        opts \\ []
+      )
+      when is_function(execute_callback) and is_function(goal_callback) and
+             is_function(handle_accepted_callback) and is_function(cancel_callback) and
+             is_atom(action_type) and is_binary(action_name) and is_binary(node_name) and
+             is_list(opts) do
+    namespace = Keyword.get(opts, :namespace, "/")
+    clock_type = Keyword.get(opts, :clock_type, :steady_time)
+    goal_service_qos = Keyword.get(opts, :goal_service_qos, QoS.profile_services_default())
+    result_service_qos = Keyword.get(opts, :result_service_qos, QoS.profile_services_default())
+    cancel_service_qos = Keyword.get(opts, :cancel_service_qos, QoS.profile_services_default())
+    feedback_topic_qos = Keyword.get(opts, :feedback_topic_qos, QoS.profile_default())
+    status_topic_qos = Keyword.get(opts, :status_topic_qos, QoS.profile_status_default())
+    result_timeout = Keyword.get(opts, :result_timeout, 10.0)
+
+    case Rclex.Node.start_action_server(
+           execute_callback,
+           goal_callback,
+           handle_accepted_callback,
+           cancel_callback,
+           action_type,
+           action_name,
+           node_name,
+           namespace,
+           clock_type,
+           goal_service_qos,
+           result_service_qos,
+           cancel_service_qos,
+           feedback_topic_qos,
+           status_topic_qos,
+           result_timeout
+         ) do
+      {:ok, _pid} -> :ok
+      {:error, {:already_started, _pid}} -> {:error, :already_started}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  @doc """
+  Stop a ROS action server. After calling, the node will no longer listen for goals for this server.
+
+  - #{@action_name_doc}
+
+  ### opts
+
+  - #{@namespace_doc}
+
+  ### Examples
+
+      iex> alias Rclex.Pkgs.Turtlesim.Action
+      iex> Rclex.stop_action_server(Action.RotateAbsolute, "/rotate_absolute", "node", namespace: "/example")
+      :ok
+      iex> Rclex.stop_action_server(Action.RotateAbsolute, "/does_not_exist", "node", namespace: "/example")
+      {:error, :not_found}
+  """
+  @doc section: :action_server
+  @spec stop_action_server(
+          action_type :: module(),
+          action_name :: action_name(),
+          node_name :: String.t(),
+          opts :: [namespace: String.t()]
+        ) ::
+          :ok | {:error, :not_found}
+  def stop_action_server(action_type, action_name, node_name, opts \\ [])
+      when is_atom(action_type) and is_binary(action_name) and is_binary(node_name) and
+             is_list(opts) do
+    namespace = Keyword.get(opts, :namespace, "/")
+    Rclex.Node.stop_action_server(action_type, action_name, node_name, namespace)
+  end
+
+  @doc """
+  Start a ROS action client. After calling this function for a ROS action type, goals can be set for the action server. The given `node_name` must be valid and the resulting action client is only
+  valid as long as the given node remains valid.
+
+  The message type modules for all requests and responses of the action type can to be generated by running `mix rclex.gen.msgs`,
+  after adding the action type to `config :rclex, ros2_action_types`. The action type is generated by
+  running `mix rclex.gen.action`.
+
+  - #{@action_name_doc}
+
+  ### opts
+
+  - #{@namespace_doc}
+  - #{@qos_goal_service_doc}
+  - #{@qos_result_service_doc}
+  - #{@qos_cancel_service_doc}
+  - #{@qos_feedback_topic_doc}
+  - #{@qos_status_topic_doc}
+
+  ### Examples
+
+      iex> alias Rclex.Pkgs.Turtlesim.Action
+      iex> Rclex.start_action_client(Action.RotateAbsolute, "/rotate_absolute", "node", namespace: "/example")
+      :ok
+      iex> Rclex.start_action_client(Action.RotateAbsolute, "/rotate_absolute", "node", namespace: "/example")
+      {:error, :already_started}
+  """
+  @doc section: :action_client
+  @spec start_action_client(
+          action_type :: module(),
+          action_name :: service_name(),
+          node_name :: String.t(),
+          opts :: [
+            namespace: String.t(),
+            goal_service_qos: QoS.t(),
+            result_service_qos: QoS.t(),
+            cancel_service_qos: QoS.t(),
+            feedback_topic_qos: QoS.t(),
+            status_topic_qos: QoS.t()
+          ]
+        ) :: :ok | {:error, :already_started} | {:error, term()}
+  def start_action_client(
+        action_type,
+        action_name,
+        node_name,
+        opts \\ []
+      )
+      when is_atom(action_type) and is_binary(action_name) and is_binary(node_name) and
+             is_list(opts) do
+    namespace = Keyword.get(opts, :namespace, "/")
+    goal_service_qos = Keyword.get(opts, :goal_service_qos, QoS.profile_services_default())
+    result_service_qos = Keyword.get(opts, :result_service_qos, QoS.profile_services_default())
+    cancel_service_qos = Keyword.get(opts, :cancel_service_qos, QoS.profile_services_default())
+    feedback_topic_qos = Keyword.get(opts, :feedback_topic_qos, QoS.profile_default())
+    status_topic_qos = Keyword.get(opts, :status_topic_qos, QoS.profile_status_default())
+
+    case Rclex.Node.start_action_client(
+           action_type,
+           action_name,
+           node_name,
+           namespace,
+           goal_service_qos,
+           result_service_qos,
+           cancel_service_qos,
+           feedback_topic_qos,
+           status_topic_qos
+         ) do
+      {:ok, _pid} -> :ok
+      {:error, {:already_started, _pid}} -> {:error, :already_started}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  @doc """
+  Stop a ROS action client. After calling, the node will no longer be able to communicate with the action server.
+
+  - #{@action_name_doc}
+
+  ### opts
+
+  - #{@namespace_doc}
+
+  ### Examples
+
+      iex> alias Rclex.Pkgs.Turtlesim.Action
+      iex> Rclex.stop_action_client(Action.RotateAbsolute, "/rotate_absolute", "node", namespace: "/example")
+      :ok
+      iex> Rclex.stop_action_client(Action.RotateAbsolute, "/does_not_exist", "node", namespace: "/example")
+      {:error, :not_found}
+  """
+  @doc section: :action_client
+  @spec stop_action_client(
+          action_type :: module(),
+          action_name :: action_name(),
+          node_name :: String.t(),
+          opts :: [namespace: String.t()]
+        ) ::
+          :ok | {:error, :not_found}
+  def stop_action_client(action_type, action_name, node_name, opts \\ [])
+      when is_atom(action_type) and is_binary(action_name) and is_binary(node_name) and
+             is_list(opts) do
+    namespace = Keyword.get(opts, :namespace, "/")
+    Rclex.Node.stop_action_client(action_type, action_name, node_name, namespace)
   end
 
   @doc """
