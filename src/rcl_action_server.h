@@ -39,7 +39,7 @@ ERL_NIF_TERM nif_rcl_action_take_goal_request(ErlNifEnv *env, int argc, const ER
 ERL_NIF_TERM nif_rcl_action_take_result_request(ErlNifEnv *env, int argc,
                                                 const ERL_NIF_TERM argv[]);
 
-ERL_NIF_TERM nif_rcl_action_goal_handle_fini(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
+// ERL_NIF_TERM nif_rcl_action_goal_handle_fini(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
 ERL_NIF_TERM nif_rcl_action_update_goal_state(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
 ERL_NIF_TERM nif_rcl_action_goal_handle_get_info(ErlNifEnv *env, int argc,
                                                  const ERL_NIF_TERM argv[]);

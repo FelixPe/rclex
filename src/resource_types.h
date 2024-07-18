@@ -14,7 +14,7 @@ extern ErlNifResourceType *rt_rcl_wait_set_t;
 extern ErlNifResourceType *rt_rcl_action_goal_handle_t;
 extern ErlNifResourceType *rt_rcl_action_goal_info_t;
 extern ErlNifResourceType *rt_rcl_action_goal_status_array_t;
-extern ErlNifResourceType *rt_rcl_action_cancel_request_t ;
+extern ErlNifResourceType *rt_rcl_action_cancel_request_t;
 extern ErlNifResourceType *rt_rcl_action_cancel_response_t;
 extern ErlNifResourceType *rt_rosidl_message_type_support_t;
 extern ErlNifResourceType *rt_rosidl_service_type_support_t;
