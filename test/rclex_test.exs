@@ -330,16 +330,10 @@ defmodule RclexTest do
 
       execute_callback = fn _req -> nil end
 
-      goal_callback = fn %Action.RotateAbsolute_SendGoalRequest{
-                           goal_id: %UniqueIdentifierMsgs.Msg.UUID{},
-                           goal: %Action.RotateAbsolute_Goal{}
-                         } = req ->
-        IO.puts("#{inspect(req)}")
+      goal_callback = fn %Action.RotateAbsolute_Goal{} = goal ->
+        IO.puts("#{inspect(goal)}")
 
-        %Action.RotateAbsolute_SendGoalResponse{
-          accepted: false,
-          stamp: %Rclex.Pkgs.BuiltinInterfaces.Msg.Time{sec: 12_345_678, nanosec: 0}
-        }
+        false # reject
       end
 
       handle_accepted_callback = fn _req -> nil end
@@ -371,6 +365,8 @@ defmodule RclexTest do
                  "/rotate_absolute",
                  "name"
                )
+
+      Process.sleep(20_000)
 
       assert {:error, :already_started} =
                Rclex.start_action_server(

@@ -37,10 +37,7 @@ defmodule Rclex.ActionServerTest do
                namespace: namespace,
                execute_callback: fn _req -> nil end,
                goal_callback: fn _req ->
-                 %Action.RotateAbsolute_SendGoalResponse{
-                   accepted: false,
-                   stamp: %Rclex.Pkgs.BuiltinInterfaces.Msg.Time{sec: 12_345_678, nanosec: 0}
-                 }
+                 false
                end
              )
 

@@ -103,7 +103,8 @@ defmodule Rclex.ActionServer do
        namespace: namespace,
        cancel_service_callback_resource: nil,
        goal_service_callback_resource: nil,
-       result_service_callback_resource: nil
+       result_service_callback_resource: nil,
+       goals: %{}
      }, {:continue, nil}}
   end
 
@@ -182,7 +183,8 @@ defmodule Rclex.ActionServer do
             goal_id = Map.fetch!(request_message_struct, :goal_id)
             goal = Map.fetch!(request_message_struct, :goal)
             goal_info = Nif.rcl_action_get_zero_initialized_goal_info!()
-            Nif.rcl_action_goal_info_set!(goal_info, goal_id.uuid, now(clock))
+            time = now(clock)
+            Nif.rcl_action_goal_info_set!(goal_info, goal_id.uuid, time)
 
             if Nif.rcl_action_server_goal_exists!(action_server, goal_info) do
               raise "goal id exists"
@@ -201,7 +203,7 @@ defmodule Rclex.ActionServer do
                     {:ok, _goal_handle} = Nif.rcl_action_accept_new_goal!(action_server, goal_info)
                   end
 
-                  response_message_struct = gen_goal_response_struct(response_type, accepted, clock)
+                  response_message_struct = gen_goal_response_struct(response_type, accepted, time)
                   response_message = apply(response_type, :create!, [])
 
                   try do
@@ -217,8 +219,16 @@ defmodule Rclex.ActionServer do
                         request_header,
                         response_message
                       )
+                  rescue
+                      e -> dbg(e)
                   after
                     :ok = apply(response_type, :destroy!, [response_message])
+                  end
+
+                  if accepted do
+                    Logger.debug("Goal [#{Base.encode16(goal_id.uuid)}] accepted: #{inspect(goal)}")
+                  else
+                    Logger.debug("Goal [#{Base.encode16(goal_id.uuid)}] rejected: #{inspect(goal)}")
                   end
                 end
               )
@@ -274,6 +284,8 @@ defmodule Rclex.ActionServer do
                         request_header,
                         response_message
                       )
+                  rescue
+                    e -> dbg(e)
                   after
                     :ok = apply(response_type, :destroy!, [response_message])
                   end
@@ -352,14 +364,13 @@ defmodule Rclex.ActionServer do
     Nif.rcl_clock_get_now!(clock)
   end
 
-  defp gen_now_time_struct(clock) do
+  defp gen_now_time_struct(time_ns) do
     time_struct = struct(Rclex.Pkgs.BuiltinInterfaces.Msg.Time)
-    now_ns = now(clock)
-    %{time_struct | :sec => div(now_ns, 1_000_000_000) , :nanosec => rem(now_ns, 1_000_000_000)}
+    %{time_struct | :sec => div(time_ns, 1_000_000_000) , :nanosec => rem(time_ns, 1_000_000_000)}
   end
 
-  defp gen_goal_response_struct(response_type, accepted, clock) do
-    time_struct = gen_now_time_struct(clock)
+  defp gen_goal_response_struct(response_type, accepted, time) do
+    time_struct = gen_now_time_struct(time)
     response_struct = struct(response_type)
     %{response_struct | :accepted => accepted, :stamp => time_struct}
   end

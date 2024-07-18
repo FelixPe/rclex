@@ -396,6 +396,23 @@ defmodule Rclex.Nif do
     :erlang.nif_error(:nif_not_loaded)
   end
 
+  def rcl_action_goal_handle_get_status!(_goal_handle) do
+    :erlang.nif_error(:nif_not_loaded)
+  end
+
+  def rcl_action_goal_handle_is_active!(_goal_handle) do
+    :erlang.nif_error(:nif_not_loaded)
+  end
+
+  def rcl_action_goal_handle_is_cancelable!(_goal_handle) do
+    :erlang.nif_error(:nif_not_loaded)
+  end
+
+  def rcl_action_goal_handle_is_valid!(_goal_handle) do
+    :erlang.nif_error(:nif_not_loaded)
+  end
+
+
   def rcl_action_get_zero_initialized_goal_info!() do
     :erlang.nif_error(:nif_not_loaded)
   end
