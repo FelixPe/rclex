@@ -180,19 +180,24 @@ defmodule Rclex.ActionServer do
           {:ok, request_header} ->
             request_message_struct = apply(request_type, :get!, [request_message])
             goal_id = Map.fetch!(request_message_struct, :goal_id)
-            _goal = Map.fetch!(request_message_struct, :goal)
+            goal = Map.fetch!(request_message_struct, :goal)
+            goal_info = Nif.rcl_action_get_zero_initialized_goal_info!()
+            Nif.rcl_action_goal_info_set!(goal_info, goal_id.uuid, now(clock))
+
+            if Nif.rcl_action_server_goal_exists!(action_server, goal_info) do
+              raise "goal id exists"
+            end
+
             {:ok, _pid} =
               Task.Supervisor.start_child(
                 {:via, PartitionSupervisor, {Rclex.TaskSupervisors, self()}},
                 fn ->
-                  accepted = goal_callback.(request_message_struct)
+                  accepted = goal_callback.(goal)
                   if not is_boolean(accepted) do
                     raise("goal_callback didn't return a boolean.")
                   end
 
                   if accepted do
-                    goal_info = Nif.rcl_action_get_zero_initialized_goal_info!()
-                    Nif.rcl_action_goal_info_set!(goal_info, goal_id.uuid, Nif.rcl_clock_get_now!(clock));
                     {:ok, _goal_handle} = Nif.rcl_action_accept_new_goal!(action_server, goal_info)
                   end
 
@@ -343,9 +348,13 @@ defmodule Rclex.ActionServer do
     {:noreply, state}
   end
 
+  defp now(clock) do
+    Nif.rcl_clock_get_now!(clock)
+  end
+
   defp gen_now_time_struct(clock) do
     time_struct = struct(Rclex.Pkgs.BuiltinInterfaces.Msg.Time)
-    now_ns = Nif.rcl_clock_get_now!(clock)
+    now_ns = now(clock)
     %{time_struct | :sec => div(now_ns, 1_000_000_000) , :nanosec => rem(now_ns, 1_000_000_000)}
   end
 
