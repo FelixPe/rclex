@@ -40,11 +40,12 @@ defmodule Rclex.Generators.MsgEx do
     "wstring" => "\"\""
   }
 
-  def generate(type, ros2_message_type_map) do
+  def generate(type, ros2_message_type_map, ros2_constant_type_map \\ %{}) do
     EEx.eval_file(Path.join(Util.templates_dir_path(), "msg_ex.eex"),
       module_name: module_name(type),
       defstruct_fields: defstruct_fields(type, ros2_message_type_map),
       type_fields: type_fields(type, ros2_message_type_map),
+      constant_fields: constant_fields(type, ros2_constant_type_map),
       function_prefix: Util.type_down_snake(type),
       to_tuple_args_fields: to_tuple_args_fields(type, ros2_message_type_map),
       to_struct_args_fields: to_struct_args_fields(type, ros2_message_type_map),
@@ -91,6 +92,18 @@ defmodule Rclex.Generators.MsgEx do
       end)
       |> then(&"defstruct #{&1}")
     end
+  end
+
+
+  def constant_fields(ros2_message_type, ros2_constant_type_map) do
+    constants = get_constants(ros2_message_type, ros2_constant_type_map)
+
+    Enum.reduce(constants, "", fn [{:builtin_type, type}, name, value], acc ->
+      acc <> case type do
+        "string" -> "def #{String.downcase(name)}, do: \"#{value}\"\n"
+          _ -> "def #{String.downcase(name)}, do: #{value}\n"
+      end
+    end)
   end
 
   def type_fields(ros2_message_type, ros2_message_type_map) do
@@ -253,6 +266,10 @@ defmodule Rclex.Generators.MsgEx do
 
   defp get_fields(ros2_message_type, ros2_message_type_map) do
     Map.get(ros2_message_type_map, {:msg_type, ros2_message_type})
+  end
+
+  defp get_constants(ros2_message_type, ros2_constant_type_map) do
+    Map.get(ros2_constant_type_map, {:msg_type, ros2_message_type}, [])
   end
 
   defp get_array_type(type) do

@@ -56,6 +56,7 @@ defmodule Mix.Tasks.Rclex.Gen.Msgs do
   use Mix.Task
 
   alias Rclex.Parsers.MessageParser
+  alias Rclex.Parsers.ConstantParser
   alias Rclex.Generators.MsgEx
   alias Rclex.Generators.MsgH
   alias Rclex.Generators.MsgC
@@ -152,6 +153,11 @@ defmodule Mix.Tasks.Rclex.Gen.Msgs do
         get_ros2_message_type_map(type, from, acc)
       end)
 
+    ros2_constant_type_map =
+        Enum.reduce(msg_types ++ srv_msg_types ++ action_msg_types, %{}, fn type, acc ->
+          get_ros2_constant_type_map(type, from, acc)
+        end)
+
     types = Map.keys(ros2_message_type_map)
 
     for {:msg_type, type} <- types do
@@ -170,7 +176,7 @@ defmodule Mix.Tasks.Rclex.Gen.Msgs do
       File.mkdir_p!(dir_path_c)
 
       for {dir_path, file_name, binary} <- [
-            {dir_path_ex, "#{type_name}.ex", MsgEx.generate(type, ros2_message_type_map)},
+            {dir_path_ex, "#{type_name}.ex", MsgEx.generate(type, ros2_message_type_map, ros2_constant_type_map)},
             {dir_path_c, "#{type_name}.h", MsgH.generate(type, ros2_message_type_map)},
             {dir_path_c, "#{type_name}.c", MsgC.generate(type, ros2_message_type_map)}
           ] do
@@ -482,6 +488,16 @@ defmodule Mix.Tasks.Rclex.Gen.Msgs do
         path = get_msg_path(ros2_message_type, from)
         path |> File.read!()
     end
+  end
+
+  def get_ros2_constant_type_map(ros2_message_type, from, acc \\ %{}) do
+    {:ok, constants, _rest, _context, _line, _column} =
+      get_msg_definition(ros2_message_type, from)
+      |> ConstantParser.parse()
+
+      constants = Enum.map(constants, fn [type, name, "=", value] -> [type, name, value] end)
+
+      Map.put(acc, {:msg_type, ros2_message_type}, constants)
   end
 
   @doc false
