@@ -412,7 +412,6 @@ defmodule Rclex.Nif do
     :erlang.nif_error(:nif_not_loaded)
   end
 
-
   def rcl_action_get_zero_initialized_goal_info!() do
     :erlang.nif_error(:nif_not_loaded)
   end

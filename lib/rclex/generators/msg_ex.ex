@@ -22,6 +22,24 @@ defmodule Rclex.Generators.MsgEx do
     "wstring" => "String.t()"
   }
 
+  @ros2_elixir_default_map %{
+    "bool" => "false",
+    "byte" => "0",
+    "char" => "0",
+    "float32" => "0.0",
+    "float64" => "0.0",
+    "int8" => "0",
+    "uint8" => "0",
+    "int16" => "0",
+    "uint16" => "0",
+    "int32" => "0",
+    "uint32" => "0",
+    "int64" => "0",
+    "uint64" => "0",
+    "string" => "\"\"",
+    "wstring" => "\"\""
+  }
+
   def generate(type, ros2_message_type_map) do
     EEx.eval_file(Path.join(Util.templates_dir_path(), "msg_ex.eex"),
       module_name: module_name(type),
@@ -48,8 +66,8 @@ defmodule Rclex.Generators.MsgEx do
       |> Enum.map_join(",\n", fn field ->
         # credo:disable-for-next-line Credo.Check.Refactor.Nesting
         case field do
-          [{:builtin_type, _type}, name] ->
-            "#{name}: nil"
+          [{:builtin_type, type}, name] ->
+            "#{name}: #{Map.get(@ros2_elixir_default_map, type, "nil")}"
 
           [{:builtin_type, _type}, name, default] ->
             "#{name}: #{inspect(default)}"

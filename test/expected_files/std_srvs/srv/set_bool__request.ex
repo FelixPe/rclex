@@ -2,7 +2,7 @@ defmodule Rclex.Pkgs.StdSrvs.Srv.SetBoolRequest do
   @moduledoc false
   @behaviour Rclex.MessageBehaviour
 
-  defstruct data: nil
+  defstruct data: false
 
   @type t :: %__MODULE__{data: boolean()}
 

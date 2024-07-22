@@ -2,8 +2,8 @@ defmodule Rclex.Pkgs.StdSrvs.Srv.SetBoolResponse do
   @moduledoc false
   @behaviour Rclex.MessageBehaviour
 
-  defstruct success: nil,
-            message: nil
+  defstruct success: false,
+            message: ""
 
   @type t :: %__MODULE__{success: boolean(), message: String.t()}
 

@@ -64,12 +64,12 @@ defmodule Rclex.Generators.MsgExTest do
 
     for {ros2_message_type, expected} <- [
           {"std_msgs/msg/Empty", "[]"},
-          {"std_msgs/msg/String", "data: nil"},
-          {"std_msgs/msg/MultiArrayDimension", "label: nil,\nsize: nil,\nstride: nil"},
-          {"std_msgs/msg/MultiArrayLayout", "dim: [],\ndata_offset: nil"},
+          {"std_msgs/msg/String", "data: \"\""},
+          {"std_msgs/msg/MultiArrayDimension", "label: \"\",\nsize: 0,\nstride: 0"},
+          {"std_msgs/msg/MultiArrayLayout", "dim: [],\ndata_offset: 0"},
           {"std_msgs/msg/UInt32MultiArray",
            "layout: %Rclex.Pkgs.StdMsgs.Msg.MultiArrayLayout{},\ndata: []"},
-          {"geometry_msgs/msg/Vector3", "x: nil,\ny: nil,\nz: nil"},
+          {"geometry_msgs/msg/Vector3", "x: 0.0,\ny: 0.0,\nz: 0.0"},
           {"geometry_msgs/msg/Twist",
            "linear: %Rclex.Pkgs.GeometryMsgs.Msg.Vector3{},\nangular: %Rclex.Pkgs.GeometryMsgs.Msg.Vector3{}"}
         ] do

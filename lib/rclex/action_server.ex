@@ -183,6 +183,7 @@ defmodule Rclex.ActionServer do
             goal_id = Map.fetch!(request_message_struct, :goal_id)
             goal = Map.fetch!(request_message_struct, :goal)
             goal_info = Nif.rcl_action_get_zero_initialized_goal_info!()
+            # time of acceptance (might be a bit to early here)
             time = now(clock)
             Nif.rcl_action_goal_info_set!(goal_info, goal_id.uuid, time)
 
@@ -194,16 +195,15 @@ defmodule Rclex.ActionServer do
               Task.Supervisor.start_child(
                 {:via, PartitionSupervisor, {Rclex.TaskSupervisors, self()}},
                 fn ->
-                  accepted = goal_callback.(goal)
-                  if not is_boolean(accepted) do
-                    raise("goal_callback didn't return a boolean.")
-                  end
+                  accepted = goal_callback.(goal) == :accepted
 
                   if accepted do
-                    {:ok, _goal_handle} = Nif.rcl_action_accept_new_goal!(action_server, goal_info)
+                    {:ok, goal_handle} = Nif.rcl_action_accept_new_goal!(action_server, goal_info)
                   end
 
-                  response_message_struct = gen_goal_response_struct(response_type, accepted, time)
+                  response_message_struct =
+                    gen_goal_response_struct(response_type, accepted, time)
+
                   response_message = apply(response_type, :create!, [])
 
                   try do
@@ -220,15 +220,19 @@ defmodule Rclex.ActionServer do
                         response_message
                       )
                   rescue
-                      e -> dbg(e)
+                    e -> dbg(e)
                   after
                     :ok = apply(response_type, :destroy!, [response_message])
                   end
 
                   if accepted do
-                    Logger.debug("Goal [#{Base.encode16(goal_id.uuid)}] accepted: #{inspect(goal)}")
+                    Logger.debug(
+                      "Goal [#{Base.encode16(goal_id.uuid)}] accepted: #{inspect(goal)}"
+                    )
                   else
-                    Logger.debug("Goal [#{Base.encode16(goal_id.uuid)}] rejected: #{inspect(goal)}")
+                    Logger.debug(
+                      "Goal [#{Base.encode16(goal_id.uuid)}] rejected: #{inspect(goal)}"
+                    )
                   end
                 end
               )
@@ -307,28 +311,59 @@ defmodule Rclex.ActionServer do
         {:new_result_request, number_of_events},
         %{
           action_server: action_server,
-          action_type: action_type
+          action_type: action_type,
+          goals: goals
         } = state
       )
       when number_of_events > 0 do
     for _ <- 1..number_of_events do
       request_type = apply(action_type, :send_goal_request_type, [])
-      response_type = apply(action_type, :send_goal_response_type, [])
+      response_type = apply(action_type, :get_result_response_type, [])
+      result_type = apply(action_type, :result_type, [])
 
       request_message = apply(request_type, :create!, [])
 
       try do
         case Nif.rcl_action_take_result_request!(action_server, request_message) do
           {:ok, request_header} ->
-            # request_message_struct = apply(request_type, :get!, [request_message])
+            request_message_struct = apply(request_type, :get!, [request_message])
+            goal_id = Map.fetch!(request_message_struct, :goal_id)
+            Logger.debug("Result request for Goal [#{Base.encode16(goal_id.uuid)}] received.")
+
+            response_message_struct =
+              case Map.fetch(goals, goal_id.uuid) do
+                {:ok, goal} ->
+                  result =
+                    gen_result_response_struct(response_type, :unknown, struct(result_type))
+
+                :error ->
+                  Logger.debug(
+                    "Goal [#{Base.encode16(goal_id.uuid)}] in result request is unknown."
+                  )
+
+                  result =
+                    gen_result_response_struct(response_type, :unknown, struct(result_type))
+              end
 
             {:ok, _pid} =
               Task.Supervisor.start_child(
                 {:via, PartitionSupervisor, {Rclex.TaskSupervisors, self()}},
                 fn ->
                   # get result for goal for (request_message_struct)
-                  response_message_struct = nil
                   response_message = apply(response_type, :create!, [])
+
+                  # If no goal with the requested ID exists, then return UNKNOWN status
+                  #                  if bytes(goal_uuid) not in self._goal_handles:
+                  #
+                  #                      result_response = self._action_type.Impl.GetResultService.Response()
+                  #                      result_response.status = GoalStatus.STATUS_UNKNOWN
+                  #                      self._handle.send_result_response(request_header, result_response)
+                  #                      return
+
+                  # There is an accepted goal matching the goal ID, register a callback to send the
+                  # response as soon as it's ready
+                  #                  self._result_futures[bytes(goal_uuid)].add_done_callback(
+                  #                      functools.partial(self._send_result_response, request_header))
 
                   try do
                     :ok =
@@ -364,9 +399,16 @@ defmodule Rclex.ActionServer do
     Nif.rcl_clock_get_now!(clock)
   end
 
+  defp gen_result_response_struct(response_type, status, result)
+       when is_atom(response_type) and is_atom(status) and is_map(result) do
+    status = Rclex.ActionServer.GoalHandle.atom_to_status(status)
+    response_struct = struct(response_type)
+    %{response_struct | :status => status, :result => result}
+  end
+
   defp gen_now_time_struct(time_ns) do
     time_struct = struct(Rclex.Pkgs.BuiltinInterfaces.Msg.Time)
-    %{time_struct | :sec => div(time_ns, 1_000_000_000) , :nanosec => rem(time_ns, 1_000_000_000)}
+    %{time_struct | :sec => div(time_ns, 1_000_000_000), :nanosec => rem(time_ns, 1_000_000_000)}
   end
 
   defp gen_goal_response_struct(response_type, accepted, time) do

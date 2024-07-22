@@ -39,7 +39,8 @@ ERL_NIF_TERM nif_rcl_action_take_goal_request(ErlNifEnv *env, int argc, const ER
 ERL_NIF_TERM nif_rcl_action_take_result_request(ErlNifEnv *env, int argc,
                                                 const ERL_NIF_TERM argv[]);
 
-// ERL_NIF_TERM nif_rcl_action_goal_handle_fini(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
+// ERL_NIF_TERM nif_rcl_action_goal_handle_fini(ErlNifEnv *env, int argc, const ERL_NIF_TERM
+// argv[]);
 ERL_NIF_TERM nif_rcl_action_update_goal_state(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
 ERL_NIF_TERM nif_rcl_action_goal_handle_get_info(ErlNifEnv *env, int argc,
                                                  const ERL_NIF_TERM argv[]);
@@ -53,17 +54,15 @@ ERL_NIF_TERM nif_rcl_action_goal_handle_is_valid(ErlNifEnv *env, int argc,
                                                  const ERL_NIF_TERM argv[]);
 
 ERL_NIF_TERM nif_rcl_action_get_zero_initialized_goal_info(ErlNifEnv *env, int argc,
-                                                 const ERL_NIF_TERM argv[]);
+                                                           const ERL_NIF_TERM argv[]);
 ERL_NIF_TERM nif_rcl_action_get_zero_initialized_goal_status_array(ErlNifEnv *env, int argc,
-                                                 const ERL_NIF_TERM argv[]);
+                                                                   const ERL_NIF_TERM argv[]);
 ERL_NIF_TERM nif_rcl_action_get_zero_initialized_cancel_request(ErlNifEnv *env, int argc,
-                                                 const ERL_NIF_TERM argv[]);
+                                                                const ERL_NIF_TERM argv[]);
 ERL_NIF_TERM nif_rcl_action_get_zero_initialized_cancel_response(ErlNifEnv *env, int argc,
-                                                 const ERL_NIF_TERM argv[]);
+                                                                 const ERL_NIF_TERM argv[]);
 
-ERL_NIF_TERM nif_rcl_action_goal_info_get_uuid(ErlNifEnv *env, int argc,
-                                                 const ERL_NIF_TERM argv[]);
+ERL_NIF_TERM nif_rcl_action_goal_info_get_uuid(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
 ERL_NIF_TERM nif_rcl_action_goal_info_get_stamp(ErlNifEnv *env, int argc,
-                                                 const ERL_NIF_TERM argv[]);
-ERL_NIF_TERM nif_rcl_action_goal_info_set(ErlNifEnv *env, int argc,
-                                                 const ERL_NIF_TERM argv[]);
+                                                const ERL_NIF_TERM argv[]);
+ERL_NIF_TERM nif_rcl_action_goal_info_set(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
