@@ -142,23 +142,25 @@ defmodule Mix.Tasks.Rclex.Gen.Msgs do
       Mix.raise("ros2_message_types is not specified in config.")
     end
 
-    srv_msg_types =
+    msg_types = msg_types ++
       Enum.map(srv_types, fn type -> String.replace_suffix(type, "", "_Request") end) ++
         Enum.map(srv_types, fn type -> String.replace_suffix(type, "", "_Response") end)
 
-    action_msg_types = msg_types_for_actions(action_types)
+    msg_types = msg_types ++ msg_types_for_actions(action_types)
 
     ros2_message_type_map =
-      Enum.reduce(msg_types ++ srv_msg_types ++ action_msg_types, %{}, fn type, acc ->
+      Enum.reduce(msg_types, %{}, fn type, acc ->
         get_ros2_message_type_map(type, from, acc)
       end)
 
+    types = Map.keys(ros2_message_type_map)
+
     ros2_constant_type_map =
-        Enum.reduce(msg_types ++ srv_msg_types ++ action_msg_types, %{}, fn type, acc ->
+        Enum.reduce(types, %{}, fn {:msg_type, type}, acc ->
           get_ros2_constant_type_map(type, from, acc)
         end)
 
-    types = Map.keys(ros2_message_type_map)
+    dbg(ros2_constant_type_map)
 
     for {:msg_type, type} <- types do
       [interfaces, interface_type, type_name] = String.split(type, "/")
