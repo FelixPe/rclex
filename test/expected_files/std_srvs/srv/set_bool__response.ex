@@ -1,4 +1,4 @@
-defmodule Rclex.Pkgs.StdSrvs.Srv.SetBoolResponse do
+defmodule Rclex.Pkgs.StdSrvs.Srv.SetBool.Response do
   @moduledoc false
   @behaviour Rclex.MessageBehaviour
 

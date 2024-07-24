@@ -35,7 +35,7 @@ defmodule Rclex.ServiceTest do
                service_name: "/set_test_bool",
                name: name,
                namespace: namespace,
-               callback: fn _message -> %StdSrvs.Srv.SetBoolResponse{success: true} end
+               callback: fn _message -> %StdSrvs.Srv.SetBool.Response{success: true} end
              )
 
     assert capture_log(fn -> :ok = GenServer.stop(pid, :shutdown) end) =~
@@ -58,7 +58,7 @@ defmodule Rclex.ServiceTest do
                service_name: "set_test_bool",
                name: name,
                namespace: namespace,
-               callback: fn _message -> %StdSrvs.Srv.SetBoolResponse{success: true} end
+               callback: fn _message -> %StdSrvs.Srv.SetBool.Response{success: true} end
              )
   end
 end

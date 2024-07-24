@@ -133,16 +133,16 @@ defmodule Rclex.Pkgs.MsgsTest do
   end
 
   test "rcl_interfaces/srv/GetParameterTypes" do
-    struct = %Rclex.Pkgs.RclInterfaces.Srv.GetParameterTypesResponse{
+    struct = %Rclex.Pkgs.RclInterfaces.Srv.GetParameterTypes.Response{
       types: <<1, 10, 100>>
     }
 
-    Rclex.Pkgs.RclInterfaces.Srv.GetParameterTypesResponse.create!()
-    |> tap(&Rclex.Pkgs.RclInterfaces.Srv.GetParameterTypesResponse.set!(&1, struct))
+    Rclex.Pkgs.RclInterfaces.Srv.GetParameterTypes.Response.create!()
+    |> tap(&Rclex.Pkgs.RclInterfaces.Srv.GetParameterTypes.Response.set!(&1, struct))
     |> tap(fn message ->
-      assert ^struct = Rclex.Pkgs.RclInterfaces.Srv.GetParameterTypesResponse.get!(message)
+      assert ^struct = Rclex.Pkgs.RclInterfaces.Srv.GetParameterTypes.Response.get!(message)
     end)
-    |> tap(&Rclex.Pkgs.RclInterfaces.Srv.GetParameterTypesResponse.destroy!(&1))
+    |> tap(&Rclex.Pkgs.RclInterfaces.Srv.GetParameterTypes.Response.destroy!(&1))
   end
 
   test "action_msgs/msg/GoalInfo" do

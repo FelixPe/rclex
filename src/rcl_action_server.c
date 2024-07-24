@@ -18,12 +18,23 @@ ERL_NIF_TERM atom_action_server_take_failed;
 ERL_NIF_TERM atom_new_cancel_request;
 ERL_NIF_TERM atom_new_goal_request;
 ERL_NIF_TERM atom_new_result_request;
+ERL_NIF_TERM atom_goal_event_execute;
+ERL_NIF_TERM atom_goal_event_cancel_goal;
+ERL_NIF_TERM atom_goal_event_succeed;
+ERL_NIF_TERM atom_goal_event_abort;
+ERL_NIF_TERM atom_goal_event_canceled;
+
 
 void make_action_server_atom(ErlNifEnv *env) {
   atom_new_cancel_request        = enif_make_atom(env, "new_cancel_request");
   atom_new_goal_request          = enif_make_atom(env, "new_goal_request");
   atom_new_result_request        = enif_make_atom(env, "new_result_request");
   atom_action_server_take_failed = enif_make_atom(env, "action_server_take_failed");
+  atom_goal_event_execute = enif_make_atom(env, "goal_event_execute");
+  atom_goal_event_cancel_goal = enif_make_atom(env, "goal_event_cancel_goal");
+  atom_goal_event_succeed = enif_make_atom(env, "goal_event_succeed");
+  atom_goal_event_abort = enif_make_atom(env, "goal_event_abort");
+  atom_goal_event_canceled = enif_make_atom(env, "goal_event_canceled");
 }
 
 ERL_NIF_TERM nif_rcl_action_server_init(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
@@ -154,9 +165,9 @@ ERL_NIF_TERM nif_rcl_action_accept_new_goal(ErlNifEnv *env, int argc, const ERL_
   ERL_NIF_TERM term = enif_make_resource(env, obj);
   enif_release_resource(obj);
 
-  rcl_ret_t rc;
-  rc = rcl_action_goal_handle_fini(goal_handle_p);
-  if (rc != RCL_RET_OK) return raise(env, __FILE__, __LINE__);
+  // rcl_ret_t rc;
+  // rc = rcl_action_goal_handle_fini(goal_handle_p);
+  // if (rc != RCL_RET_OK) return raise(env, __FILE__, __LINE__);
 
   return enif_make_tuple2(env, atom_ok, term);
 }
@@ -182,11 +193,11 @@ ERL_NIF_TERM nif_rcl_action_expire_goals(ErlNifEnv *env, int argc, const ERL_NIF
   ERL_NIF_TERM list = argv[1];
   ERL_NIF_TERM head, tail;
   while (enif_get_list_cell(env, list, &head, &tail)) {
-    rcl_action_goal_info_t **ros_message_pp;
-    if (!enif_get_resource(env, head, rt_ros_message, (void **)&ros_message_pp))
+    rcl_action_goal_info_t *goal_info_p;
+    if (!enif_get_resource(env, head, rt_rcl_action_goal_info_t, (void **)&goal_info_p))
       return enif_make_badarg(env);
 
-    expired_goals[i] = **ros_message_pp;
+    action_msgs__msg__GoalInfo__copy(goal_info_p, &expired_goals[i]);
     i++;
     list = tail;
   }
@@ -209,18 +220,19 @@ ERL_NIF_TERM nif_rcl_action_expire_goals(ErlNifEnv *env, int argc, const ERL_NIF
 
   ERL_NIF_TERM *expired_goals_terms = enif_alloc(num_expired * sizeof(ERL_NIF_TERM));
   for (i = 0; i < num_expired; i++) {
-    rcl_action_goal_info_t *message_p = action_msgs__msg__GoalInfo__create();
-    if (message_p == NULL) {
+
+    rcl_action_goal_info_t *goal_info_p =
+        enif_alloc_resource(rt_rcl_action_goal_info_t, sizeof(rcl_action_goal_info_t));
+
+    if (goal_info_p == NULL) {
       enif_free(expired_goals_terms);
       return raise(env, __FILE__, __LINE__);
     }
 
-    action_msgs__msg__GoalInfo__copy(&expired_goals[i], message_p);
-    void **obj             = enif_alloc_resource(rt_ros_message, sizeof(void *));
-    *obj                   = (void *)message_p;
-    expired_goals_terms[i] = enif_make_resource(env, obj);
+    action_msgs__msg__GoalInfo__copy(&expired_goals[i], goal_info_p);
+    expired_goals_terms[i] = enif_make_resource(env, goal_info_p);
 
-    enif_release_resource(obj);
+    enif_release_resource(goal_info_p);
   }
 
   enif_free(expired_goals);
@@ -753,8 +765,20 @@ ERL_NIF_TERM nif_rcl_action_update_goal_state(ErlNifEnv *env, int argc, const ER
   if (!enif_get_resource(env, argv[0], rt_rcl_action_goal_handle_t, (void **)&goal_handle_p))
     return enif_make_badarg(env);
 
-  int goal_event;
-  if (!enif_get_int(env, argv[1], &goal_event)) return enif_make_badarg(env);
+  rcl_action_goal_event_t goal_event;
+  if (enif_is_identical(argv[1], atom_goal_event_execute)) {
+    goal_event = GOAL_EVENT_EXECUTE;
+  } else if (enif_is_identical(argv[1], atom_goal_event_cancel_goal)) {
+    goal_event = GOAL_EVENT_CANCEL_GOAL;
+  } else if (enif_is_identical(argv[1], atom_goal_event_succeed)) {
+    goal_event = GOAL_EVENT_SUCCEED;
+  } else if (enif_is_identical(argv[1], atom_goal_event_abort)) {
+    goal_event = GOAL_EVENT_ABORT;
+  } else if (enif_is_identical(argv[1], atom_goal_event_canceled)) {
+    goal_event = GOAL_EVENT_CANCELED;
+  } else {
+    return raise(env, __FILE__, __LINE__);
+  }
 
   rcl_ret_t rc;
   rc = rcl_action_update_goal_state(goal_handle_p, goal_event);

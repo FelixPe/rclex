@@ -42,7 +42,7 @@ defmodule Rclex.Generators.MsgEx do
 
   def generate(type, ros2_message_type_map, ros2_constant_type_map \\ %{}) do
     EEx.eval_file(Path.join(Util.templates_dir_path(), "msg_ex.eex"),
-      module_name: module_name(type),
+      module_name: Util.module_name(type),
       defstruct_fields: defstruct_fields(type, ros2_message_type_map),
       type_fields: type_fields(type, ros2_message_type_map),
       constant_fields: constant_fields(type, ros2_constant_type_map),
@@ -83,7 +83,7 @@ defmodule Rclex.Generators.MsgEx do
             "#{name}: #{inspect(default)}"
 
           [{:msg_type, type}, name] ->
-            module_name = module_name(type)
+            module_name = Util.module_name(type)
             "#{name}: %Rclex.Pkgs.#{module_name}{}"
 
           [{:msg_type_array, _type}, name] ->
@@ -94,15 +94,15 @@ defmodule Rclex.Generators.MsgEx do
     end
   end
 
-
   def constant_fields(ros2_message_type, ros2_constant_type_map) do
     constants = get_constants(ros2_message_type, ros2_constant_type_map)
 
     Enum.reduce(constants, "", fn [{:builtin_type, type}, name, value], acc ->
-      acc <> case type do
-        "string" -> "def #{String.downcase(name)}, do: \"#{value}\"\n"
+      acc <>
+        case type do
+          "string" -> "def #{String.downcase(name)}, do: \"#{value}\"\n"
           _ -> "def #{String.downcase(name)}, do: #{value}\n"
-      end
+        end
     end)
   end
 
@@ -128,11 +128,11 @@ defmodule Rclex.Generators.MsgEx do
             "#{name}: list(#{@ros2_elixir_type_map[get_array_type(type)]})"
 
           [{:msg_type, type}, name] ->
-            module_name = module_name(type)
+            module_name = Util.module_name(type)
             "#{name}: %Rclex.Pkgs.#{module_name}{}"
 
           [{:msg_type_array, type}, name] ->
-            module_name = type |> get_array_type() |> module_name()
+            module_name = type |> get_array_type() |> Util.module_name()
             "#{name}: list(%Rclex.Pkgs.#{module_name}{})"
         end
       end)
@@ -181,11 +181,11 @@ defmodule Rclex.Generators.MsgEx do
             "#{name}"
 
           [{:msg_type, type}, name] ->
-            module_name = module_name(type)
+            module_name = Util.module_name(type)
             "Rclex.Pkgs.#{module_name}.to_tuple(#{name})"
 
           [{:msg_type_array, type}, name] ->
-            module_name = type |> get_array_type() |> module_name()
+            module_name = type |> get_array_type() |> Util.module_name()
 
             """
             for struct <- #{name} do
@@ -224,11 +224,11 @@ defmodule Rclex.Generators.MsgEx do
             "#{name}: #{name}"
 
           [{:msg_type, type}, name] ->
-            module_name = module_name(type)
+            module_name = Util.module_name(type)
             "#{name}: Rclex.Pkgs.#{module_name}.to_struct(#{name})"
 
           [{:msg_type_array, type}, name] ->
-            module_name = type |> get_array_type() |> module_name()
+            module_name = type |> get_array_type() |> Util.module_name()
 
             """
             #{name}:
@@ -241,27 +241,6 @@ defmodule Rclex.Generators.MsgEx do
       end)
       |> then(&"%__MODULE__{#{&1}}")
     end
-  end
-
-  @doc """
-  iex> Rclex.Generators.MsgEx.module_name("std_msgs/msg/String")
-  "StdMsgs.Msg.String"
-  """
-  def module_name(ros2_message_type) do
-    [pkg, msg, type] = String.split(ros2_message_type, "/")
-
-    pkg =
-      pkg
-      |> String.replace("/", "_")
-      |> String.split("_")
-      |> Enum.map_join(&String.capitalize(&1))
-
-    type =
-      type
-      |> String.replace_trailing("_Response", "Response")
-      |> String.replace_trailing("_Request", "Request")
-
-    Enum.join([pkg, String.capitalize(msg), type], ".")
   end
 
   defp get_fields(ros2_message_type, ros2_message_type_map) do

@@ -169,8 +169,8 @@ defmodule RclexTest do
       on_exit(fn -> capture_log(fn -> Rclex.stop_node("name") end) end)
 
       %{
-        callback: fn %StdSrvs.Srv.SetBoolRequest{data: data} ->
-          %StdSrvs.Srv.SetBoolResponse{success: data}
+        callback: fn %StdSrvs.Srv.SetBool.Request{data: data} ->
+          %StdSrvs.Srv.SetBool.Response{success: data}
         end
       }
     end
@@ -266,8 +266,8 @@ defmodule RclexTest do
 
       :ok = Rclex.start_node(name)
 
-      service_callback = fn %RclInterfaces.Srv.GetParameterTypesRequest{names: names} ->
-        %RclInterfaces.Srv.GetParameterTypesResponse{
+      service_callback = fn %RclInterfaces.Srv.GetParameterTypes.Request{names: names} ->
+        %RclInterfaces.Srv.GetParameterTypes.Response{
           types: Enum.map_join(names, fn n -> String.length(to_string(n)) end)
         }
       end
@@ -303,15 +303,15 @@ defmodule RclexTest do
     end
 
     test "call_async/4", %{service_name: service_name, name: name} do
-      request = struct(RclInterfaces.Srv.GetParameterTypesRequest, %{names: [~c"test"]})
+      request = struct(RclInterfaces.Srv.GetParameterTypes.Request, %{names: [~c"test"]})
       assert Rclex.call_async(request, "does_not_exist", name) == {:error, :not_found}
 
       for i <- 1..10 do
         names = Enum.map(0..i, fn _ -> ~c"abc" end)
-        request = struct(RclInterfaces.Srv.GetParameterTypesRequest, %{names: names})
+        request = struct(RclInterfaces.Srv.GetParameterTypes.Request, %{names: names})
 
         response =
-          struct(RclInterfaces.Srv.GetParameterTypesResponse, %{
+          struct(RclInterfaces.Srv.GetParameterTypes.Response, %{
             types: Enum.map_join(names, fn n -> String.length(to_string(n)) end)
           })
 
@@ -326,7 +326,9 @@ defmodule RclexTest do
       :ok = Rclex.start_node("name")
       on_exit(fn -> capture_log(fn -> Rclex.stop_node("name") end) end)
 
-      execute_callback = fn _req -> nil end
+      execute_callback = fn %Action.RotateAbsolute.Goal{theta: val} ->
+        %Action.RotateAbsolute.Result{delta: 0.5 * val}
+      end
 
       %{
         action_type: Action.RotateAbsolute,
@@ -343,8 +345,11 @@ defmodule RclexTest do
                  execute_callback,
                  action_type,
                  "/rotate_absolute",
-                 "name"
+                 "name",
+                 goal_callback: fn _req -> :accepted end
                )
+
+      Process.sleep(30_000)
 
       assert {:error, :already_started} =
                Rclex.start_action_server(
@@ -527,8 +532,8 @@ defmodule RclexTest do
       :ok = Rclex.start_publisher(StdMsgs.Msg.String, topic_name, name)
       :ok = Rclex.start_subscription(fn _msg -> nil end, StdMsgs.Msg.String, topic_name, name)
 
-      service_callback = fn %RclInterfaces.Srv.GetParameterTypesRequest{names: names} ->
-        %RclInterfaces.Srv.GetParameterTypesResponse{
+      service_callback = fn %RclInterfaces.Srv.GetParameterTypes.Request{names: names} ->
+        %RclInterfaces.Srv.GetParameterTypes.Response{
           types: Enum.map(names, fn n -> String.length(to_string(n)) end)
         }
       end

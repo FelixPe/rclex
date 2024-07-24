@@ -44,4 +44,34 @@ defmodule Rclex.Generators.Util do
     |> String.replace(~r/([a-z0-9])([A-Z])/, "\\1_\\2")
     |> String.downcase()
   end
+
+
+   @doc """
+  iex> Rclex.Generators.Util.module_name("std_msgs/msg/String")
+  "StdMsgs.Msg.String"
+  """
+  def module_name(ros2_message_type) do
+    [pkg, msg, type] = String.split(ros2_message_type, "/")
+
+    pkg =
+      pkg
+      |> String.replace("/", "_")
+      |> String.split("_")
+      |> Enum.map_join(&String.capitalize(&1))
+
+    type =
+      type
+      |> String.replace_trailing("_Feedback", ".Feedback")
+      |> String.replace_trailing("_Goal", ".Goal")
+      |> String.replace_trailing("_Result", ".Result")
+      |> String.replace_trailing("_FeedbackMessage", ".FeedbackMessage")
+      |> String.replace_trailing("_SendGoal_Request", ".SendGoal.Request")
+      |> String.replace_trailing("_SendGoal_Response", ".SendGoal.Response")
+      |> String.replace_trailing("_GetResult_Request", ".GetResult.Request")
+      |> String.replace_trailing("_GetResult_Response", ".GetResult.Response")
+      |> String.replace_trailing("_Response", ".Response")
+      |> String.replace_trailing("_Request", ".Request")
+
+    Enum.join([pkg, String.capitalize(msg), type], ".")
+  end
 end

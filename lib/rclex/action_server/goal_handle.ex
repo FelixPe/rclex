@@ -59,28 +59,14 @@ defmodule Rclex.ActionServer.GoalHandle do
   end
 
   @state_to_atom %{
-    0 => :unknown,
-    1 => :accepted,
-    2 => :executing,
-    3 => :canceling,
-    4 => :succeeded,
-    5 => :canceled,
-    6 => :aborted
+    0 => :status_unknown,
+    1 => :status_accepted,
+    2 => :status_executing,
+    3 => :status_canceling,
+    4 => :status_succeeded,
+    5 => :status_canceled,
+    6 => :status_aborted
   }
-
-  @atom_to_state %{
-    :unknown => 0,
-    :accepted => 1,
-    :executing => 2,
-    :canceling => 3,
-    :succeeded => 4,
-    :canceled => 5,
-    :aborted => 6
-  }
-
-  defp atom_to_status(value) do
-    Map.fetch!(@atom_to_state, value)
-  end
 
   defp status_to_atom(value) do
     Map.fetch!(@state_to_atom, value)

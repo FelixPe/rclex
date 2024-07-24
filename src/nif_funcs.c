@@ -148,6 +148,7 @@ static ErlNifFunc nif_funcs[] = {
     nif_regular_func(rcl_action_take_goal_request, 2),
     nif_regular_func(rcl_action_take_result_request, 2),
     // nif_regular_func(rcl_action_goal_handle_fini, 1),
+    nif_regular_func(rcl_action_update_goal_state, 2),
     nif_regular_func(rcl_action_goal_handle_get_status, 1),
     nif_regular_func(rcl_action_goal_handle_is_active, 1),
     nif_regular_func(rcl_action_goal_handle_is_cancelable, 1),

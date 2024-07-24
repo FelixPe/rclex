@@ -139,7 +139,6 @@ defmodule Mix.Tasks.Rclex.Gen.Action do
       )
 
     for file_path <- file_pathes do
-      dbg(file_path)
       File.rm!(file_path)
     end
 

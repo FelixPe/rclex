@@ -22,7 +22,7 @@ defmodule Rclex.Client do
 
   def call_async(%request_type{} = request, service_name, name, namespace \\ "/") do
     service_type =
-      String.to_existing_atom(String.trim_trailing(to_string(request_type), "Request"))
+      String.to_existing_atom(String.trim_trailing(to_string(request_type), ".Request"))
 
     case GenServer.whereis(name(service_type, service_name, name, namespace)) do
       nil -> {:error, :not_found}

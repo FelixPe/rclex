@@ -9,10 +9,10 @@ defmodule Rclex.Pkgs.StdSrvs.Srv.SetBool do
   end
 
   def request_type() do
-    Rclex.Pkgs.StdSrvs.Srv.SetBoolRequest
+    Rclex.Pkgs.StdSrvs.Srv.SetBool.Request
   end
 
   def response_type() do
-    Rclex.Pkgs.StdSrvs.Srv.SetBoolResponse
+    Rclex.Pkgs.StdSrvs.Srv.SetBool.Response
   end
 end

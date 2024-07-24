@@ -40,7 +40,6 @@ defmodule Rclex.Parsers.Helpers do
     |> times(min: 0)
   end
 
-
   def field_line(combinator \\ empty()) do
     combinator
     |> optional(whitespace())

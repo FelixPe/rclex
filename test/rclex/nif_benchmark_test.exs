@@ -181,17 +181,17 @@ defmodule Rclex.NifBenchmarkTest do
       service = Nif.rcl_service_init!(node, type_support, ~c"/set_test_bool", qos)
       client = Nif.rcl_client_init!(node, type_support, ~c"/set_test_bool", qos)
 
-      request_struct = %Rclex.Pkgs.StdSrvs.Srv.SetBoolRequest{data: true}
-      request_message = Rclex.Pkgs.StdSrvs.Srv.SetBoolRequest.create!()
-      :ok = Rclex.Pkgs.StdSrvs.Srv.SetBoolRequest.set!(request_message, request_struct)
+      request_struct = %Rclex.Pkgs.StdSrvs.Srv.SetBool.Request{data: true}
+      request_message = Rclex.Pkgs.StdSrvs.Srv.SetBool.Request.create!()
+      :ok = Rclex.Pkgs.StdSrvs.Srv.SetBool.Request.set!(request_message, request_struct)
 
-      response_struct = %Rclex.Pkgs.StdSrvs.Srv.SetBoolResponse{success: true}
-      response_message = Rclex.Pkgs.StdSrvs.Srv.SetBoolResponse.create!()
-      :ok = Rclex.Pkgs.StdSrvs.Srv.SetBoolResponse.set!(response_message, response_struct)
+      response_struct = %Rclex.Pkgs.StdSrvs.Srv.SetBool.Response{success: true}
+      response_message = Rclex.Pkgs.StdSrvs.Srv.SetBool.Response.create!()
+      :ok = Rclex.Pkgs.StdSrvs.Srv.SetBool.Response.set!(response_message, response_struct)
 
       on_exit(fn ->
-        :ok = Rclex.Pkgs.StdSrvs.Srv.SetBoolRequest.destroy!(request_message)
-        :ok = Rclex.Pkgs.StdSrvs.Srv.SetBoolResponse.destroy!(response_message)
+        :ok = Rclex.Pkgs.StdSrvs.Srv.SetBool.Request.destroy!(request_message)
+        :ok = Rclex.Pkgs.StdSrvs.Srv.SetBool.Response.destroy!(response_message)
         :ok = Nif.rcl_client_fini!(client, node)
         :ok = Nif.rcl_service_fini!(service, node)
         :ok = Nif.rcl_node_fini!(node)

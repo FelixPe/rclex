@@ -142,8 +142,9 @@ defmodule Mix.Tasks.Rclex.Gen.Msgs do
       Mix.raise("ros2_message_types is not specified in config.")
     end
 
-    msg_types = msg_types ++
-      Enum.map(srv_types, fn type -> String.replace_suffix(type, "", "_Request") end) ++
+    msg_types =
+      msg_types ++
+        Enum.map(srv_types, fn type -> String.replace_suffix(type, "", "_Request") end) ++
         Enum.map(srv_types, fn type -> String.replace_suffix(type, "", "_Response") end)
 
     msg_types = msg_types ++ msg_types_for_actions(action_types)
@@ -156,11 +157,9 @@ defmodule Mix.Tasks.Rclex.Gen.Msgs do
     types = Map.keys(ros2_message_type_map)
 
     ros2_constant_type_map =
-        Enum.reduce(types, %{}, fn {:msg_type, type}, acc ->
-          get_ros2_constant_type_map(type, from, acc)
-        end)
-
-    dbg(ros2_constant_type_map)
+      Enum.reduce(types, %{}, fn {:msg_type, type}, acc ->
+        get_ros2_constant_type_map(type, from, acc)
+      end)
 
     for {:msg_type, type} <- types do
       [interfaces, interface_type, type_name] = String.split(type, "/")
@@ -178,7 +177,8 @@ defmodule Mix.Tasks.Rclex.Gen.Msgs do
       File.mkdir_p!(dir_path_c)
 
       for {dir_path, file_name, binary} <- [
-            {dir_path_ex, "#{type_name}.ex", MsgEx.generate(type, ros2_message_type_map, ros2_constant_type_map)},
+            {dir_path_ex, "#{type_name}.ex",
+             MsgEx.generate(type, ros2_message_type_map, ros2_constant_type_map)},
             {dir_path_c, "#{type_name}.h", MsgH.generate(type, ros2_message_type_map)},
             {dir_path_c, "#{type_name}.c", MsgC.generate(type, ros2_message_type_map)}
           ] do
@@ -497,9 +497,9 @@ defmodule Mix.Tasks.Rclex.Gen.Msgs do
       get_msg_definition(ros2_message_type, from)
       |> ConstantParser.parse()
 
-      constants = Enum.map(constants, fn [type, name, "=", value] -> [type, name, value] end)
+    constants = Enum.map(constants, fn [type, name, "=", value] -> [type, name, value] end)
 
-      Map.put(acc, {:msg_type, ros2_message_type}, constants)
+    Map.put(acc, {:msg_type, ros2_message_type}, constants)
   end
 
   @doc false

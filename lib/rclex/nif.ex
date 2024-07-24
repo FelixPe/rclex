@@ -400,6 +400,10 @@ defmodule Rclex.Nif do
     :erlang.nif_error(:nif_not_loaded)
   end
 
+  def rcl_action_update_goal_state!(_goal_handle, _status) do
+    :erlang.nif_error(:nif_not_loaded)
+  end
+
   def rcl_action_goal_handle_is_active!(_goal_handle) do
     :erlang.nif_error(:nif_not_loaded)
   end

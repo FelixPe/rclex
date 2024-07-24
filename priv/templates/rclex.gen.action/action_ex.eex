@@ -9,34 +9,34 @@ defmodule Rclex.Pkgs.<%= module_name %> do
   end
 
   def feedback_message_type() do
-    Rclex.Pkgs.<%= module_name %>_FeedbackMessage
+    Rclex.Pkgs.<%= module_name %>.FeedbackMessage
   end
 
   def feedback_type() do
-    Rclex.Pkgs.<%= module_name %>_Feedback
+    Rclex.Pkgs.<%= module_name %>.Feedback
   end
 
   def goal_type() do
-    Rclex.Pkgs.<%= module_name %>_Goal
+    Rclex.Pkgs.<%= module_name %>.Goal
   end
 
   def result_type() do
-    Rclex.Pkgs.<%= module_name %>_Result
+    Rclex.Pkgs.<%= module_name %>.Result
   end
 
   def get_result_request_type() do
-    Rclex.Pkgs.<%= module_name %>_GetResultRequest
+    Rclex.Pkgs.<%= module_name %>.GetResult.Request
   end
 
   def get_result_response_type() do
-    Rclex.Pkgs.<%= module_name %>_GetResultResponse
+    Rclex.Pkgs.<%= module_name %>.GetResult.Response
   end
 
   def send_goal_request_type() do
-    Rclex.Pkgs.<%= module_name %>_SendGoalRequest
+    Rclex.Pkgs.<%= module_name %>.SendGoal.Request
   end
 
   def send_goal_response_type() do
-    Rclex.Pkgs.<%= module_name %>_SendGoalResponse
+    Rclex.Pkgs.<%= module_name %>.SendGoal.Response
   end
 end
