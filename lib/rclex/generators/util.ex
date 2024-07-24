@@ -45,8 +45,7 @@ defmodule Rclex.Generators.Util do
     |> String.downcase()
   end
 
-
-   @doc """
+  @doc """
   iex> Rclex.Generators.Util.module_name("std_msgs/msg/String")
   "StdMsgs.Msg.String"
   """

@@ -713,6 +713,73 @@ defmodule Rclex do
   end
 
   @doc """
+  Send an action goal to a ROS action server asynchronously using an initialized action client. The callback is called with the returned response.
+
+  - #{@action_name_doc}
+
+  ### opts
+
+  - #{@namespace_doc}
+
+  ### Examples
+
+      iex> alias Rclex.Pkgs.Turtlesim.Action
+      iex> Rclex.action_call_async(%Action.RotateAbsolute.Goal{theta: 0.123}, "/rotate_absolute", "node", namespace: "/example")
+      :ok
+  """
+  @doc section: :action_client
+  @spec send_goal_async(
+          goal :: struct(),
+          action_name :: action_name(),
+          node_name :: String.t(),
+          opts :: [namespace: String.t()]
+        ) ::
+          :ok | {:error, :not_found} | {:error, term()}
+  def send_goal_async(goal, action_name, node_name, opts \\ [])
+      when is_binary(action_name) and
+             is_binary(node_name) and is_list(opts) do
+    namespace = Keyword.get(opts, :namespace, "/")
+
+    Rclex.ActionClient.send_goal_async(
+      goal,
+      action_name,
+      node_name,
+      namespace
+    )
+  end
+
+  @doc """
+  Check if the action server is available using an initialized action client.
+
+  - #{@action_name_doc}
+
+  ### opts
+
+  - #{@namespace_doc}
+
+  ### Examples
+
+      iex> alias Rclex.Pkgs.Turtlesim.Action
+      iex> Rclex.action_call_async(Action.RotateAbsolute, "/rotate_absolute", "node", namespace: "/example")
+      :ok
+  """
+  @doc section: :action_client
+  @spec action_server_available?(
+          action_type :: module(),
+          action_name :: action_name(),
+          node_name :: String.t(),
+          opts :: [namespace: String.t()]
+        ) :: boolean() | {:error, :not_found}
+  def action_server_available?(action_type, action_name, node_name, opts \\ [])
+      when is_binary(action_name) and
+             is_binary(node_name) and is_list(opts) do
+    namespace = Keyword.get(opts, :namespace, "/")
+
+    Rclex.ActionClient.action_server_available?(action_type, action_name, node_name, namespace)
+  end
+
+
+  @doc """
   Start a timer. A timer required a period in milliseconds, a callback function, a name and a node. The callback gets called, when the defined period passed.
 
   ### opts

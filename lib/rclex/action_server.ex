@@ -234,9 +234,15 @@ defmodule Rclex.ActionServer do
                 event = Rclex.Pkgs.ActionMsgs.Msg.GoalStatus.status_accepted()
                 :ok = Nif.rcl_action_update_goal_state!(goal_handle, :goal_event_execute)
 
-                dbg("goal status: #{Nif.rcl_action_goal_handle_get_status!(goal_handle)}")
+                dbg("goal status: #{Nif.rcl_action_goal_handle_get_status!(goal_handle)} for #{inspect(goal)}")
 
-                {goal_id.uuid, %{goal: goal, goal_info: goal_info, goal_handle: goal_handle, cancel_requested: false}}
+                {goal_id.uuid,
+                 %{
+                   goal: goal,
+                   goal_info: goal_info,
+                   goal_handle: goal_handle,
+                   cancel_requested: false
+                 }}
               else
                 Logger.debug("Goal [#{Base.encode16(goal_id.uuid)}] rejected: #{inspect(goal)}")
                 nil

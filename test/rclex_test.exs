@@ -349,8 +349,6 @@ defmodule RclexTest do
                  goal_callback: fn _req -> :accepted end
                )
 
-      Process.sleep(30_000)
-
       assert {:error, :already_started} =
                Rclex.start_action_server(
                  execute_callback,
@@ -466,6 +464,38 @@ defmodule RclexTest do
                )
     end
 
+    test "action_server_available?/3", %{
+      action_type: action_type
+    } do
+
+      :ok =
+        Rclex.start_action_client(
+          action_type,
+          "/rotate_absolute",
+          "name"
+        )
+
+      assert false == Rclex.action_server_available?(action_type, "/rotate_absolute", "name")
+
+      execute_callback = fn %Action.RotateAbsolute.Goal{theta: val} ->
+        %Action.RotateAbsolute.Result{delta: 0.5 * val}
+      end
+
+      :ok =
+        Rclex.start_action_server(
+          execute_callback,
+          action_type,
+          "/rotate_absolute",
+          "name"
+        )
+
+
+      assert true == Rclex.action_server_available?(action_type, "/rotate_absolute", "name")
+
+      :ok = Rclex.stop_action_server(action_type, "/rotate_absolute", "name")
+      :ok = Rclex.stop_action_client(action_type, "/rotate_absolute", "name")
+    end
+
     test "stop_action_client/3", %{action_type: action_type} do
       :ok =
         Rclex.start_action_client(
@@ -485,6 +515,61 @@ defmodule RclexTest do
     test "stop_action_client/3, node doesn't exist", %{action_type: action_type} do
       assert {:noproc, _} =
                catch_exit(Rclex.stop_action_client(action_type, "/rotate_absolute", "notexists"))
+    end
+  end
+
+  describe "setting action goals" do
+    setup do
+
+      execute_callback = fn %Action.RotateAbsolute.Goal{theta: val} ->
+        IO.puts("execute callback called")
+        %Action.RotateAbsolute.Result{delta: 0.5 * val}
+      end
+
+      goal_callback =  fn _req ->
+        IO.puts("goal callback called")
+        :accepted
+      end
+
+      action_type = Action.RotateAbsolute
+
+      :ok = Rclex.start_node("name")
+
+      :ok =
+        Rclex.start_action_server(
+          execute_callback,
+          action_type,
+          "/rotate_absolute",
+          "name",
+          goal_callback: goal_callback
+        )
+
+      :ok =
+        Rclex.start_action_client(
+          action_type,
+          "/rotate_absolute",
+          "name"
+        )
+
+      on_exit(fn ->
+        capture_log(fn ->
+          Rclex.stop_action_server(action_type, "/rotate_absolute", "name")
+          Rclex.stop_action_client(action_type, "/rotate_absolute", "name")
+          Rclex.stop_node("name")
+        end)
+      end)
+
+      %{
+        action_type: action_type
+      }
+    end
+
+
+
+    test "send_goal_async/3", %{
+      action_type: action_type
+    } do
+      assert :ok = Rclex.send_goal_async(%Action.RotateAbsolute.Goal{theta: 0.123}, "/rotate_absolute", "name")
     end
   end
 

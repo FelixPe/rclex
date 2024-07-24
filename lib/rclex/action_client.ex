@@ -22,7 +22,7 @@ defmodule Rclex.ActionClient do
 
   def send_goal_async(%request_type{} = goal, action_name, name, namespace \\ "/") do
     action_type =
-      String.to_existing_atom(String.trim_trailing(to_string(request_type), "_SendGoalRequest"))
+      String.to_existing_atom(String.trim_trailing(to_string(request_type), ".Goal"))
 
     case GenServer.whereis(name(action_type, action_name, name, namespace)) do
       nil -> {:error, :not_found}
@@ -33,7 +33,7 @@ defmodule Rclex.ActionClient do
 
   def get_result_async(%request_type{} = goal_handle, action_name, name, namespace \\ "/") do
     action_type =
-      String.to_existing_atom(String.trim_trailing(to_string(request_type), "_SendGoalRequest"))
+      String.to_existing_atom(String.trim_trailing(to_string(request_type), ".SendGoal.Request"))
 
     case GenServer.whereis(name(action_type, action_name, name, namespace)) do
       nil -> {:error, :not_found}
@@ -47,26 +47,6 @@ defmodule Rclex.ActionClient do
       nil -> {:error, :not_found}
       {_atom, _node} -> raise("should not happen")
       pid -> GenServer.call(pid, {:action_server_available})
-    end
-  end
-
-  defmodule UUID do
-    defdelegate unique_identifier_msgs_msg_uuid_set!(msg, tuple), to: Nif
-    defdelegate unique_identifier_msgs_msg_uuid_create!(), to: Nif
-    defdelegate unique_identifier_msgs_msg_uuid_get!(msg), to: Nif
-    defdelegate unique_identifier_msgs_msg_uuid_destroy!(msg), to: Nif
-
-    def gen_msg() do
-      msg = unique_identifier_msgs_msg_uuid_create!()
-      unix_time = DateTime.utc_now() |> DateTime.to_unix()
-      <<_r0::32, r1::16, _r2::4, r3::12, _r4::2, r5::62>> = :crypto.strong_rand_bytes(16)
-
-      unique_identifier_msgs_msg_uuid_set!(
-        msg,
-        {<<unix_time::32, r1::16, 4::4, r3::12, 2::2, r5::62>>}
-      )
-
-      msg
     end
   end
 
@@ -176,7 +156,7 @@ defmodule Rclex.ActionClient do
   end
 
   def handle_call(
-        {:send_goal_async, request_struct},
+        {:send_goal_async, goal_struct},
         _from,
         %{
           action_client: action_client,
@@ -185,7 +165,7 @@ defmodule Rclex.ActionClient do
         } = state
       ) do
     request_type = apply(action_type, :send_goal_request_type, [])
-
+    request_struct = gen_send_goal_request_struct(request_type, goal_struct)
     request_message = apply(request_type, :create!, [])
 
     {:ok, sequence_number} =
@@ -201,7 +181,7 @@ defmodule Rclex.ActionClient do
   end
 
   def handle_call(
-        {:service_server_available},
+        {:action_server_available},
         _from,
         %{
           node: node,
@@ -252,4 +232,17 @@ defmodule Rclex.ActionClient do
 
     {:noreply, Map.put(state, :requests, requests)}
   end
+
+  defp gen_send_goal_request_struct(request_type, goal_struct) do
+    request_struct = struct(request_type)
+    %{request_struct|goal: goal_struct, goal_id: gen_uuid_struct()}
+  end
+
+  defp gen_uuid_struct() do
+    unix_time = DateTime.utc_now() |> DateTime.to_unix()
+    <<_r0::32, r1::16, _r2::4, r3::12, _r4::2, r5::62>> = :crypto.strong_rand_bytes(16)
+    uuid_struct = struct(Rclex.Pkgs.UniqueIdentifierMsgs.Msg.UUID)
+    %{uuid_struct|uuid: <<unix_time::32, r1::16, 4::4, r3::12, 2::2, r5::62>>}
+  end
+
 end

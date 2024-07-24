@@ -24,17 +24,16 @@ ERL_NIF_TERM atom_goal_event_succeed;
 ERL_NIF_TERM atom_goal_event_abort;
 ERL_NIF_TERM atom_goal_event_canceled;
 
-
 void make_action_server_atom(ErlNifEnv *env) {
   atom_new_cancel_request        = enif_make_atom(env, "new_cancel_request");
   atom_new_goal_request          = enif_make_atom(env, "new_goal_request");
   atom_new_result_request        = enif_make_atom(env, "new_result_request");
   atom_action_server_take_failed = enif_make_atom(env, "action_server_take_failed");
-  atom_goal_event_execute = enif_make_atom(env, "goal_event_execute");
-  atom_goal_event_cancel_goal = enif_make_atom(env, "goal_event_cancel_goal");
-  atom_goal_event_succeed = enif_make_atom(env, "goal_event_succeed");
-  atom_goal_event_abort = enif_make_atom(env, "goal_event_abort");
-  atom_goal_event_canceled = enif_make_atom(env, "goal_event_canceled");
+  atom_goal_event_execute        = enif_make_atom(env, "goal_event_execute");
+  atom_goal_event_cancel_goal    = enif_make_atom(env, "goal_event_cancel_goal");
+  atom_goal_event_succeed        = enif_make_atom(env, "goal_event_succeed");
+  atom_goal_event_abort          = enif_make_atom(env, "goal_event_abort");
+  atom_goal_event_canceled       = enif_make_atom(env, "goal_event_canceled");
 }
 
 ERL_NIF_TERM nif_rcl_action_server_init(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
