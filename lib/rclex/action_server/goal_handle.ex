@@ -31,7 +31,8 @@ defmodule Rclex.ActionServer.GoalHandle do
        action_server: action_server,
        goal_info: goal_info,
        goal_request: goal_request,
-       cancel_request: cancel_request
+       cancel_request: cancel_request,
+       action_server_pid: action_server_pid
      }}
   end
 
@@ -57,6 +58,19 @@ defmodule Rclex.ActionServer.GoalHandle do
   def valid?(goal_handle) do
     Nif.rcl_action_goal_handle_is_valid!(goal_handle)
   end
+
+  @doc """
+  Transition the goal state machine, excepting one of the following event:
+   - :goal_event_execute
+   - :goal_event_cancel_goal
+   - :goal_event_succeed
+   - :goal_event_abort
+   - :goal_event_canceled
+  """
+  def update_state(goal_handle, event \\ :goal_event_execute) when is_atom(event) do
+    :ok = Nif.rcl_action_update_goal_state!(goal_handle, event)
+  end
+
 
   @state_to_atom %{
     0 => :status_unknown,

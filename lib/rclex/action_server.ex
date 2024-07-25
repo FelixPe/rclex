@@ -49,7 +49,7 @@ defmodule Rclex.ActionServer do
     namespace = Keyword.fetch!(args, :namespace)
     execute_callback = Keyword.fetch!(args, :execute_callback)
     goal_callback = Keyword.fetch!(args, :goal_callback)
-    handle_accepted_callback = Keyword.get(args, :handle_accepted_callback, fn _req -> true end)
+    handle_accepted_callback = Keyword.get(args, :handle_accepted_callback, fn goal_handle -> true end)
     cancel_callback = Keyword.get(args, :cancel_callback, fn _req -> false end)
     clock_type = Keyword.get(args, :clock_type, :steady_time)
     clock = Nif.rcl_clock_init!(clock_type)
@@ -229,12 +229,7 @@ defmodule Rclex.ActionServer do
               end
 
               if accepted do
-                Logger.debug("Goal [#{Base.encode16(goal_id.uuid)}] accepted: #{inspect(goal)}")
-
-                event = Rclex.Pkgs.ActionMsgs.Msg.GoalStatus.status_accepted()
-                :ok = Nif.rcl_action_update_goal_state!(goal_handle, :goal_event_execute)
-
-                dbg("goal status: #{Nif.rcl_action_goal_handle_get_status!(goal_handle)} for #{inspect(goal)}")
+                Logger.debug("#{__MODULE__}: Goal [#{Base.encode16(goal_id.uuid)}] accepted: #{inspect(goal)}")
 
                 {goal_id.uuid,
                  %{
@@ -244,7 +239,7 @@ defmodule Rclex.ActionServer do
                    cancel_requested: false
                  }}
               else
-                Logger.debug("Goal [#{Base.encode16(goal_id.uuid)}] rejected: #{inspect(goal)}")
+                Logger.debug("#{__MODULE__}: Goal [#{Base.encode16(goal_id.uuid)}] rejected: #{inspect(goal)}")
                 nil
               end
 

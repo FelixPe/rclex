@@ -740,7 +740,6 @@ ERL_NIF_TERM nif_rcl_action_server_clear_result_service_callback(ErlNifEnv *env,
 }
 #endif
 
-/*
 ERL_NIF_TERM nif_rcl_action_goal_handle_fini(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
   if (argc != 1) return enif_make_badarg(env);
 
@@ -755,7 +754,6 @@ ERL_NIF_TERM nif_rcl_action_goal_handle_fini(ErlNifEnv *env, int argc, const ERL
 
   return atom_ok;
 }
-*/
 
 ERL_NIF_TERM nif_rcl_action_update_goal_state(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
   if (argc != 2) return enif_make_badarg(env);

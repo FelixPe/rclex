@@ -521,13 +521,16 @@ defmodule RclexTest do
   describe "setting action goals" do
     setup do
 
+      me = self()
       execute_callback = fn %Action.RotateAbsolute.Goal{theta: val} ->
-        IO.puts("execute callback called")
+        send(me, :execute_callback)
         %Action.RotateAbsolute.Result{delta: 0.5 * val}
       end
 
+
+
       goal_callback =  fn _req ->
-        IO.puts("goal callback called")
+        send(me, :goal_callback)
         :accepted
       end
 
@@ -564,13 +567,18 @@ defmodule RclexTest do
       }
     end
 
-
-
-    test "send_goal_async/3", %{
-      action_type: action_type
-    } do
+    test "send_goal_async/3, goal_callback gets called", %{} do
       assert :ok = Rclex.send_goal_async(%Action.RotateAbsolute.Goal{theta: 0.123}, "/rotate_absolute", "name")
+      assert_receive :goal_callback
     end
+
+    test "send_goal_async/3, execute_callback gets called", %{} do
+      assert :ok = Rclex.send_goal_async(%Action.RotateAbsolute.Goal{theta: 0.123}, "/rotate_absolute", "name")
+      assert_receive :goal_callback
+      # assert_receive :execute_callback
+    end
+
+
   end
 
   describe "timer" do
