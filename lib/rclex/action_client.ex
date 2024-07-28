@@ -193,35 +193,38 @@ defmodule Rclex.ActionClient do
   end
 
   def handle_info(
-        {:new_response, number_of_events},
+        {:new_goal_response, number_of_events},
         %{
-          client: client,
-          callback: callback,
-          response_type: response_type,
+          action_client: action_client,
+          action_type: action_type,
           requests: requests
         } = state
       )
       when number_of_events > 0 do
+    response_type = apply(action_type, :send_goal_response_type, [])
+
     requests =
       Enum.reduce(1..number_of_events, requests, fn _i, requests ->
         response_message = apply(response_type, :create!, [])
 
         try do
           {:ok, response_sequence_number} =
-            Nif.rcl_take_response_with_info!(client, response_message)
+            Nif.rcl_action_take_goal_response!(action_client, response_message)
 
           response_struct = apply(response_type, :get!, [response_message])
 
           {request_struct, requests} = Map.pop(requests, response_sequence_number)
 
           if request_struct do
-            {:ok, _pid} =
-              Task.Supervisor.start_child(
-                {:via, PartitionSupervisor, {Rclex.TaskSupervisors, self()}},
-                fn ->
-                  callback.(request_struct, response_struct)
-                end
-              )
+            Logger.debug("goal got #{inspect(response_struct)} for #{inspect(request_struct)}")
+            # {:ok, _pid} =
+
+            # Task.Supervisor.start_child(
+            #  {:via, PartitionSupervisor, {Rclex.TaskSupervisors, self()}},
+            #  fn ->
+            #    callback.(request_struct, response_struct)
+            #  end
+            # )
           end
 
           requests
@@ -235,14 +238,13 @@ defmodule Rclex.ActionClient do
 
   defp gen_send_goal_request_struct(request_type, goal_struct) do
     request_struct = struct(request_type)
-    %{request_struct|goal: goal_struct, goal_id: gen_uuid_struct()}
+    %{request_struct | goal: goal_struct, goal_id: gen_uuid_struct()}
   end
 
   defp gen_uuid_struct() do
     unix_time = DateTime.utc_now() |> DateTime.to_unix()
     <<_r0::32, r1::16, _r2::4, r3::12, _r4::2, r5::62>> = :crypto.strong_rand_bytes(16)
     uuid_struct = struct(Rclex.Pkgs.UniqueIdentifierMsgs.Msg.UUID)
-    %{uuid_struct|uuid: <<unix_time::32, r1::16, 4::4, r3::12, 2::2, r5::62>>}
+    %{uuid_struct | uuid: <<unix_time::32, r1::16, 4::4, r3::12, 2::2, r5::62>>}
   end
-
 end

@@ -270,13 +270,34 @@ ERL_NIF_TERM nif_rcl_action_process_cancel_request(ErlNifEnv *env, int argc,
   if (!enif_get_resource(env, argv[1], rt_ros_message, (void **)&cancel_request_message_pp))
     return enif_make_badarg(env);
 
-  rcl_action_cancel_response_t **cancel_response_message_pp;
+  action_msgs__srv__CancelGoal_Response **cancel_response_message_pp;
   if (!enif_get_resource(env, argv[2], rt_ros_message, (void **)&cancel_response_message_pp))
     return enif_make_badarg(env);
 
+  rcl_action_cancel_response_t *cancel_response_p =
+      enif_alloc(sizeof(rcl_action_cancel_response_t));
+  *cancel_response_p = rcl_action_get_zero_initialized_cancel_response();
+
   rcl_ret_t rc;
   rc = rcl_action_process_cancel_request(action_server_p, *cancel_request_message_pp,
-                                         *cancel_response_message_pp);
+                                         cancel_response_p);
+  if (rc != RCL_RET_OK) {
+    rcl_ret_t rc_fini;
+    rc_fini = rcl_action_cancel_response_fini(cancel_response_p);
+    enif_free(cancel_response_p);
+    if (rc_fini != RCL_RET_OK)
+      return raise_with_message(env, __FILE__, __LINE__, rcutils_get_error_string().str);
+    else
+      return raise_with_message(env, __FILE__, __LINE__, rcutils_get_error_string().str);
+  }
+
+  **cancel_response_message_pp = cancel_response_p->msg;
+
+  rcl_ret_t rc_fini;
+  rc_fini = rcl_action_cancel_response_fini(cancel_response_p);
+  enif_free(cancel_response_p);
+  if (rc_fini != RCL_RET_OK)
+    return raise_with_message(env, __FILE__, __LINE__, rcutils_get_error_string().str);
   if (rc != RCL_RET_OK) {
     return raise_with_message(env, __FILE__, __LINE__, rcutils_get_error_string().str);
   }
@@ -956,8 +977,26 @@ ERL_NIF_TERM nif_rcl_action_goal_info_get_stamp(ErlNifEnv *env, int argc,
   return enif_make_uint64(env, goal_info_p->stamp.sec * 1000000000ll + goal_info_p->stamp.nanosec);
 }
 
-ERL_NIF_TERM nif_rcl_action_goal_info_set(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
-  if (argc != 3) return enif_make_badarg(env);
+ERL_NIF_TERM nif_rcl_action_goal_info_set_stamp(ErlNifEnv *env, int argc,
+                                                const ERL_NIF_TERM argv[]) {
+  if (argc != 2) return enif_make_badarg(env);
+
+  rcl_action_goal_info_t *goal_info_p;
+  if (!enif_get_resource(env, argv[0], rt_rcl_action_goal_info_t, (void **)&goal_info_p))
+    return enif_make_badarg(env);
+
+  uint64_t time_ns;
+  if (!enif_get_uint64(env, argv[1], &time_ns)) return enif_make_badarg(env);
+
+  goal_info_p->stamp.sec     = time_ns / 1000000000ll;
+  goal_info_p->stamp.nanosec = time_ns % 1000000000ll;
+
+  return atom_ok;
+}
+
+ERL_NIF_TERM nif_rcl_action_goal_info_set_uuid(ErlNifEnv *env, int argc,
+                                               const ERL_NIF_TERM argv[]) {
+  if (argc != 2) return enif_make_badarg(env);
 
   rcl_action_goal_info_t *goal_info_p;
   if (!enif_get_resource(env, argv[0], rt_rcl_action_goal_info_t, (void **)&goal_info_p))
@@ -968,13 +1007,7 @@ ERL_NIF_TERM nif_rcl_action_goal_info_set(ErlNifEnv *env, int argc, const ERL_NI
 
   unsigned int goal_id_uuid_length = goal_id_uuid_bin.size;
   if (goal_id_uuid_length > 16) return enif_make_badarg(env);
-
-  uint64_t time_ns;
-  if (!enif_get_uint64(env, argv[2], &time_ns)) return enif_make_badarg(env);
-
   memcpy(goal_info_p->goal_id.uuid, goal_id_uuid_bin.data, goal_id_uuid_length);
-  goal_info_p->stamp.sec     = time_ns / 1000000000ll;
-  goal_info_p->stamp.nanosec = time_ns % 1000000000ll;
 
   return atom_ok;
 }

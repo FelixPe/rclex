@@ -64,4 +64,6 @@ ERL_NIF_TERM nif_rcl_action_get_zero_initialized_cancel_response(ErlNifEnv *env,
 ERL_NIF_TERM nif_rcl_action_goal_info_get_uuid(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
 ERL_NIF_TERM nif_rcl_action_goal_info_get_stamp(ErlNifEnv *env, int argc,
                                                 const ERL_NIF_TERM argv[]);
-ERL_NIF_TERM nif_rcl_action_goal_info_set(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
+ERL_NIF_TERM nif_rcl_action_goal_info_set_uuid(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
+ERL_NIF_TERM nif_rcl_action_goal_info_set_stamp(ErlNifEnv *env, int argc,
+                                                const ERL_NIF_TERM argv[]);

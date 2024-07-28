@@ -346,7 +346,7 @@ defmodule RclexTest do
                  action_type,
                  "/rotate_absolute",
                  "name",
-                 goal_callback: fn _req -> :accepted end
+                 goal_callback: fn _req -> :accept end
                )
 
       assert {:error, :already_started} =
@@ -467,7 +467,6 @@ defmodule RclexTest do
     test "action_server_available?/3", %{
       action_type: action_type
     } do
-
       :ok =
         Rclex.start_action_client(
           action_type,
@@ -489,11 +488,16 @@ defmodule RclexTest do
           "name"
         )
 
-
+      Process.sleep(10)
       assert true == Rclex.action_server_available?(action_type, "/rotate_absolute", "name")
 
-      :ok = Rclex.stop_action_server(action_type, "/rotate_absolute", "name")
-      :ok = Rclex.stop_action_client(action_type, "/rotate_absolute", "name")
+      assert capture_log(fn ->
+               :ok = Rclex.stop_action_server(action_type, "/rotate_absolute", "name")
+             end) =~ "ActionServer: :shutdown"
+
+      assert capture_log(fn ->
+               :ok = Rclex.stop_action_client(action_type, "/rotate_absolute", "name")
+             end) =~ "ActionClient: :shutdown"
     end
 
     test "stop_action_client/3", %{action_type: action_type} do
@@ -520,18 +524,16 @@ defmodule RclexTest do
 
   describe "setting action goals" do
     setup do
-
       me = self()
+
       execute_callback = fn %Action.RotateAbsolute.Goal{theta: val} ->
         send(me, :execute_callback)
         %Action.RotateAbsolute.Result{delta: 0.5 * val}
       end
 
-
-
-      goal_callback =  fn _req ->
+      goal_callback = fn _req ->
         send(me, :goal_callback)
-        :accepted
+        :accept
       end
 
       action_type = Action.RotateAbsolute
@@ -568,17 +570,30 @@ defmodule RclexTest do
     end
 
     test "send_goal_async/3, goal_callback gets called", %{} do
-      assert :ok = Rclex.send_goal_async(%Action.RotateAbsolute.Goal{theta: 0.123}, "/rotate_absolute", "name")
+      #      assert capture_log(fn ->
+      :ok =
+        Rclex.send_goal_async(
+          %Action.RotateAbsolute.Goal{theta: 0.123},
+          "/rotate_absolute",
+          "name"
+        )
+
+      # end) =~ "ActionServer: Goal"
+
       assert_receive :goal_callback
     end
 
     test "send_goal_async/3, execute_callback gets called", %{} do
-      assert :ok = Rclex.send_goal_async(%Action.RotateAbsolute.Goal{theta: 0.123}, "/rotate_absolute", "name")
+      assert :ok =
+               Rclex.send_goal_async(
+                 %Action.RotateAbsolute.Goal{theta: 0.123},
+                 "/rotate_absolute",
+                 "name"
+               )
+
       assert_receive :goal_callback
-      # assert_receive :execute_callback
+      #  assert_receive :execute_callback
     end
-
-
   end
 
   describe "timer" do

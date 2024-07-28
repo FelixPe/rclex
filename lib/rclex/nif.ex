@@ -432,6 +432,14 @@ defmodule Rclex.Nif do
     :erlang.nif_error(:nif_not_loaded)
   end
 
+  def rcl_action_process_cancel_request!(
+        _action_server,
+        _cancel_request_msg,
+        _cancel_response_msg
+      ) do
+    :erlang.nif_error(:nif_not_loaded)
+  end
+
   def rcl_action_goal_info_get_uuid!(_goal_info) do
     :erlang.nif_error(:nif_not_loaded)
   end
@@ -440,7 +448,11 @@ defmodule Rclex.Nif do
     :erlang.nif_error(:nif_not_loaded)
   end
 
-  def rcl_action_goal_info_set!(_goal_id, _uuid, _time) do
+  def rcl_action_goal_info_set_stamp!(_goal_id, _time) do
+    :erlang.nif_error(:nif_not_loaded)
+  end
+
+  def rcl_action_goal_info_set_uuid!(_goal_id, _uuid) do
     :erlang.nif_error(:nif_not_loaded)
   end
 
