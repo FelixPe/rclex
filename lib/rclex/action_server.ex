@@ -175,6 +175,8 @@ defmodule Rclex.ActionServer do
           action_server: action_server,
           action_type: action_type,
           goal_callback: goal_callback,
+          execute_callback: execute_callback,
+          handle_accepted_callback: handle_accepted_callback,
           clock: clock,
           goals: goals
         } = state
@@ -209,6 +211,8 @@ defmodule Rclex.ActionServer do
                   GoalSupervisor.start_goal(
                     goal_info,
                     goal,
+                    execute_callback,
+                    handle_accepted_callback,
                     action_server,
                     action_type,
                     action_name,
@@ -247,6 +251,9 @@ defmodule Rclex.ActionServer do
                 Logger.debug(
                   "#{__MODULE__}: Goal [#{Base.encode16(goal_id.uuid)}] accepted: #{inspect(goal)}"
                 )
+
+                # on accepted
+                # handle_accepted_callback
 
                 {uuid,
                  %{

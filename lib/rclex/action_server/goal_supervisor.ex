@@ -20,14 +20,16 @@ defmodule Rclex.ActionServer.GoalSupervisor do
     {:global, {:action_server_goal_supervisor, action_type, action_name, name, namespace}}
   end
 
-  def start_goal(goal_info, goal, action_server, action_type, action_name, name, namespace \\ "/") do
+  def start_goal(goal_info, goal, execute_callback, handle_accepted_callback, action_server, action_type, action_name, name, namespace \\ "/") do
     DynamicSupervisor.start_child(
       name(action_type, action_name, name, namespace),
       {Rclex.ActionServer.GoalHandle,
        [
          action_server: action_server,
          goal_info: goal_info,
-         goal: goal
+         goal: goal,
+         execute_callback: execute_callback,
+         handle_accepted_callback: handle_accepted_callback
        ]}
     )
   end
