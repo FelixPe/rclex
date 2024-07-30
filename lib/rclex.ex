@@ -1,5 +1,6 @@
 defmodule Rclex do
   alias Rclex.QoS
+  alias Rclex.ActionServer.GoalHandle
 
   @moduledoc """
   User API for `#{__MODULE__}`.
@@ -497,7 +498,7 @@ defmodule Rclex do
   - #{@clock_type_doc}
   - `:result_timeout`, defines how long the result for a goal will be available after execution. If not defined, it is 10.0 seconds.
   - The purpose of the `cancel_callback` is to decide if a request to cancel an on-going (or queued) goal should be accepted or rejected. The callback should take one parameter containing the goal handle and must return the atom `:accept` or `:reject`. By default all cancel requests are rejected.
-  - The purpose of the `goal_callback` is to decide if a new goal should be accepted or rejected. The callback should take the goal struct as a parameter and must return the atom `:accept` or `:reject`. By default all goals are accepted. This function is assumed to be short running and is executed in the context of the action server.
+  - The purpose of the `goal_callback` is to decide if a new goal should be accepted or rejected. The callback should take the goal struct as a parameter and must return the atom `:accept` or `:reject`. By default all goals are accepted.
   - The `handle_accepted_callback` function is called whenever a new goal has been accepted by this action server. The function should expect a goal handle as an argument, which represents a handle to the goal that was accepted. The goal handle can be used to interact with the goal, e.g. publish feedback, update the status, or execute a deferred goal.
 
 
@@ -550,7 +551,9 @@ defmodule Rclex do
     cancel_callback = Keyword.get(opts, :cancel_callback, fn _goal -> :reject end)
 
     handle_accepted_callback =
-      Keyword.get(opts, :handle_accepted_callback, fn goal_handle -> dbg(goal_handle) end)
+      Keyword.get(opts, :handle_accepted_callback, fn action_server, goal_info ->
+        GoalHandle.execute_goal(action_server, goal_info)
+      end)
 
     case Rclex.Node.start_action_server(
            execute_callback,

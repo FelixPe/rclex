@@ -5,6 +5,7 @@ defmodule Rclex.ActionServer do
 
   require Logger
 
+  alias Rclex.Pkgs.ActionMsgs.Msg.GoalInfo
   alias Rclex.ActionServer.GoalHandle
   alias Rclex.Nif
   alias Rclex.ActionServer.GoalSupervisor
@@ -53,7 +54,9 @@ defmodule Rclex.ActionServer do
     goal_callback = Keyword.fetch!(args, :goal_callback)
 
     handle_accepted_callback =
-      Keyword.get(args, :handle_accepted_callback, fn _goal_handle -> true end)
+      Keyword.get(args, :handle_accepted_callback, fn action_server, goal_info ->
+        GoalHandle.execute_goal(action_server, goal_info)
+      end)
 
     cancel_callback = Keyword.get(args, :cancel_callback, fn _req -> false end)
     clock_type = Keyword.get(args, :clock_type, :steady_time)
@@ -73,7 +76,7 @@ defmodule Rclex.ActionServer do
 
     1 = :erlang.fun_info(execute_callback)[:arity]
     1 = :erlang.fun_info(goal_callback)[:arity]
-    1 = :erlang.fun_info(handle_accepted_callback)[:arity]
+    2 = :erlang.fun_info(handle_accepted_callback)[:arity]
     1 = :erlang.fun_info(cancel_callback)[:arity]
 
     type_support = apply(action_type, :type_support!, [])
@@ -166,6 +169,28 @@ defmodule Rclex.ActionServer do
     {:noreply, state}
   end
 
+  def handle_cast(
+        {:expire_goals, expired_goals},
+        %{
+          action_server: action_server,
+          goals: goals
+        } = state
+      ) do
+
+
+
+    expired_uuids =
+      Nif.rcl_action_expire_goals!(action_server, expired_goals)
+      |> Enum.map(fn goal_info_msg ->
+        goal_info_struct = apply(GoalInfo, :get!, [goal_info_msg])
+        apply(GoalInfo, :destroy!, [goal_info_msg])
+        goal_info_struct
+      end)
+
+    remaining_goals = Map.drop(goals, expired_uuids)
+    {:noreply, %{state | goals: remaining_goals}}
+  end
+
   def handle_info(
         {:new_goal_request, number_of_events},
         %{
@@ -193,23 +218,32 @@ defmodule Rclex.ActionServer do
             {:ok, request_header} ->
               request_message_struct = apply(request_type, :get!, [request_message])
               goal_id = Map.fetch!(request_message_struct, :goal_id)
-              uuid = goal_id.uuid
               goal = Map.fetch!(request_message_struct, :goal)
-              goal_info = Nif.rcl_action_get_zero_initialized_goal_info!()
-              Nif.rcl_action_goal_info_set_uuid!(goal_info, uuid)
 
-              if Nif.rcl_action_server_goal_exists!(action_server, goal_info) do
+              goal_info_struct =  gen_goal_info_struct(goal_id)
+
+
+              goal_info_msg = apply(GoalInfo, :create!, [])
+              try do
+                :ok = apply(GoalInfo, :set!, [goal_info_msg, goal_info_struct])
+                if Nif.rcl_action_server_goal_exists!(action_server, goal_info_msg) do
                 raise "goal id exists"
+                end
+              after
+                :ok = apply(GoalInfo, :destroy!, [goal_info_msg])
               end
 
               accepted = goal_callback.(goal) == :accept
               time = now(clock)
-              Nif.rcl_action_goal_info_set_stamp!(goal_info, time)
+
+              goal_info_struct =  gen_goal_info_struct(goal_id, time)
+
+
 
               if accepted do
                 {:ok, _pid} =
                   GoalSupervisor.start_goal(
-                    goal_info,
+                    goal_info_struct,
                     goal,
                     execute_callback,
                     handle_accepted_callback,
@@ -219,14 +253,13 @@ defmodule Rclex.ActionServer do
                     name,
                     namespace
                   )
-
-                Logger.error("started goal")
               end
 
               response_message_struct =
                 gen_goal_response_struct(response_type, accepted, time)
 
               response_message = apply(response_type, :create!, [])
+
               try do
                 :ok =
                   apply(response_type, :set!, [
@@ -252,13 +285,17 @@ defmodule Rclex.ActionServer do
                   "#{__MODULE__}: Goal [#{Base.encode16(goal_id.uuid)}] accepted: #{inspect(goal)}"
                 )
 
-                # on accepted
-                # handle_accepted_callback
+                Task.Supervisor.start_child(
+                  {:via, PartitionSupervisor, {Rclex.TaskSupervisors, self()}},
+                  fn ->
+                    handle_accepted_callback.(action_server, goal_info_struct)
+                  end
+                )
 
-                {uuid,
+                {goal_id.uuid,
                  %{
                    goal: goal,
-                   goal_info: goal_info
+                   goal_info: goal_info_struct
                  }}
               else
                 Logger.debug(
@@ -388,24 +425,22 @@ defmodule Rclex.ActionServer do
             response_message_struct =
               case Map.fetch(goals, goal_id.uuid) do
                 {:ok, goal} ->
-                  result =
-                    gen_result_response_struct(
-                      response_type,
-                      :status_succeeded,
-                      struct(result_type)
-                    )
+                  gen_result_response_struct(
+                    response_type,
+                    :status_succeeded,
+                    struct(result_type)
+                  )
 
                 :error ->
                   Logger.debug(
                     "Goal [#{Base.encode16(goal_id.uuid)}] in result request is unknown."
                   )
 
-                  result =
-                    gen_result_response_struct(
-                      response_type,
-                      :status_unknown,
-                      struct(result_type)
-                    )
+                  gen_result_response_struct(
+                    response_type,
+                    :status_unknown,
+                    struct(result_type)
+                  )
               end
 
             # There is an accepted goal matching the goal ID, register a callback to send the
@@ -443,22 +478,6 @@ defmodule Rclex.ActionServer do
     {:noreply, state}
   end
 
-  def handle_cast(
-        {:expire_goals, expired_goals},
-        %{
-          action_server: action_server,
-          action_type: action_type,
-          goals: goals
-        } = state
-      ) do
-    expired_uuids =
-      Nif.rcl_action_expire_goals!(action_server, expired_goals)
-      |> Enum.map(fn goal_info -> Nif.rcl_action_goal_info_get_uuid!(goal_info) end)
-
-    remaining_goals = Map.drop(goals, expired_uuids)
-    {:noreply, %{state | goals: remaining_goals}}
-  end
-
   defp now(clock) do
     Nif.rcl_clock_get_now!(clock)
   end
@@ -481,8 +500,9 @@ defmodule Rclex.ActionServer do
     %{response_struct | accepted: accepted, stamp: time_struct}
   end
 
-  defp gen_goal_status_struct() do
-    time_struct = struct(Rclex.Pkgs.ActionMsgs.Msg.GoalStatus)
+  defp gen_goal_status_struct(goal_info, status) do
+    goal_status_struct = struct(Rclex.Pkgs.ActionMsgs.Msg.GoalStatus)
+    %{goal_status_struct | goal_info: goal_info, status: status}
   end
 
   defp gen_uuid_struct(uuid) do
@@ -490,9 +510,14 @@ defmodule Rclex.ActionServer do
     %{uuid_struct | uuid: uuid}
   end
 
-  defp gen_goal_info_struct(uuid, time_ns) do
+  defp gen_goal_info_struct(goal_id) do
     goal_info_struct = struct(Rclex.Pkgs.ActionMsgs.Msg.GoalInfo)
-    %{goal_info_struct | goal_id: gen_uuid_struct(uuid), stamp: gen_time_struct(time_ns)}
+    %{goal_info_struct | goal_id: goal_id}
+  end
+
+  defp gen_goal_info_struct(goal_id, time_ns) do
+    goal_info_struct = struct(Rclex.Pkgs.ActionMsgs.Msg.GoalInfo)
+    %{goal_info_struct | goal_id: goal_id, stamp: gen_time_struct(time_ns)}
   end
 
   defp gen_feedback_message_struct(feedback_message_type, uuid, feedback) do

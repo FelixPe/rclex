@@ -79,7 +79,7 @@ ERL_NIF_TERM nif_rcl_clock_get_now(ErlNifEnv *env, int argc, const ERL_NIF_TERM 
   else if (rc == RCL_RET_ERROR)
     return raise(env, __FILE__, __LINE__);
 
-  return enif_make_uint64(env, time_point_value);
+  return enif_make_int64(env, time_point_value);
 }
 
 ERL_NIF_TERM nif_rcl_clock_time_started(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {

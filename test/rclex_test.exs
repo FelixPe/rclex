@@ -8,6 +8,7 @@ defmodule RclexTest do
   alias Rclex.Pkgs.RclInterfaces
   alias Rclex.Pkgs.Turtlesim.Action
   alias Rclex.NodeSupervisor
+  alias Rclex.ActionServer.GoalHandle
 
   setup do
     :ok = Application.ensure_started(:rclex)
@@ -528,12 +529,21 @@ defmodule RclexTest do
 
       execute_callback = fn %Action.RotateAbsolute.Goal{theta: val} ->
         send(me, :execute_callback)
+        Process.sleep(50)
+        raise("test raise")
+        send(me, :finished_execute_callback)
         %Action.RotateAbsolute.Result{delta: 0.5 * val}
       end
 
       goal_callback = fn _req ->
         send(me, :goal_callback)
         :accept
+      end
+
+      handle_accepted_callback = fn action_server, goal_info ->
+        GoalHandle.execute_goal(action_server, goal_info)
+       # Process.sleep(25)
+       # GoalHandle.cancel_goal(action_server, goal_info)
       end
 
       action_type = Action.RotateAbsolute
@@ -546,7 +556,8 @@ defmodule RclexTest do
           action_type,
           "/rotate_absolute",
           "name",
-          goal_callback: goal_callback
+          goal_callback: goal_callback,
+          handle_accepted_callback: handle_accepted_callback
         )
 
       :ok =
@@ -592,7 +603,100 @@ defmodule RclexTest do
                )
 
       assert_receive :goal_callback
-      #  assert_receive :execute_callback
+      assert_receive :execute_callback
+      refute_receive :finished_execute_callback, 100
+    end
+  end
+
+  describe "cancel action goals" do
+    setup do
+      me = self()
+
+      raising_execute_callback = fn %Action.RotateAbsolute.Goal{theta: val} ->
+        send(me, :execute_callback)
+        Process.sleep(50)
+        raise("test raise")
+        send(me, :finished_execute_callback)
+        %Action.RotateAbsolute.Result{delta: 0.5 * val}
+      end
+
+      slow_execute_callback = fn %Action.RotateAbsolute.Goal{theta: val} ->
+        send(me, :execute_callback)
+        Process.sleep(50)
+        send(me, :finished_execute_callback)
+        %Action.RotateAbsolute.Result{delta: 0.5 * val}
+      end
+
+      goal_callback = fn _req ->
+        send(me, :goal_callback)
+        :accept
+      end
+
+      handle_accepted_callback = fn action_server, goal_info ->
+        GoalHandle.execute_goal(action_server, goal_info)
+       # Process.sleep(25)
+       # GoalHandle.cancel_goal(action_server, goal_info)
+      end
+
+      action_type = Action.RotateAbsolute
+
+      :ok = Rclex.start_node("name")
+
+      :ok =
+        Rclex.start_action_server(
+          raising_execute_callback,
+          action_type,
+          "/rotate_absolute",
+          "name",
+          goal_callback: goal_callback,
+          handle_accepted_callback: handle_accepted_callback
+        )
+
+      :ok =
+        Rclex.start_action_client(
+          action_type,
+          "/rotate_absolute",
+          "name"
+        )
+
+      on_exit(fn ->
+        capture_log(fn ->
+          Rclex.stop_action_server(action_type, "/rotate_absolute", "name")
+          Rclex.stop_action_client(action_type, "/rotate_absolute", "name")
+          Rclex.stop_node("name")
+        end)
+      end)
+
+      %{
+        action_type: action_type
+      }
+    end
+
+    test "send_goal_async/3, goal_callback gets called", %{} do
+      #      assert capture_log(fn ->
+      :ok =
+        Rclex.send_goal_async(
+          %Action.RotateAbsolute.Goal{theta: 0.123},
+          "/rotate_absolute",
+          "name"
+        )
+
+      # end) =~ "ActionServer: Goal"
+
+      assert_receive :goal_callback
+    end
+
+    test "send_goal_async/3, execute_callback gets called", %{} do
+      assert :ok =
+               Rclex.send_goal_async(
+                 %Action.RotateAbsolute.Goal{theta: 0.123},
+                 "/rotate_absolute",
+                 "name"
+               )
+
+      assert_receive :goal_callback
+      assert_receive :execute_callback
+      refute_receive :finished_execute_callback, 100
     end
   end
 

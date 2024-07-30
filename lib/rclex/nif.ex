@@ -316,7 +316,7 @@ defmodule Rclex.Nif do
     :erlang.nif_error(:nif_not_loaded)
   end
 
-  def rcl_action_accept_new_goal!(_action_server, _goal_info) do
+  def rcl_action_accept_new_goal!(_action_server, _goal_info_msg) do
     :erlang.nif_error(:nif_not_loaded)
   end
 
@@ -352,7 +352,7 @@ defmodule Rclex.Nif do
     :erlang.nif_error(:nif_not_loaded)
   end
 
-  def rcl_action_server_goal_exists!(_action_server, _goal_info) do
+  def rcl_action_server_goal_exists!(_action_server, _goal_info_msg) do
     :erlang.nif_error(:nif_not_loaded)
   end
 
