@@ -39,6 +39,14 @@ defmodule Rclex.ActionServer do
     end
   end
 
+  def set_result(result, goal_id, action_type, action_name, name, namespace \\ "/") do
+    case GenServer.whereis(name(action_type, action_name, name, namespace)) do
+      nil -> {:error, :not_found}
+      {_atom, _node} -> raise("should not happen")
+      pid -> GenServer.call(pid, {:set_result, result, goal_id})
+    end
+  end
+
   # callbacks
 
   def init(args) do
@@ -176,9 +184,6 @@ defmodule Rclex.ActionServer do
           goals: goals
         } = state
       ) do
-
-
-
     expired_uuids =
       Nif.rcl_action_expire_goals!(action_server, expired_goals)
       |> Enum.map(fn goal_info_msg ->
@@ -220,14 +225,15 @@ defmodule Rclex.ActionServer do
               goal_id = Map.fetch!(request_message_struct, :goal_id)
               goal = Map.fetch!(request_message_struct, :goal)
 
-              goal_info_struct =  gen_goal_info_struct(goal_id)
-
+              goal_info_struct = gen_goal_info_struct(goal_id)
 
               goal_info_msg = apply(GoalInfo, :create!, [])
+
               try do
                 :ok = apply(GoalInfo, :set!, [goal_info_msg, goal_info_struct])
+
                 if Nif.rcl_action_server_goal_exists!(action_server, goal_info_msg) do
-                raise "goal id exists"
+                  raise "goal id exists"
                 end
               after
                 :ok = apply(GoalInfo, :destroy!, [goal_info_msg])
@@ -236,9 +242,7 @@ defmodule Rclex.ActionServer do
               accepted = goal_callback.(goal) == :accept
               time = now(clock)
 
-              goal_info_struct =  gen_goal_info_struct(goal_id, time)
-
-
+              goal_info_struct = gen_goal_info_struct(goal_id, time)
 
               if accepted do
                 {:ok, _pid} =
@@ -425,11 +429,15 @@ defmodule Rclex.ActionServer do
             response_message_struct =
               case Map.fetch(goals, goal_id.uuid) do
                 {:ok, goal} ->
-                  gen_result_response_struct(
-                    response_type,
-                    :status_succeeded,
-                    struct(result_type)
-                  )
+                  if goal.result do
+                    gen_result_response_struct(
+                      response_type,
+                      :status_succeeded,
+                      goal.result
+                    )
+                  else
+                    Logger.debug("#{inspect(request_header)} wait for result")
+                  end
 
                 :error ->
                   Logger.debug(
@@ -500,15 +508,10 @@ defmodule Rclex.ActionServer do
     %{response_struct | accepted: accepted, stamp: time_struct}
   end
 
-  defp gen_goal_status_struct(goal_info, status) do
-    goal_status_struct = struct(Rclex.Pkgs.ActionMsgs.Msg.GoalStatus)
-    %{goal_status_struct | goal_info: goal_info, status: status}
-  end
-
-  defp gen_uuid_struct(uuid) do
-    uuid_struct = struct(Rclex.Pkgs.UniqueIdentifierMsgs.Msg.UUID)
-    %{uuid_struct | uuid: uuid}
-  end
+  #defp gen_goal_status_struct(goal_info, status) do
+  #  goal_status_struct = struct(Rclex.Pkgs.ActionMsgs.Msg.GoalStatus)
+  #  %{goal_status_struct | goal_info: goal_info, status: status}
+  #end
 
   defp gen_goal_info_struct(goal_id) do
     goal_info_struct = struct(Rclex.Pkgs.ActionMsgs.Msg.GoalInfo)
@@ -520,14 +523,14 @@ defmodule Rclex.ActionServer do
     %{goal_info_struct | goal_id: goal_id, stamp: gen_time_struct(time_ns)}
   end
 
-  defp gen_feedback_message_struct(feedback_message_type, uuid, feedback) do
-    feedback_message_struct = struct(feedback_message_type)
-    %{feedback_message_struct | goal_id: gen_uuid_struct(uuid), feedback: feedback}
-  end
+  #defp gen_feedback_message_struct(feedback_message_type, goal_id, feedback) do
+  #  feedback_message_struct = struct(feedback_message_type)
+  #  %{feedback_message_struct | goal_id: goal_id, feedback: feedback}
+  #end
 
-  defp gen_cancel_goal_response_struct(return_code_atom, goals_canceling) do
-    cancel_goal_response_struct = struct(Rclex.Pkgs.ActionMsgs.Srv.CancelGoalResponse)
-    return_code = apply(Rclex.Pkgs.ActionMsgs.Srv.CancelGoalResponse, return_code_atom, [])
-    %{cancel_goal_response_struct | return_code: return_code, goals_canceling: goals_canceling}
-  end
+  #defp gen_cancel_goal_response_struct(return_code_atom, goals_canceling) do
+  #  cancel_goal_response_struct = struct(Rclex.Pkgs.ActionMsgs.Srv.CancelGoalResponse)
+  #  return_code = apply(Rclex.Pkgs.ActionMsgs.Srv.CancelGoalResponse, return_code_atom, [])
+  #  %{cancel_goal_response_struct | return_code: return_code, goals_canceling: goals_canceling}
+  #end
 end

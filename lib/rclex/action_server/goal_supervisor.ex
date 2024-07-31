@@ -33,6 +33,10 @@ defmodule Rclex.ActionServer.GoalSupervisor do
       name(action_type, action_name, name, namespace),
       {Rclex.ActionServer.GoalHandle,
        [
+         action_type: action_type,
+         action_name: action_name,
+         name: name,
+         namespace: namespace,
          action_server: action_server,
          goal_info: goal_info,
          goal: goal,

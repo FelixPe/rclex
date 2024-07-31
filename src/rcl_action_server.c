@@ -196,7 +196,6 @@ ERL_NIF_TERM nif_rcl_action_expire_goals(ErlNifEnv *env, int argc, const ERL_NIF
     if (!enif_get_resource(env, head, rt_ros_message, (void **)&goal_info_message_pp))
       return enif_make_badarg(env);
 
-
     action_msgs__msg__GoalInfo__copy(*goal_info_message_pp, &expired_goals[i]);
     i++;
     list = tail;
@@ -226,8 +225,8 @@ ERL_NIF_TERM nif_rcl_action_expire_goals(ErlNifEnv *env, int argc, const ERL_NIF
       return raise(env, __FILE__, __LINE__);
     }
 
-    void **obj = enif_alloc_resource(rt_ros_message, sizeof(void *));
-    *obj = (void *)goal_info_p;
+    void **obj             = enif_alloc_resource(rt_ros_message, sizeof(void *));
+    *obj                   = (void *)goal_info_p;
     expired_goals_terms[i] = enif_make_resource(env, obj);
     enif_release_resource(obj);
   }

@@ -528,9 +528,9 @@ defmodule RclexTest do
       me = self()
 
       execute_callback = fn %Action.RotateAbsolute.Goal{theta: val} ->
-        send(me, :execute_callback)
+        send(me, :started_execute_callback)
+        # simulate some work
         Process.sleep(50)
-        raise("test raise")
         send(me, :finished_execute_callback)
         %Action.RotateAbsolute.Result{delta: 0.5 * val}
       end
@@ -542,8 +542,8 @@ defmodule RclexTest do
 
       handle_accepted_callback = fn action_server, goal_info ->
         GoalHandle.execute_goal(action_server, goal_info)
-       # Process.sleep(25)
-       # GoalHandle.cancel_goal(action_server, goal_info)
+        # Process.sleep(25)
+        # GoalHandle.cancel_goal(action_server, goal_info)
       end
 
       action_type = Action.RotateAbsolute
@@ -580,35 +580,23 @@ defmodule RclexTest do
       }
     end
 
-    test "send_goal_async/3, goal_callback gets called", %{} do
-      #      assert capture_log(fn ->
-      :ok =
-        Rclex.send_goal_async(
-          %Action.RotateAbsolute.Goal{theta: 0.123},
-          "/rotate_absolute",
-          "name"
-        )
-
-      # end) =~ "ActionServer: Goal"
-
-      assert_receive :goal_callback
-    end
-
     test "send_goal_async/3, execute_callback gets called", %{} do
-      assert :ok =
-               Rclex.send_goal_async(
-                 %Action.RotateAbsolute.Goal{theta: 0.123},
-                 "/rotate_absolute",
-                 "name"
-               )
+      capture_log(fn ->
+        assert :ok =
+                 Rclex.send_goal_async(
+                   %Action.RotateAbsolute.Goal{theta: 0.123},
+                   "/rotate_absolute",
+                   "name"
+                 )
 
-      assert_receive :goal_callback
-      assert_receive :execute_callback
-      refute_receive :finished_execute_callback, 100
+        assert_receive :goal_callback
+        assert_receive :started_execute_callback
+        assert_receive :finished_execute_callback
+      end)
     end
   end
 
-  describe "cancel action goals" do
+  describe "raising action goal execution" do
     setup do
       me = self()
 
@@ -620,13 +608,6 @@ defmodule RclexTest do
         %Action.RotateAbsolute.Result{delta: 0.5 * val}
       end
 
-      slow_execute_callback = fn %Action.RotateAbsolute.Goal{theta: val} ->
-        send(me, :execute_callback)
-        Process.sleep(50)
-        send(me, :finished_execute_callback)
-        %Action.RotateAbsolute.Result{delta: 0.5 * val}
-      end
-
       goal_callback = fn _req ->
         send(me, :goal_callback)
         :accept
@@ -634,8 +615,6 @@ defmodule RclexTest do
 
       handle_accepted_callback = fn action_server, goal_info ->
         GoalHandle.execute_goal(action_server, goal_info)
-       # Process.sleep(25)
-       # GoalHandle.cancel_goal(action_server, goal_info)
       end
 
       action_type = Action.RotateAbsolute
@@ -672,31 +651,19 @@ defmodule RclexTest do
       }
     end
 
-    test "send_goal_async/3, goal_callback gets called", %{} do
-      #      assert capture_log(fn ->
-      :ok =
-        Rclex.send_goal_async(
-          %Action.RotateAbsolute.Goal{theta: 0.123},
-          "/rotate_absolute",
-          "name"
-        )
+    test "send_goal_async/3, execute_callback raises", %{} do
+      capture_log(fn ->
+        assert :ok =
+                 Rclex.send_goal_async(
+                   %Action.RotateAbsolute.Goal{theta: 0.123},
+                   "/rotate_absolute",
+                   "name"
+                 )
 
-      # end) =~ "ActionServer: Goal"
-
-      assert_receive :goal_callback
-    end
-
-    test "send_goal_async/3, execute_callback gets called", %{} do
-      assert :ok =
-               Rclex.send_goal_async(
-                 %Action.RotateAbsolute.Goal{theta: 0.123},
-                 "/rotate_absolute",
-                 "name"
-               )
-
-      assert_receive :goal_callback
-      assert_receive :execute_callback
-      refute_receive :finished_execute_callback, 100
+        assert_receive :goal_callback
+        assert_receive :execute_callback
+        refute_receive :finished_execute_callback, 100
+      end) =~ "execution failed because of {%RuntimeError{message: \"test raise\"}"
     end
   end
 
