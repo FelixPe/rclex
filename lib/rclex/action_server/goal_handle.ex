@@ -213,7 +213,7 @@ defmodule Rclex.ActionServer.GoalHandle do
     Process.demonitor(task.ref, [:flush])
 
     # Hand over the result to the action server
-    ActionServer.set_result(result, goal_info.goal_id, action_type, action_name, name, namespace)
+    :ok = ActionServer.set_result(result, goal_info.goal_id, action_type, action_name, name, namespace)
 
 
     Logger.debug(

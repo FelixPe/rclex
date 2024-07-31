@@ -27,7 +27,7 @@ defmodule Rclex.ActionServer do
     case GenServer.whereis(name(action_type, action_name, name, namespace)) do
       nil -> {:error, :not_found}
       {_atom, _node} -> raise("should not happen")
-      pid -> GenServer.call(pid, {:publish_status, goal_status})
+      pid -> GenServer.cast(pid, {:publish_status, goal_status})
     end
   end
 
@@ -35,7 +35,7 @@ defmodule Rclex.ActionServer do
     case GenServer.whereis(name(action_type, action_name, name, namespace)) do
       nil -> {:error, :not_found}
       {_atom, _node} -> raise("should not happen")
-      pid -> GenServer.call(pid, {:publish_feedback, feedback})
+      pid -> GenServer.cast(pid, {:publish_feedback, feedback})
     end
   end
 
@@ -43,7 +43,7 @@ defmodule Rclex.ActionServer do
     case GenServer.whereis(name(action_type, action_name, name, namespace)) do
       nil -> {:error, :not_found}
       {_atom, _node} -> raise("should not happen")
-      pid -> GenServer.call(pid, {:set_result, result, goal_id})
+      pid -> GenServer.cast(pid, {:set_result, result, goal_id})
     end
   end
 
@@ -156,6 +156,36 @@ defmodule Rclex.ActionServer do
          goal_service_callback_resource: goal_service_cr,
          result_service_callback_resource: result_service_cr
      }}
+  end
+
+  def handle_cast({:set_result, result, goal_id}, %{action_server: action_server, action_type: action_type, goals: goals} = state) do
+    {goal, new_goals} = goals
+     |> Map.update!(goal_id.uuid, fn goal -> %{goal|result: result} end)
+     |> Map.get_and_update!(goal_id.uuid, fn goal -> %{goal|waiting_result_requests: []} end)
+
+     response_type = apply(action_type, :send_goal_response_type, [])
+     response_message = apply(response_type, :create!, [])
+     try do
+       :ok =
+         apply(response_type, :set!, [
+           response_message,
+           result
+         ])
+
+         for request_header <- goal.waiting_result_requests do
+          :ok =
+            Nif.rcl_action_send_result_response!(
+              action_server,
+              request_header,
+              response_message
+            )
+         end
+
+     after
+       :ok = apply(response_type, :destroy!, [response_message])
+     end
+
+    {:noreply, %{state|goals: new_goals}}
   end
 
   def handle_cast({:publish_status, goal_status_struct}, %{action_server: action_server} = state) do
@@ -299,7 +329,9 @@ defmodule Rclex.ActionServer do
                 {goal_id.uuid,
                  %{
                    goal: goal,
-                   goal_info: goal_info_struct
+                   goal_info: goal_info_struct,
+                   result: nil,
+                   waiting_result_requests: []
                  }}
               else
                 Logger.debug(
@@ -436,6 +468,7 @@ defmodule Rclex.ActionServer do
                       goal.result
                     )
                   else
+                    # TODO: add to waiting_result_requests
                     Logger.debug("#{inspect(request_header)} wait for result")
                   end
 
@@ -457,7 +490,6 @@ defmodule Rclex.ActionServer do
             #                      functools.partial(self._send_result_response, request_header))
 
             response_message = apply(response_type, :create!, [])
-
             try do
               :ok =
                 apply(response_type, :set!, [
