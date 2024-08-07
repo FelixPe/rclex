@@ -320,7 +320,7 @@ defmodule Rclex.Nif do
     :erlang.nif_error(:nif_not_loaded)
   end
 
-  def rcl_action_expire_goals!(_action_server, _goals_list) do
+  def rcl_action_expire_goals!(_action_server, _capacity \\ 100) do
     :erlang.nif_error(:nif_not_loaded)
   end
 

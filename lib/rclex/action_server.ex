@@ -40,8 +40,9 @@ defmodule Rclex.ActionServer do
     end
   end
 
-  def set_result_response(
-        result_response,
+  def set_result(
+        status,
+        result,
         goal_id,
         action_type,
         action_name,
@@ -51,7 +52,7 @@ defmodule Rclex.ActionServer do
     case GenServer.whereis(name(action_type, action_name, name, namespace)) do
       nil -> {:error, :not_found}
       {_atom, _node} -> raise("should not happen")
-      pid -> GenServer.cast(pid, {:set_result_response, result_response, goal_id})
+      pid -> GenServer.cast(pid, {:set_result, status, result, goal_id})
     end
   end
 
@@ -167,17 +168,49 @@ defmodule Rclex.ActionServer do
   end
 
   def handle_cast(
-        {:set_result_response, result_response, goal_id},
+        {:set_result, status, result, goal_id},
         %{action_server: action_server, action_type: action_type, goals: goals} = state
       ) do
-    {goal, new_goals} =
+    response_type = apply(action_type, :get_result_response_type, [])
+
+    result_response =
+      if result do
+        gen_result_response_struct(
+          response_type,
+          status,
+          result
+        )
+      else
+        gen_result_response_struct(
+          response_type,
+          status,
+          struct(apply(action_type, :result_type, []))
+        )
+      end
+
+    {goal, goals} =
       goals
       |> Map.update!(goal_id.uuid, fn goal -> %{goal | result_response: result_response} end)
       |> Map.get_and_update!(goal_id.uuid, fn goal ->
         {goal, %{goal | waiting_result_requests: []}}
       end)
 
-    Nif.rcl_action_notify_goal_done!(action_server)
+
+    {:ok, expired_goal_infos} = Nif.rcl_action_expire_goals!(action_server, 100)
+
+      expired_uuids =
+        expired_goal_infos
+      |> Enum.map(fn goal_info_msg ->
+        goal_info_struct = apply(Rclex.Pkgs.ActionMsgs.Msg.GoalInfo, :get!, [goal_info_msg])
+        apply(Rclex.Pkgs.ActionMsgs.Msg.GoalInfo, :destroy!, [goal_info_msg])
+        goal_info_struct.goal_id.uuid
+      end)
+
+    if length(expired_uuids) > 0 do
+      Logger.debug("#{__MODULE__}: expire goals #{inspect(Enum.map(expired_uuids, fn uuid -> Base.encode16(uuid) end))}")
+    end
+
+    goals = Map.drop(goals, expired_uuids)
 
     response_type = apply(action_type, :get_result_response_type, [])
     response_message = apply(response_type, :create!, [])
@@ -205,11 +238,7 @@ defmodule Rclex.ActionServer do
       :ok = apply(response_type, :destroy!, [response_message])
     end
 
-
-
-    # TODO: cleanup old results
-
-    {:noreply, %{state | goals: new_goals}}
+    {:noreply, %{state | goals: goals}}
   end
 
   def handle_cast({:update_status, goal_status_struct}, %{goals: goals} = state) do
@@ -226,25 +255,6 @@ defmodule Rclex.ActionServer do
   def handle_cast({:publish_feedback, goal_id, feedback}, state) do
     publish_feedback(goal_id, feedback, state)
     {:noreply, state}
-  end
-
-  def handle_cast(
-        {:expire_goals, expired_goals},
-        %{
-          action_server: action_server,
-          goals: goals
-        } = state
-      ) do
-    expired_uuids =
-      Nif.rcl_action_expire_goals!(action_server, expired_goals)
-      |> Enum.map(fn goal_info_msg ->
-        goal_info_struct = apply(GoalInfo, :get!, [goal_info_msg])
-        apply(GoalInfo, :destroy!, [goal_info_msg])
-        goal_info_struct
-      end)
-
-    remaining_goals = Map.drop(goals, expired_uuids)
-    {:noreply, %{state | goals: remaining_goals}}
   end
 
   def handle_info(
@@ -509,7 +519,6 @@ defmodule Rclex.ActionServer do
 
                     goals
                   else
-                    # TODO: add to waiting_result_requests
                     Logger.debug(
                       "#{__MODULE__}: [uuid: #{Base.encode16(uuid)}] [req: #{inspect(request_header)}] Waiting for result"
                     )
@@ -626,12 +635,6 @@ defmodule Rclex.ActionServer do
     feedback_message_struct = struct(feedback_message_type)
     %{feedback_message_struct | goal_id: goal_id, feedback: feedback}
   end
-
-  # defp gen_cancel_goal_response_struct(return_code_atom, goals_canceling) do
-  #  cancel_goal_response_struct = struct(Rclex.Pkgs.ActionMsgs.Srv.CancelGoal.Response)
-  #  return_code = apply(Rclex.Pkgs.ActionMsgs.Srv.CancelGoal.Response, return_code_atom, [])
-  #  %{cancel_goal_response_struct | return_code: return_code, goals_canceling: goals_canceling}
-  # end
 
   defp publish_status(%{action_server: action_server, goals: goals} = _state) do
     status_array_struct = gen_goal_status_array_struct(goals)

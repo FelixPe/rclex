@@ -528,7 +528,7 @@ defmodule Rclex do
             feedback_topic_qos: QoS.t(),
             status_topic_qos: QoS.t(),
             clock_type: atom(),
-            return_timeout: float(),
+            result_timeout: float(),
             goal_callback: function(),
             handle_accepted_callback: function(),
             cancel_callback: function()

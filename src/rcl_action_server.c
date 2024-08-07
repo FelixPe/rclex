@@ -182,24 +182,11 @@ ERL_NIF_TERM nif_rcl_action_expire_goals(ErlNifEnv *env, int argc, const ERL_NIF
   if (!rcl_action_server_is_valid(action_server_p)) return raise(env, __FILE__, __LINE__);
 
   unsigned int expired_goals_length;
-  if (!enif_get_list_length(env, argv[1], &expired_goals_length)) return enif_make_badarg(env);
+  if (!enif_get_uint(env, argv[1], &expired_goals_length)) return enif_make_badarg(env);
 
   rcl_action_goal_info_t *expired_goals =
       enif_alloc(expired_goals_length * sizeof(rcl_action_goal_info_t));
   if (!expired_goals) return raise(env, __FILE__, __LINE__);
-
-  unsigned int i    = 0;
-  ERL_NIF_TERM list = argv[1];
-  ERL_NIF_TERM head, tail;
-  while (enif_get_list_cell(env, list, &head, &tail)) {
-    rcl_action_goal_info_t **goal_info_message_pp;
-    if (!enif_get_resource(env, head, rt_ros_message, (void **)&goal_info_message_pp))
-      return enif_make_badarg(env);
-
-    action_msgs__msg__GoalInfo__copy(*goal_info_message_pp, &expired_goals[i]);
-    i++;
-    list = tail;
-  }
 
   size_t num_expired;
   rc = rcl_action_expire_goals(action_server_p, expired_goals, expired_goals_length, &num_expired);
@@ -218,13 +205,22 @@ ERL_NIF_TERM nif_rcl_action_expire_goals(ErlNifEnv *env, int argc, const ERL_NIF
   }
 
   ERL_NIF_TERM *expired_goals_terms = enif_alloc(num_expired * sizeof(ERL_NIF_TERM));
+  unsigned int i;
   for (i = 0; i < num_expired; i++) {
     rcl_action_goal_info_t *goal_info_p = action_msgs__msg__GoalInfo__create();
     if (goal_info_p == NULL) {
+      enif_free(expired_goals);
       enif_free(expired_goals_terms);
       return raise(env, __FILE__, __LINE__);
     }
 
+    // *goal_info_p = expired_goals[i]
+    if (!action_msgs__msg__GoalInfo__copy(&expired_goals[i], goal_info_p)) {
+      enif_free(expired_goals);
+      enif_free(expired_goals_terms);
+      return raise(env, __FILE__, __LINE__);
+    }
+    
     void **obj             = enif_alloc_resource(rt_ros_message, sizeof(void *));
     *obj                   = (void *)goal_info_p;
     expired_goals_terms[i] = enif_make_resource(env, obj);

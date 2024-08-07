@@ -46,7 +46,7 @@ defmodule Rclex.ActionServer.GoalSupervisor do
     )
   end
 
-  def cancel_goal(goal_info, action_server, action_type, action_name, name, namespace \\ "/") do
+  def stop_goal(goal_info, action_server, action_type, action_name, name, namespace \\ "/") do
     goal_name = Rclex.ActionServer.GoalHandle.name(action_server, goal_info)
 
     case GenServer.whereis(goal_name) do

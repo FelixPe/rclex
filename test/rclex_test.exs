@@ -586,7 +586,8 @@ defmodule RclexTest do
           goal_callback: goal_callback,
           handle_accepted_callback: handle_accepted_callback,
           cancel_callback: cancel_callback,
-          status_topic_qos: status_topic_qos
+          status_topic_qos: status_topic_qos,
+          result_timeout: 0.2
         )
 
       :ok =

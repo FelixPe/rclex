@@ -66,7 +66,6 @@ defmodule Rclex.ActionServer.GoalHandle do
     goal_info_struct = Keyword.fetch!(args, :goal_info)
     goal = Keyword.fetch!(args, :goal)
     execute_callback = Keyword.fetch!(args, :execute_callback)
-    cancel_requested = false
     goal_handle = accept_new_goal(action_server, goal_info_struct)
 
     Logger.debug(
@@ -82,11 +81,9 @@ defmodule Rclex.ActionServer.GoalHandle do
        namespace: namespace,
        goal_info: goal_info_struct,
        goal: goal,
-       cancel_requested: cancel_requested,
        goal_handle: goal_handle,
        execute_callback: execute_callback,
-       task: nil,
-       result: nil
+       task: nil
      }, {:continue, :init}}
   end
 
@@ -95,8 +92,9 @@ defmodule Rclex.ActionServer.GoalHandle do
     {:noreply, state}
   end
 
-  def terminate(reason, %{goal_handle: goal_handle} = state) do
-    Nif.rcl_action_goal_handle_fini!(goal_handle)
+  def terminate(reason, %{goal_handle: _goal_handle} = state) do
+    # deallocation is done by expiring goals in action server
+    # Nif.rcl_action_goal_handle_fini!(goal_handle)
 
     Logger.debug(
       "#{__MODULE__}: finished goal_handle because #{inspect(reason)} #{inspect(state)}"
@@ -155,12 +153,10 @@ defmodule Rclex.ActionServer.GoalHandle do
       Task.Supervisor.async_nolink(
         {:via, PartitionSupervisor, {Rclex.TaskSupervisors, self()}},
         fn ->
-          # return a result
+          # return a result using handle_info({_task_ref, result}, ...)
           execute_callback.(goal, publish_feedback)
         end
       )
-
-    # We return :ok and the server will continue running
 
     {:reply, :ok, %{state | task: task}}
   end
@@ -181,7 +177,7 @@ defmodule Rclex.ActionServer.GoalHandle do
     update_goal_state(:goal_event_canceled, state)
     set_result(nil, state)
 
-    {:reply, ret, %{state | cancel_requested: true}}
+    {:stop, :normal, ret, state}
   end
 
   # The goal execution completed successfully
@@ -204,7 +200,7 @@ defmodule Rclex.ActionServer.GoalHandle do
       "#{__MODULE__}: Goal [#{Base.encode16(get_uuid(goal_info))}] execution completed with #{inspect(result)}."
     )
 
-    {:noreply, %{state | task: nil, result: result}}
+    {:stop, :normal, state}
   end
 
   # The goal execution failed
@@ -212,8 +208,6 @@ defmodule Rclex.ActionServer.GoalHandle do
         {:DOWN, _ref, :process, _pid, reason},
         %{task: _task, goal_info: goal_info} = state
       ) do
-    # Log and possibly restart the task...
-
     update_goal_state(:goal_event_abort, state)
     set_result(nil, state)
 
@@ -221,7 +215,7 @@ defmodule Rclex.ActionServer.GoalHandle do
       "#{__MODULE__}: Goal [#{Base.encode16(get_uuid(goal_info))}] execution failed because of #{inspect(reason)}."
     )
 
-    {:noreply, %{state | task: nil}}
+    {:stop, :normal, state}
   end
 
   # helpers
@@ -314,26 +308,11 @@ defmodule Rclex.ActionServer.GoalHandle do
            _state
        ) do
     status = Nif.rcl_action_goal_handle_get_status!(goal_handle)
-    response_type = apply(action_type, :get_result_response_type, [])
-
-    result_response =
-      if result do
-        ActionServer.gen_result_response_struct(
-          response_type,
-          status,
-          result
-        )
-      else
-        ActionServer.gen_result_response_struct(
-          response_type,
-          status,
-          struct(apply(action_type, :result_type, []))
-        )
-      end
 
     :ok =
-      ActionServer.set_result_response(
-        result_response,
+      ActionServer.set_result(
+        status,
+        result,
         goal_info.goal_id,
         action_type,
         action_name,
