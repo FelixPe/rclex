@@ -324,9 +324,9 @@ defmodule Rclex.Nif do
     :erlang.nif_error(:nif_not_loaded)
   end
 
-  # def rcl_action_get_goal_status_array!()
-  # def rcl_action_notify_goal_done!()
-  # def rcl_action_process_cancel_request!()
+  def rcl_action_notify_goal_done!(_action_server) do
+    :erlang.nif_error(:nif_not_loaded)
+  end
 
   def rcl_action_publish_feedback!(_action_server, _feedback_message) do
     :erlang.nif_error(:nif_not_loaded)

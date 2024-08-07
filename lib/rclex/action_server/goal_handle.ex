@@ -5,13 +5,18 @@ defmodule Rclex.ActionServer.GoalHandle do
 
   require Logger
 
+  alias Rclex.Pkgs.ActionMsgs.Msg.GoalStatus
   alias Rclex.Nif
   alias Rclex.ActionServer
 
   def start_link(args) do
     action_server = Keyword.fetch!(args, :action_server)
     goal_info = Keyword.fetch!(args, :goal_info)
-    Logger.debug("goal_info: #{inspect(goal_info)}")
+
+    Logger.debug(
+      "#{__MODULE__} [uuid: #{Base.encode16(goal_info.goal_id.uuid)}]: start_link (stamp: #{inspect(goal_info.stamp)})"
+    )
+
     GenServer.start_link(__MODULE__, args, name: name(action_server, goal_info))
   end
 
@@ -32,30 +37,6 @@ defmodule Rclex.ActionServer.GoalHandle do
     end
   end
 
-  @doc """
-  Transition the goal state machine, excepting one of the following event:
-   - :goal_event_execute
-   - :goal_event_cancel_goal
-   - :goal_event_succeed
-   - :goal_event_abort
-   - :goal_event_canceled
-  """
-  def update_state(action_server, goal_info, event \\ :goal_event_execute) when is_atom(event) do
-    case GenServer.whereis(name(action_server, goal_info)) do
-      nil -> {:error, :not_found}
-      {_atom, _node} -> raise("should not happen")
-      pid -> GenServer.call(pid, {:update_state, event})
-    end
-  end
-
-  @doc """
-  Transition the goal state machine, excepting one of the following event:
-   - :goal_event_execute
-   - :goal_event_cancel_goal
-   - :goal_event_succeed
-   - :goal_event_abort
-   - :goal_event_canceled
-  """
   def execute_goal(action_server, goal_info) do
     case GenServer.whereis(name(action_server, goal_info)) do
       nil -> {:error, :not_found}
@@ -64,14 +45,6 @@ defmodule Rclex.ActionServer.GoalHandle do
     end
   end
 
-  @doc """
-  Transition the goal state machine, excepting one of the following event:
-   - :goal_event_execute
-   - :goal_event_cancel_goal
-   - :goal_event_succeed
-   - :goal_event_abort
-   - :goal_event_canceled
-  """
   def cancel_goal(action_server, goal_info) do
     case GenServer.whereis(name(action_server, goal_info)) do
       nil -> {:error, :not_found}
@@ -96,7 +69,9 @@ defmodule Rclex.ActionServer.GoalHandle do
     cancel_requested = false
     goal_handle = accept_new_goal(action_server, goal_info_struct)
 
-    Logger.debug("#{__MODULE__}: init for #{inspect(name(action_server, goal_info_struct))}")
+    Logger.debug(
+      "#{__MODULE__}: [uuid: #{Base.encode16(goal_info_struct.goal_id.uuid)}] init for #{inspect(name(action_server, goal_info_struct))}"
+    )
 
     {:ok,
      %{
@@ -112,7 +87,12 @@ defmodule Rclex.ActionServer.GoalHandle do
        execute_callback: execute_callback,
        task: nil,
        result: nil
-     }}
+     }, {:continue, :init}}
+  end
+
+  def handle_continue(:init, state) do
+    update_status(GoalStatus.status_accepted(), state)
+    {:noreply, state}
   end
 
   def terminate(reason, %{goal_handle: goal_handle} = state) do
@@ -138,25 +118,6 @@ defmodule Rclex.ActionServer.GoalHandle do
     {:reply, status_to_atom(status), state}
   end
 
-  @doc """
-  Transition the goal state machine, excepting one of the following event:
-   - :goal_event_execute
-   - :goal_event_cancel_goal
-   - :goal_event_succeed
-   - :goal_event_abort
-   - :goal_event_canceled
-  """
-  def handle_call(
-        {:update_state, event},
-        _from,
-        %{
-          goal_handle: goal_handle
-        } = state
-      ) do
-    ret = Nif.rcl_action_update_goal_state!(goal_handle, event)
-    {:reply, ret, state}
-  end
-
   # In this case the task is already running, so we just return :ok.
   def handle_call(:execute_goal, _from, %{task: task} = state)
       when is_struct(task, Task) do
@@ -168,19 +129,34 @@ defmodule Rclex.ActionServer.GoalHandle do
         {:execute_goal},
         _from,
         %{
-          goal_handle: goal_handle,
           goal: goal,
+          goal_info: goal_info,
+          action_type: action_type,
+          action_name: action_name,
+          name: name,
+          namespace: namespace,
           execute_callback: execute_callback
         } = state
       ) do
-    :ok = Nif.rcl_action_update_goal_state!(goal_handle, :goal_event_execute)
+    update_goal_state(:goal_event_execute, state)
+
+    publish_feedback = fn feedback ->
+      ActionServer.publish_feedback(
+        goal_info.goal_id,
+        feedback,
+        action_type,
+        action_name,
+        name,
+        namespace
+      )
+    end
 
     task =
       Task.Supervisor.async_nolink(
         {:via, PartitionSupervisor, {Rclex.TaskSupervisors, self()}},
         fn ->
           # return a result
-          execute_callback.(goal)
+          execute_callback.(goal, publish_feedback)
         end
       )
 
@@ -193,28 +169,36 @@ defmodule Rclex.ActionServer.GoalHandle do
         {:cancel_goal},
         _from,
         %{
-          goal_handle: goal_handle,
           task: task,
           goal_info: goal_info
         } = state
       ) do
-    ret = Nif.rcl_action_update_goal_state!(goal_handle, :goal_event_cancel_goal)
+    update_goal_state(:goal_event_cancel_goal, state)
 
     Logger.debug("#{__MODULE__}: Cancel goal [#{Base.encode16(get_uuid(goal_info))}].")
 
-    Task.shutdown(task, 100)
+    ret = Task.shutdown(task, 100)
+    update_goal_state(:goal_event_canceled, state)
+    set_result(nil, state)
 
     {:reply, ret, %{state | cancel_requested: true}}
   end
 
   # The goal execution completed successfully
-  def handle_info({_task_ref, result}, %{task: task, goal_info: goal_info, action_type: action_type, action_name: action_name, name: name, namespace: namespace} = state) do
+  def handle_info(
+        {_task_ref, result},
+        %{
+          task: task,
+          goal_info: goal_info
+        } = state
+      ) do
     # We don't care about the DOWN message now, so let's demonitor and flush it
     Process.demonitor(task.ref, [:flush])
 
     # Hand over the result to the action server
-    :ok = ActionServer.set_result(result, goal_info.goal_id, action_type, action_name, name, namespace)
 
+    update_goal_state(:goal_event_succeed, state)
+    set_result(result, state)
 
     Logger.debug(
       "#{__MODULE__}: Goal [#{Base.encode16(get_uuid(goal_info))}] execution completed with #{inspect(result)}."
@@ -229,6 +213,10 @@ defmodule Rclex.ActionServer.GoalHandle do
         %{task: _task, goal_info: goal_info} = state
       ) do
     # Log and possibly restart the task...
+
+    update_goal_state(:goal_event_abort, state)
+    set_result(nil, state)
+
     Logger.error(
       "#{__MODULE__}: Goal [#{Base.encode16(get_uuid(goal_info))}] execution failed because of #{inspect(reason)}."
     )
@@ -270,5 +258,87 @@ defmodule Rclex.ActionServer.GoalHandle do
 
   def valid?(goal_handle) do
     Nif.rcl_action_goal_handle_is_valid!(goal_handle)
+  end
+
+  @spec update_goal_state(
+          :goal_event_execute
+          | :goal_event_cancel_goal
+          | :goal_event_succeed
+          | :goal_event_abort
+          | :goal_event_canceled,
+          map()
+        ) :: any()
+  defp update_goal_state(event, %{goal_handle: goal_handle} = state)
+       when is_atom(event) and
+              event in [
+                :goal_event_execute,
+                :goal_event_cancel_goal,
+                :goal_event_succeed,
+                :goal_event_abort,
+                :goal_event_canceled
+              ] do
+    :ok = Nif.rcl_action_update_goal_state!(goal_handle, event)
+    status = Nif.rcl_action_goal_handle_get_status!(goal_handle)
+    update_status(status, state)
+  end
+
+  defp update_status(
+         status,
+         %{
+           goal_info: goal_info,
+           action_type: action_type,
+           action_name: action_name,
+           name: name,
+           namespace: namespace
+         } = _state
+       ) do
+    goal_status = gen_goal_status(goal_info, status)
+    ActionServer.update_status(goal_status, action_type, action_name, name, namespace)
+  end
+
+  def gen_goal_status(goal_info, status) do
+    goal_status = struct(GoalStatus)
+    %{goal_status | goal_info: goal_info, status: status}
+  end
+
+  defp set_result(
+         result,
+         %{
+           goal_handle: goal_handle,
+           goal_info: goal_info,
+           action_type: action_type,
+           action_name: action_name,
+           name: name,
+           namespace: namespace
+         } =
+           _state
+       ) do
+    status = Nif.rcl_action_goal_handle_get_status!(goal_handle)
+    response_type = apply(action_type, :get_result_response_type, [])
+
+    result_response =
+      if result do
+        ActionServer.gen_result_response_struct(
+          response_type,
+          status,
+          result
+        )
+      else
+        ActionServer.gen_result_response_struct(
+          response_type,
+          status,
+          struct(apply(action_type, :result_type, []))
+        )
+      end
+
+    :ok =
+      ActionServer.set_result_response(
+        result_response,
+        goal_info.goal_id,
+        action_type,
+        action_name,
+        name,
+        namespace
+      )
   end
 end

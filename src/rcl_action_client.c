@@ -13,6 +13,7 @@
 #include <rosidl_runtime_c/message_type_support_struct.h>
 #include <stddef.h>
 
+ERL_NIF_TERM atom_action_client_take_failed;
 ERL_NIF_TERM atom_new_cancel_response;
 ERL_NIF_TERM atom_new_feedback;
 ERL_NIF_TERM atom_new_goal_response;
@@ -20,11 +21,12 @@ ERL_NIF_TERM atom_new_result_response;
 ERL_NIF_TERM atom_new_status;
 
 void make_action_client_atom(ErlNifEnv *env) {
-  atom_new_cancel_response = enif_make_atom(env, "new_cancel_response");
-  atom_new_feedback        = enif_make_atom(env, "new_feedback");
-  atom_new_goal_response   = enif_make_atom(env, "new_goal_response");
-  atom_new_result_response = enif_make_atom(env, "new_result_response");
-  atom_new_status          = enif_make_atom(env, "new_status");
+  atom_new_cancel_response       = enif_make_atom(env, "new_cancel_response");
+  atom_new_feedback              = enif_make_atom(env, "new_feedback");
+  atom_new_goal_response         = enif_make_atom(env, "new_goal_response");
+  atom_new_result_response       = enif_make_atom(env, "new_result_response");
+  atom_new_status                = enif_make_atom(env, "new_status");
+  atom_action_client_take_failed = enif_make_atom(env, "action_client_take_failed");
 }
 
 ERL_NIF_TERM nif_rcl_action_client_init(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
@@ -116,7 +118,8 @@ ERL_NIF_TERM nif_rcl_action_client_fini(ErlNifEnv *env, int argc, const ERL_NIF_
 
   rcl_ret_t rc;
   rc = rcl_action_client_fini(action_client_p, node_p);
-  if (rc != RCL_RET_OK) return raise(env, __FILE__, __LINE__);
+  if (rc != RCL_RET_OK)
+    return raise_with_message(env, __FILE__, __LINE__, rcutils_get_error_string().str);
 
   return atom_ok;
 }
@@ -142,8 +145,8 @@ ERL_NIF_TERM nif_rcl_action_take_cancel_response(ErlNifEnv *env, int argc,
 
   if (rc == RCL_RET_OK)
     return enif_make_tuple2(env, atom_ok, enif_make_int64(env, sequence_number));
-  if (rc == RCL_RET_CLIENT_TAKE_FAILED) return atom_error;
-  return raise(env, __FILE__, __LINE__);
+  if (rc == RCL_RET_CLIENT_TAKE_FAILED) return atom_action_client_take_failed;
+  return raise_with_message(env, __FILE__, __LINE__, rcutils_get_error_string().str);
 }
 
 ERL_NIF_TERM nif_rcl_action_take_feedback(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
@@ -163,8 +166,8 @@ ERL_NIF_TERM nif_rcl_action_take_feedback(ErlNifEnv *env, int argc, const ERL_NI
   rc = rcl_action_take_feedback(action_client_p, *ros_response_message_pp);
 
   if (rc == RCL_RET_OK) return atom_ok;
-  if (rc == RCL_RET_CLIENT_TAKE_FAILED) return atom_error;
-  return raise(env, __FILE__, __LINE__);
+  if (rc == RCL_RET_CLIENT_TAKE_FAILED) return atom_action_client_take_failed;
+  return raise_with_message(env, __FILE__, __LINE__, rcutils_get_error_string().str);
 }
 
 ERL_NIF_TERM nif_rcl_action_take_goal_response(ErlNifEnv *env, int argc,
@@ -188,8 +191,8 @@ ERL_NIF_TERM nif_rcl_action_take_goal_response(ErlNifEnv *env, int argc,
 
   if (rc == RCL_RET_OK)
     return enif_make_tuple2(env, atom_ok, enif_make_int64(env, sequence_number));
-  if (rc == RCL_RET_CLIENT_TAKE_FAILED) return atom_error;
-  return raise(env, __FILE__, __LINE__);
+  if (rc == RCL_RET_CLIENT_TAKE_FAILED) return atom_action_client_take_failed;
+  return raise_with_message(env, __FILE__, __LINE__, rcutils_get_error_string().str);
 }
 
 ERL_NIF_TERM nif_rcl_action_take_result_response(ErlNifEnv *env, int argc,
@@ -213,8 +216,8 @@ ERL_NIF_TERM nif_rcl_action_take_result_response(ErlNifEnv *env, int argc,
 
   if (rc == RCL_RET_OK)
     return enif_make_tuple2(env, atom_ok, enif_make_int64(env, sequence_number));
-  if (rc == RCL_RET_CLIENT_TAKE_FAILED) return atom_error;
-  return raise(env, __FILE__, __LINE__);
+  if (rc == RCL_RET_CLIENT_TAKE_FAILED) return atom_action_client_take_failed;
+  return raise_with_message(env, __FILE__, __LINE__, rcutils_get_error_string().str);
 }
 
 ERL_NIF_TERM nif_rcl_action_take_status(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
@@ -232,9 +235,20 @@ ERL_NIF_TERM nif_rcl_action_take_status(ErlNifEnv *env, int argc, const ERL_NIF_
     return enif_make_badarg(env);
 
   rc = rcl_action_take_status(action_client_p, *ros_status_array_pp);
-  if (rc == RCL_RET_OK) return atom_ok;
-  if (rc == RCL_RET_CLIENT_TAKE_FAILED) return atom_error;
-  return raise(env, __FILE__, __LINE__);
+  if (rc == RCL_RET_OK)
+    return atom_ok;
+  else if (rc == RCL_RET_CLIENT_TAKE_FAILED)
+    return atom_action_client_take_failed;
+  else if (rc == RCL_RET_INVALID_ARGUMENT)
+    return raise_with_message(env, __FILE__, __LINE__, rcutils_get_error_string().str);
+  else if (rc == RCL_RET_ACTION_CLIENT_INVALID)
+    return raise_with_message(env, __FILE__, __LINE__, rcutils_get_error_string().str);
+  else if (rc == RCL_RET_BAD_ALLOC)
+    return raise_with_message(env, __FILE__, __LINE__, rcutils_get_error_string().str);
+  else if (rc == RCL_RET_ERROR)
+    return raise_with_message(env, __FILE__, __LINE__, rcutils_get_error_string().str);
+  else
+    return raise_with_message(env, __FILE__, __LINE__, rcutils_get_error_string().str);
 }
 
 ERL_NIF_TERM nif_rcl_action_send_cancel_request(ErlNifEnv *env, int argc,

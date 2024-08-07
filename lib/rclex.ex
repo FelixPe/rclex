@@ -20,6 +20,7 @@ defmodule Rclex do
   @action_name_doc "`action_name` must lead with \"/\". See all [constraints](https://design.ros2.org/articles/topic_and_service_names.html#ros-2-topic-and-service-name-constraints)"
   @no_demangle_doc "`:no_demangle` if `true`, return all topics without any demangling. if not specified, the default is `false`"
   @no_mangle_doc "`:no_mangle` if `true`, `topic_name` needs to be a valid middleware topic name, otherwise it should be a valid ROS topic name. if not specified, the default is `false`"
+  @goal_uuid_doc "`goal_uuid` define the UUID of the goal. By default a random UUID will be generated."
 
   @typedoc "#{@topic_name_doc}."
   @type topic_name :: String.t()
@@ -29,6 +30,9 @@ defmodule Rclex do
 
   @typedoc "#{@action_name_doc}."
   @type action_name :: String.t()
+
+  @typedoc "#{@goal_uuid_doc}."
+  @type goal_uuid :: <<_::16, _::_*8>>
 
   @doc """
   Start a ROS node. The name of the node must not be `nil` and cannot coincide with another node of the same name.
@@ -485,7 +489,7 @@ defmodule Rclex do
   running `mix rclex.gen.action`.
 
   - #{@action_name_doc}
-  - The purpose of the `execute_callback` is to execute the action goal and return a result when finished. The callback should take one parameter containing goal request and must return a result struct for the action type.
+  - The purpose of the `execute_callback` is to execute the action goal and return a result when finished. The callback should take two parameter. The first parameter is containing the goal request as a struct. The second parameter is the `feedback_publish` callback, that expects one parameter of the feedback type and can be used to send feedback to action clients. The `execute_callback` must return a result struct for the action type.
 
   ### opts
 
@@ -505,9 +509,9 @@ defmodule Rclex do
   ### Examples
 
       iex> alias Rclex.Pkgs.Turtlesim.Action
-      iex> Rclex.start_action_server(execute_callback, goal_callback, handle_accepted_callback, cancel_callback, Action.RotateAbsolute, "/rotate_absolute", "node", namespace: "/example")
+      iex> Rclex.start_action_server(execute_callback, Action.RotateAbsolute, "/rotate_absolute", "node", namespace: "/example", goal_callback: goal_callback, handle_accepted_callback: handle_accepted_callback, cancel_callback: cancel_callback)
       :ok
-      iex> Rclex.start_action_server(execute_callback, goal_callback, handle_accepted_callback, cancel_callback, Action.RotateAbsolute, "/rotate_absolute", "node", namespace: "/example")
+      iex> Rclex.start_action_server(execute_callback, Action.RotateAbsolute, "/rotate_absolute", "node", namespace: "/example", goal_callback: goal_callback, handle_accepted_callback: handle_accepted_callback, cancel_callback: cancel_callback)
       {:error, :already_started}
   """
   @doc section: :action_server
@@ -723,6 +727,8 @@ defmodule Rclex do
   ### opts
 
   - #{@namespace_doc}
+  - The function, defined by `:feedback_callback`, get called whenever new feedback is available for the action goal. The callback function needs to have a arity of 1, with a feedback struct of the action type as it's only parameter.
+  - #{@goal_uuid_doc}
 
   ### Examples
 
@@ -735,16 +741,126 @@ defmodule Rclex do
           goal :: struct(),
           action_name :: action_name(),
           node_name :: String.t(),
-          opts :: [namespace: String.t()]
+          opts :: [
+            namespace: String.t(),
+            feedback_callback: function(),
+            goal_uuid: goal_uuid()
+          ]
         ) ::
           :ok | {:error, :not_found} | {:error, term()}
   def send_goal_async(goal, action_name, node_name, opts \\ [])
       when is_binary(action_name) and
              is_binary(node_name) and is_list(opts) do
     namespace = Keyword.get(opts, :namespace, "/")
+    goal_uuid = Keyword.get(opts, :goal_uuid, Rclex.ActionClient.gen_uuid())
+    feedback_callback = Keyword.get(opts, :feedback_callback, fn _feedback -> nil end)
 
     Rclex.ActionClient.send_goal_async(
       goal,
+      goal_uuid,
+      feedback_callback,
+      action_name,
+      node_name,
+      namespace
+    )
+  end
+
+  @doc """
+  Request to cancel an action goal on a ROS action server asynchronously using an initialized action client.
+
+  - #{@goal_uuid_doc}
+  - The `cancel_callback` is called with the cancel request has been processed, it get return_code and as list of the canceled goals as parameters.
+  - #{@action_name_doc}
+
+  ### opts
+
+  - #{@namespace_doc}
+
+  ### Examples
+
+      iex> alias Rclex.Pkgs.Turtlesim.Action
+      iex> Rclex.cancel_goal_async(uuid, cancel_callback, Action.RotateAbsolute, "/rotate_absolute", "node", namespace: "/example")
+      :ok
+  """
+  @doc section: :action_client
+  @spec cancel_goal_async(
+          goal_uuid :: goal_uuid(),
+          cancel_callback :: function(),
+          action_type :: atom(),
+          action_name :: action_name(),
+          node_name :: String.t(),
+          opts :: [
+            namespace: String.t()
+          ]
+        ) ::
+          :ok | {:error, :not_found} | {:error, term()}
+  def cancel_goal_async(
+        goal_uuid,
+        cancel_callback,
+        action_type,
+        action_name,
+        node_name,
+        opts \\ []
+      )
+      when is_function(cancel_callback) and is_atom(action_type) and is_binary(action_name) and
+             is_binary(node_name) and is_list(opts) do
+    namespace = Keyword.get(opts, :namespace, "/")
+
+    Rclex.ActionClient.cancel_goal_async(
+      goal_uuid,
+      cancel_callback,
+      action_type,
+      action_name,
+      node_name,
+      namespace
+    )
+  end
+
+  @doc """
+  Request an action goal result from a ROS action server asynchronously using an initialized action client.
+
+  - #{@goal_uuid_doc}
+  - The `result_callback` is called with the returned status and result, as soon as it gets available.
+  - #{@action_name_doc}
+
+  ### opts
+
+  - #{@namespace_doc}
+
+  ### Examples
+
+      iex> alias Rclex.Pkgs.Turtlesim.Action
+      iex> Rclex.get_result_async(uuid, result_callback, Action.RotateAbsolute, "/rotate_absolute", "node", namespace: "/example")
+      :ok
+  """
+  @doc section: :action_client
+  @spec get_result_async(
+          goal_uuid :: goal_uuid(),
+          result_callback :: function(),
+          action_type :: atom(),
+          action_name :: action_name(),
+          node_name :: String.t(),
+          opts :: [
+            namespace: String.t()
+          ]
+        ) ::
+          :ok | {:error, :not_found} | {:error, term()}
+  def get_result_async(
+        goal_uuid,
+        result_callback,
+        action_type,
+        action_name,
+        node_name,
+        opts \\ []
+      )
+      when is_function(result_callback) and is_atom(action_type) and is_binary(action_name) and
+             is_binary(node_name) and is_list(opts) do
+    namespace = Keyword.get(opts, :namespace, "/")
+
+    Rclex.ActionClient.get_result_async(
+      goal_uuid,
+      result_callback,
+      action_type,
       action_name,
       node_name,
       namespace

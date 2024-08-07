@@ -35,7 +35,7 @@ defmodule Rclex.ActionServerTest do
                action_name: "/rotate_absolute",
                name: name,
                namespace: namespace,
-               execute_callback: fn _req -> nil end,
+               execute_callback: fn _req, _fb_cb -> nil end,
                goal_callback: fn _req ->
                  false
                end

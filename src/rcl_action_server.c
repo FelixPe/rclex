@@ -288,7 +288,10 @@ ERL_NIF_TERM nif_rcl_action_process_cancel_request(ErlNifEnv *env, int argc,
       return raise_with_message(env, __FILE__, __LINE__, rcutils_get_error_string().str);
   }
 
-  **cancel_response_message_pp = cancel_response_p->msg;
+  if (!action_msgs__srv__CancelGoal_Response__copy(&(cancel_response_p->msg),
+                                                   *cancel_response_message_pp))
+    return raise_with_message(env, __FILE__, __LINE__, rcutils_get_error_string().str);
+  // **cancel_response_message_pp = cancel_response_p->msg;
 
   rcl_ret_t rc_fini;
   rc_fini = rcl_action_cancel_response_fini(cancel_response_p);
@@ -331,12 +334,12 @@ ERL_NIF_TERM nif_rcl_action_publish_status(ErlNifEnv *env, int argc, const ERL_N
     return enif_make_badarg(env);
   if (!rcl_action_server_is_valid(action_server_p)) return raise(env, __FILE__, __LINE__);
 
-  void **ros_status_message_pp;
-  if (!enif_get_resource(env, argv[1], rt_ros_message, (void **)&ros_status_message_pp))
+  void **ros_status_array_pp;
+  if (!enif_get_resource(env, argv[1], rt_ros_message, (void **)&ros_status_array_pp))
     return enif_make_badarg(env);
 
   rcl_ret_t rc;
-  rc = rcl_action_publish_status(action_server_p, *ros_status_message_pp);
+  rc = rcl_action_publish_status(action_server_p, *ros_status_array_pp);
   if (rc != RCL_RET_OK) {
     return raise_with_message(env, __FILE__, __LINE__, rcutils_get_error_string().str);
   }
@@ -792,7 +795,7 @@ ERL_NIF_TERM nif_rcl_action_update_goal_state(ErlNifEnv *env, int argc, const ER
   } else if (enif_is_identical(argv[1], atom_goal_event_canceled)) {
     goal_event = GOAL_EVENT_CANCELED;
   } else {
-    return raise(env, __FILE__, __LINE__);
+    return raise_with_message(env, __FILE__, __LINE__, "unknown goal state atom");
   }
 
   rcl_ret_t rc;

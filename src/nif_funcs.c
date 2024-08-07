@@ -136,6 +136,7 @@ static ErlNifFunc nif_funcs[] = {
     nif_regular_func(rcl_action_send_result_response, 3),
     nif_regular_func(rcl_action_server_get_goal_handles, 1),
     nif_regular_func(rcl_action_server_goal_exists, 2),
+    nif_regular_func(rcl_action_notify_goal_done, 1),
 #ifndef ROS_DISTRO_foxy
     nif_regular_func(rcl_action_server_set_cancel_service_callback, 1),
     nif_regular_func(rcl_action_server_set_goal_service_callback, 1),
