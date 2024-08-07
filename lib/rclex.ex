@@ -733,8 +733,7 @@ defmodule Rclex do
   ### Examples
 
       iex> alias Rclex.Pkgs.Turtlesim.Action
-      iex> Rclex.action_call_async(%Action.RotateAbsolute.Goal{theta: 0.123}, "/rotate_absolute", "node", namespace: "/example")
-      :ok
+      iex> {:ok, uuid} = Rclex.action_call_async(%Action.RotateAbsolute.Goal{theta: 0.123}, "/rotate_absolute", "node", namespace: "/example")
   """
   @doc section: :action_client
   @spec send_goal_async(
@@ -779,6 +778,7 @@ defmodule Rclex do
   ### Examples
 
       iex> alias Rclex.Pkgs.Turtlesim.Action
+      iex> {:ok, uuid} = Rclex.action_call_async(%Action.RotateAbsolute.Goal{theta: 0.123}, "/rotate_absolute", "node", namespace: "/example")
       iex> Rclex.cancel_goal_async(uuid, cancel_callback, Action.RotateAbsolute, "/rotate_absolute", "node", namespace: "/example")
       :ok
   """
@@ -830,6 +830,7 @@ defmodule Rclex do
   ### Examples
 
       iex> alias Rclex.Pkgs.Turtlesim.Action
+      iex> {:ok, uuid} = Rclex.action_call_async(%Action.RotateAbsolute.Goal{theta: 0.123}, "/rotate_absolute", "node", namespace: "/example")
       iex> Rclex.get_result_async(uuid, result_callback, Action.RotateAbsolute, "/rotate_absolute", "node", namespace: "/example")
       :ok
   """
