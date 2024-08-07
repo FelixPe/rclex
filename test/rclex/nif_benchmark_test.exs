@@ -268,6 +268,225 @@ defmodule Rclex.NifBenchmarkTest do
     end
   end
 
+  describe "action_server & action_client" do
+    setup do
+      context = Nif.rcl_init!()
+      name = ~c"name"
+      namespace = ~c"/namespace"
+      action_name = ~c"/rotate_absolute"
+      node = Nif.rcl_node_init!(context, name, namespace)
+      clock_type = :system_time
+      clock = Nif.rcl_clock_init!(clock_type)
+      type_support = Nif.turtlesim_action_rotate_absolute_type_support!()
+      goal_service_qos = Rclex.QoS.profile_services_default()
+      result_service_qos = Rclex.QoS.profile_services_default()
+      cancel_service_qos = Rclex.QoS.profile_services_default()
+      feedback_topic_qos = Rclex.QoS.profile_default()
+      status_topic_qos = Rclex.QoS.profile_status_default()
+      result_timeout = 10.0
+
+      action_server =
+        Nif.rcl_action_server_init!(
+          node,
+          type_support,
+          ~c"#{action_name}",
+          clock,
+          goal_service_qos,
+          result_service_qos,
+          cancel_service_qos,
+          feedback_topic_qos,
+          status_topic_qos,
+          result_timeout
+        )
+
+      action_client =
+        Nif.rcl_action_client_init!(
+          node,
+          type_support,
+          ~c"#{action_name}",
+          goal_service_qos,
+          result_service_qos,
+          cancel_service_qos,
+          feedback_topic_qos,
+          status_topic_qos
+        )
+
+      :timer.sleep(50)
+
+      on_exit(fn ->
+        :ok = Nif.rcl_action_client_fini!(action_client, node)
+        :ok = Nif.rcl_action_server_fini!(action_server, node)
+        :ok = Nif.rcl_clock_fini!(clock)
+        :ok = Nif.rcl_node_fini!(node)
+        :ok = Nif.rcl_fini!(context)
+      end)
+
+      %{
+        node: node,
+        action_client: action_client,
+        action_server: action_server,
+        name: name,
+        namespace: namespace,
+        action_name: action_name
+      }
+    end
+
+    test "rcl_action_server_is_available!/2", %{node: node, action_client: action_client} do
+      {time_us, true} = :timer.tc(&Nif.rcl_action_server_is_available!/2, [node, action_client])
+      assert time_us <= @nif_tenth_limit_time_us
+    end
+
+    test "rcl_action_accept_new_goal!/2", %{action_server: action_server} do
+      uuid = <<1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16>>
+      sec = 123_456
+      nanosec = 789
+
+      goal_info_message = Nif.action_msgs_msg_goal_info_create!()
+      Nif.action_msgs_msg_goal_info_set!(goal_info_message, {{uuid}, {sec, nanosec}})
+
+      {time_us, {:ok, _seq}} =
+        :timer.tc(&Nif.rcl_action_accept_new_goal!/2, [action_server, goal_info_message])
+
+      assert time_us <= @nif_tenth_limit_time_us
+
+      Nif.action_msgs_msg_goal_info_destroy!(goal_info_message)
+    end
+
+    test "rcl_action_notify_goal_done!/1", %{action_server: action_server} do
+      {time_us, :ok} = :timer.tc(&Nif.rcl_action_notify_goal_done!/1, [action_server])
+      assert time_us <= @nif_tenth_limit_time_us
+    end
+
+    test "rcl_action_publish_feedback!/2 and rcl_action_take_feedback!/2", %{action_server: action_server, action_client: action_client} do
+      uuid = <<1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16>>
+
+      feedback_message = Nif.turtlesim_action_rotate_absolute__feedback_message_create!()
+      Nif.turtlesim_action_rotate_absolute__feedback_message_set!(feedback_message, {{uuid}, {1.234}})
+
+      {time_us, :ok} =
+        :timer.tc(&Nif.rcl_action_publish_feedback!/2, [action_server, feedback_message])
+      assert time_us <= @nif_tenth_limit_time_us
+
+        {time_us, :ok} =
+          :timer.tc(&Nif.rcl_action_take_feedback!/2, [action_client, feedback_message])
+      assert time_us <= @nif_tenth_limit_time_us
+
+      Nif.turtlesim_action_rotate_absolute__feedback_message_destroy!(feedback_message)
+    end
+
+    test "rcl_action_publish_status!/2 and rcl_action_take_status!/2", %{action_server: action_server, action_client: action_client} do
+      status_message = Nif.action_msgs_msg_goal_status_array_create!()
+      Nif.action_msgs_msg_goal_status_array_set!(status_message, {[]})
+
+      {time_us, :ok} =
+        :timer.tc(&Nif.rcl_action_publish_status!/2, [action_server, status_message])
+      assert time_us <= @nif_tenth_limit_time_us
+
+      {time_us, :ok} =
+          :timer.tc(&Nif.rcl_action_take_status!/2, [action_client, status_message])
+      assert time_us <= @nif_tenth_limit_time_us
+
+      Nif.action_msgs_msg_goal_status_array_destroy!(status_message)
+    end
+
+    test "rcl_action_send/take_cancel_request! & rcl_action_send/take_cancel_response!", %{action_server: action_server, action_client: action_client} do
+      uuid = <<1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16>>
+      sec = 123_456
+      nanosec = 789
+
+      cancel_request_message = Nif.action_msgs_srv_cancel_goal__request_create!()
+      cancel_response_message = Nif.action_msgs_srv_cancel_goal__response_create!()
+
+      Nif.action_msgs_srv_cancel_goal__request_set!(cancel_request_message, {{{uuid}, {sec, nanosec}}})
+      Nif.action_msgs_srv_cancel_goal__response_set!(cancel_response_message, {0, []})
+
+      {time_us, {:ok, request_id_send}} =
+        :timer.tc(&Nif.rcl_action_send_cancel_request!/2, [action_client, cancel_request_message])
+      assert time_us <= @nif_tenth_limit_time_us
+
+      {time_us, {:ok, req_ref}} =
+        :timer.tc(&Nif.rcl_action_take_cancel_request!/2, [action_server, cancel_request_message])
+      assert time_us <= @nif_tenth_limit_time_us
+
+      {time_us, :ok} =
+        :timer.tc(&Nif.rcl_action_send_cancel_response!/3, [action_server, req_ref, cancel_response_message])
+      assert time_us <= @nif_tenth_limit_time_us
+
+      {time_us, {:ok, request_id_recv}} =
+        :timer.tc(&Nif.rcl_action_take_cancel_response!/2, [action_client, cancel_response_message])
+      assert time_us <= @nif_tenth_limit_time_us
+
+      assert request_id_send == request_id_recv
+
+      Nif.action_msgs_srv_cancel_goal__request_destroy!(cancel_request_message)
+      Nif.action_msgs_srv_cancel_goal__response_destroy!(cancel_response_message)
+    end
+
+    test "rcl_action_send/take_goal_request! & rcl_action_send/take_goal_response!", %{action_server: action_server, action_client: action_client} do
+      uuid = <<1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16>>
+      sec = 123_456
+      nanosec = 789
+
+      request_message = Nif.turtlesim_action_rotate_absolute__send_goal__request_create!()
+      response_message = Nif.turtlesim_action_rotate_absolute__send_goal__response_create!()
+
+      Nif.turtlesim_action_rotate_absolute__send_goal__request_set!(request_message, {{uuid}, {1.234}})
+      Nif.turtlesim_action_rotate_absolute__send_goal__response_set!(response_message, {false, {sec, nanosec}})
+
+      {time_us, {:ok, request_id_send}} =
+        :timer.tc(&Nif.rcl_action_send_goal_request!/2, [action_client, request_message])
+      assert time_us <= @nif_tenth_limit_time_us
+
+      {time_us, {:ok, req_ref}} =
+        :timer.tc(&Nif.rcl_action_take_goal_request!/2, [action_server, request_message])
+      assert time_us <= @nif_tenth_limit_time_us
+
+      {time_us, :ok} =
+        :timer.tc(&Nif.rcl_action_send_goal_response!/3, [action_server, req_ref, response_message])
+      assert time_us <= @nif_tenth_limit_time_us
+
+      {time_us, {:ok, request_id_recv}} =
+        :timer.tc(&Nif.rcl_action_take_goal_response!/2, [action_client, response_message])
+      assert time_us <= @nif_tenth_limit_time_us
+
+      assert request_id_send == request_id_recv
+
+      Nif.turtlesim_action_rotate_absolute__send_goal__request_destroy!(request_message)
+      Nif.turtlesim_action_rotate_absolute__send_goal__response_destroy!(response_message)
+    end
+
+    test "rcl_action_send/take_result_request! & rcl_action_send/take_result_response!", %{action_server: action_server, action_client: action_client} do
+      uuid = <<1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16>>
+
+      request_message = Nif.turtlesim_action_rotate_absolute__get_result__request_create!()
+      response_message = Nif.turtlesim_action_rotate_absolute__get_result__response_create!()
+
+      Nif.turtlesim_action_rotate_absolute__get_result__request_set!(request_message, {{uuid}})
+      Nif.turtlesim_action_rotate_absolute__get_result__response_set!(response_message, {0, {1.234}})
+
+      {time_us, {:ok, request_id_send}} =
+        :timer.tc(&Nif.rcl_action_send_result_request!/2, [action_client, request_message])
+      assert time_us <= @nif_tenth_limit_time_us
+
+      {time_us, {:ok, req_ref}} =
+        :timer.tc(&Nif.rcl_action_take_result_request!/2, [action_server, request_message])
+      assert time_us <= @nif_tenth_limit_time_us
+
+      {time_us, :ok} =
+        :timer.tc(&Nif.rcl_action_send_result_response!/3, [action_server, req_ref, response_message])
+      assert time_us <= @nif_tenth_limit_time_us
+
+      {time_us, {:ok, request_id_recv}} =
+        :timer.tc(&Nif.rcl_action_take_result_response!/2, [action_client, response_message])
+      assert time_us <= @nif_tenth_limit_time_us
+
+      assert request_id_send == request_id_recv
+
+      Nif.turtlesim_action_rotate_absolute__get_result__request_destroy!(request_message)
+      Nif.turtlesim_action_rotate_absolute__get_result__response_destroy!(response_message)
+    end
+  end
+
   describe "wait_set" do
     setup do
       context = Nif.rcl_init!()
@@ -469,8 +688,7 @@ defmodule Rclex.NifBenchmarkTest do
       {time_us, :ok} =
         :timer.tc(&Nif.rcl_interfaces_srv_get_parameter_types__response_set!/2, [msg, {bin_in}])
 
-      # @nif_limit_time_us
-      assert time_us <= 0
+      assert time_us <= @nif_limit_time_us
 
       {time_us, {bin_out}} =
         :timer.tc(&Nif.rcl_interfaces_srv_get_parameter_types__response_get!/1, [msg])

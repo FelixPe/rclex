@@ -690,44 +690,6 @@ defmodule RclexTest do
     end
   end
 
-  # describe "setting action goals on turtlesim" do
-  #   setup do
-  #     action_type = Action.RotateAbsolute
-
-  #     :ok = Rclex.start_node("name")
-
-  #     :ok =
-  #       Rclex.start_action_client(
-  #         action_type,
-  #         "/turtle1/rotate_absolute",
-  #         "name"
-  #       )
-
-  #     on_exit(fn ->
-  #       capture_log(fn ->
-  #         Rclex.stop_action_client(action_type, "/turtle1/rotate_absolute", "name")
-  #         Rclex.stop_node("name")
-  #       end)
-  #     end)
-
-  #     %{
-  #       action_type: action_type
-  #     }
-  #   end
-
-  #   test "send to turtlesim", %{} do
-  #     assert {:ok, _uuid} =
-  #              Rclex.send_goal_async(
-  #                %Action.RotateAbsolute.Goal{theta: 3.123},
-  #                "/turtle1/rotate_absolute",
-  #                "name",
-  #                feedback_callback: fn feedback -> IO.puts("#{inspect(feedback)}") end
-  #              )
-
-  #     # Process.sleep(10000)
-  #   end
-  # end
-
   describe "raising action goal execution" do
     setup do
       me = self()
@@ -795,15 +757,14 @@ defmodule RclexTest do
                    "name"
                  )
 
-
-                 assert :ok =
-                  Rclex.get_result_async(
-                    uuid,
-                    result_callback,
-                    action_type,
-                    "/rotate_absolute",
-                    "name"
-                  )
+        assert :ok =
+                 Rclex.get_result_async(
+                   uuid,
+                   result_callback,
+                   action_type,
+                   "/rotate_absolute",
+                   "name"
+                 )
 
         assert_receive :goal_callback
         assert_receive :execute_callback

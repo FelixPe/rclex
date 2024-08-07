@@ -177,6 +177,8 @@ defmodule Rclex.ActionServer do
         {goal, %{goal | waiting_result_requests: []}}
       end)
 
+    Nif.rcl_action_notify_goal_done!(action_server)
+
     response_type = apply(action_type, :get_result_response_type, [])
     response_message = apply(response_type, :create!, [])
 
@@ -202,6 +204,10 @@ defmodule Rclex.ActionServer do
     after
       :ok = apply(response_type, :destroy!, [response_message])
     end
+
+
+
+    # TODO: cleanup old results
 
     {:noreply, %{state | goals: new_goals}}
   end
