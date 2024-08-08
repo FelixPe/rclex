@@ -3,7 +3,7 @@ defmodule Mix.Tasks.Rclex.Gen.Action do
   @moduledoc """
   #{@shortdoc}
 
-  Before generating, specify action types in config.exs is needed.
+  Before generating, specifing action types in config.exs is needed.
 
   ```
   config :rclex, ros2_action_types: ["turtlesim/action/RotateAbsolute"]
@@ -43,6 +43,7 @@ defmodule Mix.Tasks.Rclex.Gen.Action do
   alias Rclex.Generators.ActionH
   alias Rclex.Generators.ActionC
   alias Rclex.Generators.Util
+  alias Mix.Tasks.Rclex.Gen
 
   @doc false
   def run(args) do
@@ -52,8 +53,8 @@ defmodule Mix.Tasks.Rclex.Gen.Action do
     case valid_options do
       [] ->
         clean()
-        generate(rclex_dir_path!())
-        recompile!()
+        generate(Gen.rclex_dir_path!())
+        Gen.recompile!()
 
       [clean: true] ->
         clean()
@@ -129,7 +130,7 @@ defmodule Mix.Tasks.Rclex.Gen.Action do
 
   @doc false
   def clean() do
-    dir_path = rclex_dir_path!()
+    dir_path = Gen.rclex_dir_path!()
 
     file_pathes =
       Enum.reject(
@@ -205,21 +206,5 @@ defmodule Mix.Tasks.Rclex.Gen.Action do
       #include "pkgs/#{file_path}"
       """
     end)
-  end
-
-  defp rclex_dir_path!() do
-    if Mix.Project.config()[:app] == :rclex do
-      File.cwd!()
-    else
-      Path.join(File.cwd!(), "deps/rclex")
-    end
-  end
-
-  defp recompile!() do
-    if Mix.Project.config()[:app] == :rclex do
-      Mix.Task.rerun("compile.elixir_make")
-    else
-      Mix.Task.rerun("deps.compile", ["rclex", "--force"])
-    end
   end
 end

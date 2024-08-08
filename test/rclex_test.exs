@@ -773,6 +773,28 @@ defmodule RclexTest do
         refute_receive :finished_execute_callback, 100
       end) =~ "execution failed because of {%RuntimeError{message: \"test raise\"}"
     end
+
+    test "get_result_async/5 for unknown goal", %{action_type: action_type} do
+      me = self()
+      result_callback = fn status, result -> send(me, {:got_result, status, result.delta}) end
+
+      capture_log(fn ->
+
+        uuid = <<1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16>>
+
+        assert :ok =
+                 Rclex.get_result_async(
+                   uuid,
+                   result_callback,
+                   action_type,
+                   "/rotate_absolute",
+                   "name"
+                 )
+
+        assert_receive {:got_result, 0, _}
+     end)
+    end
+
   end
 
   describe "timer" do

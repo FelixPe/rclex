@@ -3,16 +3,22 @@ defmodule Mix.Tasks.Rclex.Gen.Msgs do
   @moduledoc """
   #{@shortdoc}
 
-  Before generating, specify msg types in config.exs is needed.
+  Before generating, specifying msg types in config.exs is needed.
 
   ```
   config :rclex, ros2_message_types: ["std_msgs/msg/String"]
   ```
 
-  The task also generates the code for the requests and responses required by the services defined in
+  The task also generates the code for the request and response message types required by the services defined in
 
   ```
   config :rclex, ros2_service_types: ["std_srvs/srv/SetBool"]
+  ```
+
+  and the message types required for internal topics and services of actions defined in
+
+  ```
+  config :rclex, ros2_action_types: ["turtlesim/action/RotateAbsolute"]
   ```
 
   > #### Info {: .info }
@@ -61,6 +67,7 @@ defmodule Mix.Tasks.Rclex.Gen.Msgs do
   alias Rclex.Generators.MsgH
   alias Rclex.Generators.MsgC
   alias Rclex.Generators.Util
+  alias Mix.Tasks.Rclex.Gen
 
   @doc false
   def run(args) do
@@ -72,13 +79,13 @@ defmodule Mix.Tasks.Rclex.Gen.Msgs do
     case valid_options do
       [] when from != [] ->
         clean()
-        generate(from, rclex_dir_path!())
-        recompile!()
+        generate(from, Gen.rclex_dir_path!())
+        Gen.recompile!()
 
       [] ->
         clean()
-        generate(rclex_dir_path!())
-        recompile!()
+        generate(Gen.rclex_dir_path!())
+        Gen.recompile!()
 
       [clean: true] when from == [] ->
         clean()
@@ -193,7 +200,7 @@ defmodule Mix.Tasks.Rclex.Gen.Msgs do
 
   @doc false
   def clean() do
-    dir_path = rclex_dir_path!()
+    dir_path = Gen.rclex_dir_path!()
 
     for file_path <-
           Path.wildcard(Path.join(dir_path, "lib/rclex/pkgs/*/msg/*.ex")) ++
@@ -527,22 +534,6 @@ defmodule Mix.Tasks.Rclex.Gen.Msgs do
           get_ros2_message_type_map(get_array_type(type), from, acc)
       end
     end)
-  end
-
-  defp rclex_dir_path!() do
-    if Mix.Project.config()[:app] == :rclex do
-      File.cwd!()
-    else
-      Path.join(File.cwd!(), "deps/rclex")
-    end
-  end
-
-  defp recompile!() do
-    if Mix.Project.config()[:app] == :rclex do
-      Mix.Task.rerun("compile.elixir_make")
-    else
-      Mix.Task.rerun("deps.compile", ["rclex", "--force"])
-    end
   end
 
   defp to_complete_fields(fields, ros2_message_type) do
