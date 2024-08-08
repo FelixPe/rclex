@@ -365,7 +365,7 @@ defmodule Rclex.ActionServer do
                    goal_info: goal_info_struct,
                    result_response: nil,
                    goal_status:
-                     GoalHandle.gen_goal_status(goal_info_struct, GoalStatus.status_unknown()),
+                     GoalHandle.gen_goal_status(goal_info_struct, apply(GoalStatus, :status_unknown, [])),
                    waiting_result_requests: []
                  }}
               else
@@ -539,7 +539,7 @@ defmodule Rclex.ActionServer do
                   response_message_struct =
                     gen_result_response_struct(
                       response_type,
-                      GoalStatus.status_unknown(),
+                      apply(GoalStatus, :status_unknown, []),
                       struct(result_type)
                     )
 

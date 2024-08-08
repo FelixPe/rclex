@@ -11,18 +11,6 @@
 #include <stdbool.h>
 #include <stddef.h>
 
-static void timer_callback(rcl_timer_t *timer, int64_t last_call_time) {
-  // ErlNifPid *pid_p = (ErlNifPid *)user_data;
-
-  ErlNifEnv *env = enif_alloc_env();
-  // enif_send(env, pid_p, env,
-  //          enif_make_tuple(env, 2, new_message, enif_make_int(env, number_of_events)));
-  enif_free_env(env);
-
-  // Do timer work...
-  // Optionally reconfigure, cancel, or reset the timer...
-}
-
 ERL_NIF_TERM nif_rcl_timer_init(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
   if (argc != 3) return enif_make_badarg(env);
 

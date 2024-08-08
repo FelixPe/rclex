@@ -88,7 +88,7 @@ defmodule Rclex.ActionServer.GoalHandle do
   end
 
   def handle_continue(:init, state) do
-    update_status(GoalStatus.status_accepted(), state)
+    update_status(apply(GoalStatus, :status_accepted, []), state)
     {:noreply, state}
   end
 
