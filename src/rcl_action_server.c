@@ -160,13 +160,10 @@ ERL_NIF_TERM nif_rcl_action_accept_new_goal(ErlNifEnv *env, int argc, const ERL_
 
   rcl_action_goal_handle_t *obj =
       enif_alloc_resource(rt_rcl_action_goal_handle_t, sizeof(rcl_action_goal_handle_t));
-  *obj              = *goal_handle_p;
+  *obj = *goal_handle_p; // A flat copy is working here, because the goal_handle is just containing
+                         // a reference to the actual implementation
   ERL_NIF_TERM term = enif_make_resource(env, obj);
   enif_release_resource(obj);
-
-  // rcl_ret_t rc;
-  // rc = rcl_action_goal_handle_fini(goal_handle_p);
-  // if (rc != RCL_RET_OK) return raise(env, __FILE__, __LINE__);
 
   return enif_make_tuple2(env, atom_ok, term);
 }
