@@ -707,70 +707,6 @@ defmodule Rclex.ActionServer do
     end
   end
 
-  defp now(clock) do
-    Nif.rcl_clock_get_now!(clock)
-  end
-
-  def gen_result_response_struct(response_type, status, result)
-      when is_atom(response_type) and is_integer(status) and is_map(result) do
-    response_struct = struct(response_type)
-    %{response_struct | :status => status, :result => result}
-  end
-
-  defp gen_time_struct(time_ns) do
-    time_struct = struct(Rclex.Pkgs.BuiltinInterfaces.Msg.Time)
-    %{time_struct | sec: div(time_ns, 1_000_000_000), nanosec: rem(time_ns, 1_000_000_000)}
-  end
-
-  defp gen_goal_response_struct(response_type, accepted, time) do
-    time_struct = gen_time_struct(time)
-    response_struct = struct(response_type)
-    %{response_struct | accepted: accepted, stamp: time_struct}
-  end
-
-  defp gen_goal_info_struct(goal_id) do
-    goal_info_struct = struct(Rclex.Pkgs.ActionMsgs.Msg.GoalInfo)
-    %{goal_info_struct | goal_id: goal_id}
-  end
-
-  defp gen_goal_info_struct(goal_id, time_ns) do
-    goal_info_struct = struct(Rclex.Pkgs.ActionMsgs.Msg.GoalInfo)
-    %{goal_info_struct | goal_id: goal_id, stamp: gen_time_struct(time_ns)}
-  end
-
-  defp get_uuid(goal_info) when is_struct(goal_info, Rclex.Pkgs.ActionMsgs.Msg.GoalInfo) do
-    goal_info.goal_id.uuid
-  end
-
-  defp gen_goal_status_array_struct(goals) do
-    goal_status_array = struct(Rclex.Pkgs.ActionMsgs.Msg.GoalStatusArray)
-
-    status_list =
-      for {_, goal} <- goals do
-        goal.goal_status
-      end
-
-    %{goal_status_array | status_list: status_list}
-  end
-
-  defp gen_feedback_message_struct(feedback_message_type, goal_id, feedback) do
-    feedback_message_struct = struct(feedback_message_type)
-    %{feedback_message_struct | goal_id: goal_id, feedback: feedback}
-  end
-
-  def gen_goal_status(goal_info, status) do
-    goal_status = struct(GoalStatus)
-    %{goal_status | goal_info: goal_info, status: status}
-  end
-
-  defp accept_new_goal(action_server, goal_info_struct) do
-    goal_info_msg = apply(Rclex.Pkgs.ActionMsgs.Msg.GoalInfo, :create!, [])
-    :ok = apply(Rclex.Pkgs.ActionMsgs.Msg.GoalInfo, :set!, [goal_info_msg, goal_info_struct])
-    {:ok, goal_handle} = Nif.rcl_action_accept_new_goal!(action_server, goal_info_msg)
-    :ok = apply(Rclex.Pkgs.ActionMsgs.Msg.GoalInfo, :destroy!, [goal_info_msg])
-    goal_handle
-  end
-
   defp find_goal_for_task_ref(goals, task_ref) do
     goals
     |> Enum.find(fn {_uuid, goal} ->
@@ -848,5 +784,73 @@ defmodule Rclex.ActionServer do
     after
       :ok = apply(message_type, :destroy!, [message])
     end
+  end
+
+  ### Helpers
+
+  defp now(clock) do
+    Nif.rcl_clock_get_now!(clock)
+  end
+
+  defp get_uuid(goal_info) when is_struct(goal_info, Rclex.Pkgs.ActionMsgs.Msg.GoalInfo) do
+    goal_info.goal_id.uuid
+  end
+
+  defp accept_new_goal(action_server, goal_info_struct) do
+    goal_info_msg = apply(Rclex.Pkgs.ActionMsgs.Msg.GoalInfo, :create!, [])
+    :ok = apply(Rclex.Pkgs.ActionMsgs.Msg.GoalInfo, :set!, [goal_info_msg, goal_info_struct])
+    {:ok, goal_handle} = Nif.rcl_action_accept_new_goal!(action_server, goal_info_msg)
+    :ok = apply(Rclex.Pkgs.ActionMsgs.Msg.GoalInfo, :destroy!, [goal_info_msg])
+    goal_handle
+  end
+
+  ### Struct generation helper functions
+
+  def gen_result_response_struct(response_type, status, result)
+      when is_atom(response_type) and is_integer(status) and is_map(result) do
+    response_struct = struct(response_type)
+    %{response_struct | :status => status, :result => result}
+  end
+
+  defp gen_time_struct(time_ns) do
+    time_struct = struct(Rclex.Pkgs.BuiltinInterfaces.Msg.Time)
+    %{time_struct | sec: div(time_ns, 1_000_000_000), nanosec: rem(time_ns, 1_000_000_000)}
+  end
+
+  defp gen_goal_response_struct(response_type, accepted, time) do
+    time_struct = gen_time_struct(time)
+    response_struct = struct(response_type)
+    %{response_struct | accepted: accepted, stamp: time_struct}
+  end
+
+  defp gen_goal_info_struct(goal_id) do
+    goal_info_struct = struct(Rclex.Pkgs.ActionMsgs.Msg.GoalInfo)
+    %{goal_info_struct | goal_id: goal_id}
+  end
+
+  defp gen_goal_info_struct(goal_id, time_ns) do
+    goal_info_struct = struct(Rclex.Pkgs.ActionMsgs.Msg.GoalInfo)
+    %{goal_info_struct | goal_id: goal_id, stamp: gen_time_struct(time_ns)}
+  end
+
+  defp gen_goal_status_array_struct(goals) do
+    goal_status_array = struct(Rclex.Pkgs.ActionMsgs.Msg.GoalStatusArray)
+
+    status_list =
+      for {_, goal} <- goals do
+        goal.goal_status
+      end
+
+    %{goal_status_array | status_list: status_list}
+  end
+
+  defp gen_feedback_message_struct(feedback_message_type, goal_id, feedback) do
+    feedback_message_struct = struct(feedback_message_type)
+    %{feedback_message_struct | goal_id: goal_id, feedback: feedback}
+  end
+
+  def gen_goal_status(goal_info, status) do
+    goal_status = struct(GoalStatus)
+    %{goal_status | goal_info: goal_info, status: status}
   end
 end

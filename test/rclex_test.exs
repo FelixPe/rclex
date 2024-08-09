@@ -660,34 +660,33 @@ defmodule RclexTest do
       me = self()
       result_callback = fn status, result -> send(me, {:got_result, status, result.delta}) end
 
-      #      capture_log(fn ->
-      for _i <- 0..3 do
-        assert {:ok, uuid} =
-                 Rclex.send_goal_async(
-                   %Action.RotateAbsolute.Goal{theta: 2.0},
-                   "/rotate_absolute",
-                   "name"
-                 )
+      capture_log(fn ->
+        for _i <- 0..3 do
+          assert {:ok, uuid} =
+                   Rclex.send_goal_async(
+                     %Action.RotateAbsolute.Goal{theta: 2.0},
+                     "/rotate_absolute",
+                     "name"
+                   )
 
-        assert :ok =
-                 Rclex.get_result_async(
-                   uuid,
-                   result_callback,
-                   action_type,
-                   "/rotate_absolute",
-                   "name"
-                 )
+          assert :ok =
+                   Rclex.get_result_async(
+                     uuid,
+                     result_callback,
+                     action_type,
+                     "/rotate_absolute",
+                     "name"
+                   )
 
-        assert_receive :goal_callback
-        assert_receive :started_execute_callback
-        assert_receive :feedback
-        assert_receive :feedback
-        assert_receive :feedback
-        assert_receive :finished_execute_callback
-        assert_receive {:got_result, 4, 1.0}
-      end
-
-      #    end)
+          assert_receive :goal_callback
+          assert_receive :started_execute_callback
+          assert_receive :feedback
+          assert_receive :feedback
+          assert_receive :feedback
+          assert_receive :finished_execute_callback
+          assert_receive {:got_result, 4, 1.0}
+        end
+      end)
     end
   end
 
@@ -750,49 +749,48 @@ defmodule RclexTest do
       me = self()
       result_callback = fn status, result -> send(me, {:got_result, status, result.delta}) end
 
-      #    capture_log(fn ->
-      assert {:ok, uuid} =
-               Rclex.send_goal_async(
-                 %Action.RotateAbsolute.Goal{theta: 0.123},
-                 "/rotate_absolute",
-                 "name"
-               )
+      capture_log(fn ->
+        assert {:ok, uuid} =
+                 Rclex.send_goal_async(
+                   %Action.RotateAbsolute.Goal{theta: 0.123},
+                   "/rotate_absolute",
+                   "name"
+                 )
 
-      assert :ok =
-               Rclex.get_result_async(
-                 uuid,
-                 result_callback,
-                 action_type,
-                 "/rotate_absolute",
-                 "name"
-               )
+        assert :ok =
+                 Rclex.get_result_async(
+                   uuid,
+                   result_callback,
+                   action_type,
+                   "/rotate_absolute",
+                   "name"
+                 )
 
-      assert_receive :goal_callback
-      assert_receive :execute_callback
-      assert_receive {:got_result, 6, _}
-      refute_receive :finished_execute_callback, 100
-      #    end) =~ "execution failed because of {%RuntimeError{message: \"test raise\"}"
+        assert_receive :goal_callback
+        assert_receive :execute_callback
+        assert_receive {:got_result, 6, _}
+        refute_receive :finished_execute_callback, 100
+      end) =~ "execution failed because of {%RuntimeError{message: \"test raise\"}"
     end
 
     test "get_result_async/5 for unknown goal", %{action_type: action_type} do
       me = self()
       result_callback = fn status, result -> send(me, {:got_result, status, result.delta}) end
 
-      # capture_log(fn ->
+      capture_log(fn ->
+        uuid = <<1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16>>
 
-      uuid = <<1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16>>
+        assert :ok =
+                 Rclex.get_result_async(
+                   uuid,
+                   result_callback,
+                   action_type,
+                   "/rotate_absolute",
+                   "name"
+                 )
 
-      assert :ok =
-               Rclex.get_result_async(
-                 uuid,
-                 result_callback,
-                 action_type,
-                 "/rotate_absolute",
-                 "name"
-               )
-
-      assert_receive {:got_result, 0, _}
-      # end)
+        assert_receive {:got_result, 0, _}
+      end)
     end
   end
 

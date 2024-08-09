@@ -33,6 +33,12 @@ defmodule Rclex do
   @typedoc "#{@goal_uuid_doc}."
   @type goal_uuid :: <<_::16, _::_*8>>
 
+  @typedoc "Goal identifier message, with a goal id and time stamp."
+  @type goal_info :: %{
+          :__struct__ => Rclex.Pkgs.ActionMsgs.Msg.GoalInfo,
+          optional(atom()) => any()
+        }
+
   @doc """
   Start a ROS node. The name of the node must not be `nil` and cannot coincide with another node of the same name.
   Node names must follow these rules:
@@ -610,7 +616,7 @@ defmodule Rclex do
   """
   @doc section: :action_server
   @spec execute_goal(
-          goal_info :: %Rclex.Pkgs.ActionMsgs.Msg.GoalInfo{},
+          goal_info :: goal_info(),
           action_type :: module(),
           action_name :: action_name(),
           node_name :: String.t(),
