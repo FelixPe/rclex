@@ -110,7 +110,7 @@ defmodule Rclex.EntitiesSupervisor do
       ) do
     DynamicSupervisor.start_child(
       name(name, namespace),
-      {Rclex.ActionServerSupervisor,
+      {Rclex.ActionServer,
        [
          context: context,
          node: node,
@@ -201,7 +201,7 @@ defmodule Rclex.EntitiesSupervisor do
   end
 
   def stop_action_server(action_type, action_name, name, namespace) do
-    entity_name = Rclex.ActionServerSupervisor.name(action_type, action_name, name, namespace)
+    entity_name = Rclex.ActionServer.name(action_type, action_name, name, namespace)
     stop_entity(entity_name, name, namespace)
   end
 

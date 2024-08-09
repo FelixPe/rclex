@@ -558,7 +558,7 @@ defmodule Rclex do
                                                       action_name,
                                                       name,
                                                       namespace ->
-        Rclex.ActionServer.GoalHandle.execute_goal(
+        Rclex.execute_goal(
           goal_info_struct,
           action_type,
           action_name,
@@ -588,6 +588,40 @@ defmodule Rclex do
       {:error, {:already_started, _pid}} -> {:error, :already_started}
       {:error, reason} -> {:error, reason}
     end
+  end
+
+  @doc """
+  Execute accepted goal on a ROS action server. After calling, the execution of the `execute_callback` will be started.
+  This function will by default be called in the `handle_accepted_callback`.
+
+  - #{@action_name_doc}
+
+  ### opts
+
+  - #{@namespace_doc}
+
+  ### Examples
+
+      iex> alias Rclex.Pkgs.Turtlesim.Action
+      iex> Rclex.stop_action_server(Action.RotateAbsolute, "/rotate_absolute", "node", namespace: "/example")
+      :ok
+      iex> Rclex.stop_action_server(Action.RotateAbsolute, "/does_not_exist", "node", namespace: "/example")
+      {:error, :not_found}
+  """
+  @doc section: :action_server
+  @spec execute_goal(
+          goal_info :: %Rclex.Pkgs.ActionMsgs.Msg.GoalInfo{},
+          action_type :: module(),
+          action_name :: action_name(),
+          node_name :: String.t(),
+          opts :: [namespace: String.t()]
+        ) ::
+          :ok | {:error, :not_found}
+  def execute_goal(goal_info, action_type, action_name, node_name, opts \\ [])
+      when is_atom(action_type) and is_binary(action_name) and is_binary(node_name) and
+             is_list(opts) do
+    namespace = Keyword.get(opts, :namespace, "/")
+    Rclex.ActionServer.execute_goal(goal_info, action_type, action_name, node_name, namespace)
   end
 
   @doc """

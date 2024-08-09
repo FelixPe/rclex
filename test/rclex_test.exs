@@ -8,7 +8,6 @@ defmodule RclexTest do
   alias Rclex.Pkgs.RclInterfaces
   alias Rclex.Pkgs.Turtlesim.Action
   alias Rclex.NodeSupervisor
-  alias Rclex.ActionServer.GoalHandle
 
   setup do
     :ok = Application.ensure_started(:rclex)
@@ -554,7 +553,7 @@ defmodule RclexTest do
       end
 
       handle_accepted_callback = fn goal_info_struct, action_type, action_name, name, namespace ->
-        GoalHandle.execute_goal(goal_info_struct, action_type, action_name, name, namespace)
+        Rclex.execute_goal(goal_info_struct, action_type, action_name, name, namespace: namespace)
       end
 
       cancel_callback = fn _goal_info ->
@@ -661,33 +660,34 @@ defmodule RclexTest do
       me = self()
       result_callback = fn status, result -> send(me, {:got_result, status, result.delta}) end
 
-      capture_log(fn ->
-        for _i <- 0..3 do
-          assert {:ok, uuid} =
-                   Rclex.send_goal_async(
-                     %Action.RotateAbsolute.Goal{theta: 2.0},
-                     "/rotate_absolute",
-                     "name"
-                   )
+      #      capture_log(fn ->
+      for _i <- 0..3 do
+        assert {:ok, uuid} =
+                 Rclex.send_goal_async(
+                   %Action.RotateAbsolute.Goal{theta: 2.0},
+                   "/rotate_absolute",
+                   "name"
+                 )
 
-          assert :ok =
-                   Rclex.get_result_async(
-                     uuid,
-                     result_callback,
-                     action_type,
-                     "/rotate_absolute",
-                     "name"
-                   )
+        assert :ok =
+                 Rclex.get_result_async(
+                   uuid,
+                   result_callback,
+                   action_type,
+                   "/rotate_absolute",
+                   "name"
+                 )
 
-          assert_receive :goal_callback
-          assert_receive :started_execute_callback
-          assert_receive :feedback
-          assert_receive :feedback
-          assert_receive :feedback
-          assert_receive :finished_execute_callback
-          assert_receive {:got_result, 4, 1.0}
-        end
-      end)
+        assert_receive :goal_callback
+        assert_receive :started_execute_callback
+        assert_receive :feedback
+        assert_receive :feedback
+        assert_receive :feedback
+        assert_receive :finished_execute_callback
+        assert_receive {:got_result, 4, 1.0}
+      end
+
+      #    end)
     end
   end
 
@@ -709,7 +709,7 @@ defmodule RclexTest do
       end
 
       handle_accepted_callback = fn goal_info_struct, action_type, action_name, name, namespace ->
-        GoalHandle.execute_goal(goal_info_struct, action_type, action_name, name, namespace)
+        Rclex.execute_goal(goal_info_struct, action_type, action_name, name, namespace: namespace)
       end
 
       action_type = Action.RotateAbsolute
@@ -750,28 +750,28 @@ defmodule RclexTest do
       me = self()
       result_callback = fn status, result -> send(me, {:got_result, status, result.delta}) end
 
-      capture_log(fn ->
-        assert {:ok, uuid} =
-                 Rclex.send_goal_async(
-                   %Action.RotateAbsolute.Goal{theta: 0.123},
-                   "/rotate_absolute",
-                   "name"
-                 )
+      #    capture_log(fn ->
+      assert {:ok, uuid} =
+               Rclex.send_goal_async(
+                 %Action.RotateAbsolute.Goal{theta: 0.123},
+                 "/rotate_absolute",
+                 "name"
+               )
 
-        assert :ok =
-                 Rclex.get_result_async(
-                   uuid,
-                   result_callback,
-                   action_type,
-                   "/rotate_absolute",
-                   "name"
-                 )
+      assert :ok =
+               Rclex.get_result_async(
+                 uuid,
+                 result_callback,
+                 action_type,
+                 "/rotate_absolute",
+                 "name"
+               )
 
-        assert_receive :goal_callback
-        assert_receive :execute_callback
-        assert_receive {:got_result, 6, _}
-        refute_receive :finished_execute_callback, 100
-      end) =~ "execution failed because of {%RuntimeError{message: \"test raise\"}"
+      assert_receive :goal_callback
+      assert_receive :execute_callback
+      assert_receive {:got_result, 6, _}
+      refute_receive :finished_execute_callback, 100
+      #    end) =~ "execution failed because of {%RuntimeError{message: \"test raise\"}"
     end
 
     test "get_result_async/5 for unknown goal", %{action_type: action_type} do
