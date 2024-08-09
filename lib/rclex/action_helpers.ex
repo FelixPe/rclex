@@ -3,7 +3,7 @@ defmodule Rclex.ActionHelpers do
     goal_info.goal_id.uuid
   end
 
-  def uuid_pretty(goal_info) when is_struct(goal_info, GoalInfo) do
+  def uuid_pretty(goal_info) when is_struct(goal_info, Rclex.Pkgs.ActionMsgs.Msg.GoalInfo) do
     uuid_pretty(goal_info.goal_id.uuid)
   end
 
@@ -51,15 +51,15 @@ defmodule Rclex.ActionHelpers do
   end
 
   def goal_status(status)
-       when status in [
-              :status_unknown,
-              :status_accepted,
-              :status_executing,
-              :status_canceling,
-              :status_succeeded,
-              :status_canceled,
-              :status_aborted
-            ] do
+      when status in [
+             :status_unknown,
+             :status_accepted,
+             :status_executing,
+             :status_canceling,
+             :status_succeeded,
+             :status_canceled,
+             :status_aborted
+           ] do
     apply(Rclex.Pkgs.ActionMsgs.Msg.GoalStatus, status, [])
   end
 
@@ -80,13 +80,15 @@ defmodule Rclex.ActionHelpers do
   end
 
   def gen_goal_status_struct(goal_info, status) do
-    goal_status = struct(GoalStatus)
+    goal_status = struct(Rclex.Pkgs.ActionMsgs.Msg.GoalStatus)
     %{goal_status | goal_info: goal_info, status: status}
   end
 
   def gen_cancel_goal_request_struct(uuid) do
     request_struct = struct(Rclex.Pkgs.ActionMsgs.Srv.CancelGoal.Request)
-    %{request_struct | goal_info: gen_goal_info_struct(uuid)}
+    goal_id_struct = struct(Rclex.Pkgs.UniqueIdentifierMsgs.Msg.UUID)
+
+    %{request_struct | goal_info: gen_goal_info_struct(%{goal_id_struct | uuid: uuid})}
   end
 
   def gen_uuid() do

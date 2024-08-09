@@ -219,9 +219,7 @@ defmodule Rclex.ActionServer do
 
   def handle_call({:execute_goal, goal_info}, _from, %{task: task} = state)
       when is_struct(task, Task) do
-    Logger.error(
-      "#{__MODULE__}: #{uuid_pretty(goal_info)} Goal was already executed."
-    )
+    Logger.error("#{__MODULE__}: #{uuid_pretty(goal_info)} Goal was already executed.")
 
     {:reply, :ok, state}
   end
@@ -292,9 +290,7 @@ defmodule Rclex.ActionServer do
           {ret, goals}
 
         :error ->
-          Logger.error(
-            "#{__MODULE__}: #{uuid_pretty(goal_info)} Goal to cancel not found"
-          )
+          Logger.error("#{__MODULE__}: #{uuid_pretty(goal_info)} Goal to cancel not found")
 
           {:not_found, goals}
       end
@@ -486,9 +482,7 @@ defmodule Rclex.ActionServer do
                       accepted = cancel_callback.(goal_info) == :accept
 
                       if accepted do
-                        Logger.debug(
-                          "#{__MODULE__}: #{uuid_pretty(uuid)} cancel goal handler"
-                        )
+                        Logger.debug("#{__MODULE__}: #{uuid_pretty(uuid)} cancel goal handler")
 
                         {_ret, goals} =
                           cancel_goal(goals, goal_info_struct, action_server, action_type)
@@ -499,9 +493,7 @@ defmodule Rclex.ActionServer do
                       end
 
                     :error ->
-                      Logger.error(
-                        "#{__MODULE__}: #{uuid_pretty(uuid)} goal to cancel not found"
-                      )
+                      Logger.error("#{__MODULE__}: #{uuid_pretty(uuid)} goal to cancel not found")
 
                       goals
                   end

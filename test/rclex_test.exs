@@ -617,7 +617,7 @@ defmodule RclexTest do
         send(me, {:canceled, return_code, goals_canceling})
       end
 
-    #  capture_log(fn ->
+      capture_log(fn ->
         for _i <- 0..3 do
           assert {:ok, uuid} =
                    Rclex.send_goal_async(
@@ -653,7 +653,7 @@ defmodule RclexTest do
           refute_receive :finished_execute_callback
           assert_receive {:got_result, 5, _}
         end
-     # end)
+      end)
     end
 
     test "send_goal_async/3, execute_callback receives result", %{action_type: action_type} do
