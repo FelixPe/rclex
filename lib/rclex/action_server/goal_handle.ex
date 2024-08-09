@@ -10,43 +10,48 @@ defmodule Rclex.ActionServer.GoalHandle do
   alias Rclex.ActionServer
 
   def start_link(args) do
-    action_server = Keyword.fetch!(args, :action_server)
     goal_info = Keyword.fetch!(args, :goal_info)
+    action_type = Keyword.fetch!(args, :action_type)
+    action_name = Keyword.fetch!(args, :action_name)
+    name = Keyword.fetch!(args, :name)
+    namespace = Keyword.fetch!(args, :namespace)
 
     Logger.debug(
       "#{__MODULE__} [uuid: #{Base.encode16(goal_info.goal_id.uuid)}]: start_link (stamp: #{inspect(goal_info.stamp)})"
     )
 
-    GenServer.start_link(__MODULE__, args, name: name(action_server, goal_info))
+    GenServer.start_link(__MODULE__, args,
+      name: name(goal_info, action_type, action_name, name, namespace)
+    )
   end
 
-  def name(action_server, goal_info) do
+  def name(goal_info, action_type, action_name, name, namespace) do
     uuid = get_uuid(goal_info)
-    {:global, {:action_server_goal_handle, action_server, uuid}}
+    {:global, {:action_server_goal_handle, uuid, action_type, action_name, name, namespace}}
   end
 
   defp get_uuid(goal_info) when is_struct(goal_info, Rclex.Pkgs.ActionMsgs.Msg.GoalInfo) do
     goal_info.goal_id.uuid
   end
 
-  def get_status(action_server, goal_info) do
-    case GenServer.whereis(name(action_server, goal_info)) do
+  def get_status(goal_info, action_type, action_name, name, namespace) do
+    case GenServer.whereis(name(goal_info, action_type, action_name, name, namespace)) do
       nil -> {:error, :not_found}
       {_atom, _node} -> raise("should not happen")
       pid -> GenServer.call(pid, {:get_status})
     end
   end
 
-  def execute_goal(action_server, goal_info) do
-    case GenServer.whereis(name(action_server, goal_info)) do
+  def execute_goal(goal_info, action_type, action_name, name, namespace) do
+    case GenServer.whereis(name(goal_info, action_type, action_name, name, namespace)) do
       nil -> {:error, :not_found}
       {_atom, _node} -> raise("should not happen")
       pid -> GenServer.call(pid, {:execute_goal})
     end
   end
 
-  def cancel_goal(action_server, goal_info) do
-    case GenServer.whereis(name(action_server, goal_info)) do
+  def cancel_goal(goal_info, action_type, action_name, name, namespace) do
+    case GenServer.whereis(name(goal_info, action_type, action_name, name, namespace)) do
       nil -> {:error, :not_found}
       {_atom, _node} -> raise("should not happen")
       pid -> GenServer.call(pid, {:cancel_goal})
@@ -57,7 +62,6 @@ defmodule Rclex.ActionServer.GoalHandle do
   def init(args) do
     Process.flag(:trap_exit, true)
 
-    action_server = Keyword.fetch!(args, :action_server)
     action_type = Keyword.fetch!(args, :action_type)
     action_name = Keyword.fetch!(args, :action_name)
     name = Keyword.fetch!(args, :name)
@@ -66,30 +70,40 @@ defmodule Rclex.ActionServer.GoalHandle do
     goal_info_struct = Keyword.fetch!(args, :goal_info)
     goal = Keyword.fetch!(args, :goal)
     execute_callback = Keyword.fetch!(args, :execute_callback)
-    goal_handle = accept_new_goal(action_server, goal_info_struct)
 
     Logger.debug(
-      "#{__MODULE__}: [uuid: #{Base.encode16(goal_info_struct.goal_id.uuid)}] init for #{inspect(name(action_server, goal_info_struct))}"
+      "#{__MODULE__}: [uuid: #{Base.encode16(goal_info_struct.goal_id.uuid)}] init for #{inspect(name(goal_info_struct, action_type, action_name, name, namespace))}"
     )
 
     {:ok,
      %{
-       action_server: action_server,
        action_type: action_type,
        action_name: action_name,
        name: name,
        namespace: namespace,
        goal_info: goal_info_struct,
        goal: goal,
-       goal_handle: goal_handle,
+       goal_handle: nil,
        execute_callback: execute_callback,
        task: nil
      }, {:continue, :init}}
   end
 
-  def handle_continue(:init, state) do
+  def handle_continue(
+        :init,
+        %{
+          goal_info: goal_info_struct,
+          action_type: action_type,
+          action_name: action_name,
+          name: name,
+          namespace: namespace
+        } = state
+      ) do
+    {:ok, goal_handle} =
+      ActionServer.accept_new_goal(goal_info_struct, action_type, action_name, name, namespace)
+
     update_status(apply(GoalStatus, :status_accepted, []), state)
-    {:noreply, state}
+    {:noreply, %{state | goal_handle: goal_handle}}
   end
 
   def terminate(reason, %{goal_handle: _goal_handle} = state) do
@@ -232,14 +246,6 @@ defmodule Rclex.ActionServer.GoalHandle do
 
   defp status_to_atom(value) do
     Map.fetch!(@state_to_atom, value)
-  end
-
-  defp accept_new_goal(action_server, goal_info_struct) do
-    goal_info_msg = apply(Rclex.Pkgs.ActionMsgs.Msg.GoalInfo, :create!, [])
-    :ok = apply(Rclex.Pkgs.ActionMsgs.Msg.GoalInfo, :set!, [goal_info_msg, goal_info_struct])
-    {:ok, goal_handle} = Nif.rcl_action_accept_new_goal!(action_server, goal_info_msg)
-    :ok = apply(Rclex.Pkgs.ActionMsgs.Msg.GoalInfo, :destroy!, [goal_info_msg])
-    goal_handle
   end
 
   def active?(goal_handle) do

@@ -61,52 +61,52 @@ defmodule Mix.Tasks.Rclex.Gen do
   alias Mix.Tasks.Rclex.Gen.Srvs
   alias Mix.Tasks.Rclex.Gen.Action
 
-    @doc false
-    def run(args) do
-      {valid_options, _, _} =
-        OptionParser.parse(args, strict: [clean: :boolean, show_types: :boolean])
+  @doc false
+  def run(args) do
+    {valid_options, _, _} =
+      OptionParser.parse(args, strict: [clean: :boolean, show_types: :boolean])
 
-      case valid_options do
-        [] ->
-          Msgs.clean()
-          Srvs.clean()
-          Action.clean()
-          Msgs.generate(rclex_dir_path!())
-          Srvs.generate(rclex_dir_path!())
-          Action.generate(rclex_dir_path!())
-          recompile!()
+    case valid_options do
+      [] ->
+        Msgs.clean()
+        Srvs.clean()
+        Action.clean()
+        Msgs.generate(rclex_dir_path!())
+        Srvs.generate(rclex_dir_path!())
+        Action.generate(rclex_dir_path!())
+        recompile!()
 
-        [clean: true] ->
-          Msgs.clean()
-          Srvs.clean()
-          Action.clean()
+      [clean: true] ->
+        Msgs.clean()
+        Srvs.clean()
+        Action.clean()
 
-        [show_types: true] ->
-          Mix.shell().info("Message types: ")
-          Msgs.show_types()
-          Mix.shell().info("Service types: ")
-          Srvs.show_types()
-          Mix.shell().info("Action types: ")
-          Action.show_types()
-        _ ->
-          Mix.shell().info(@moduledoc)
-      end
+      [show_types: true] ->
+        Mix.shell().info("Message types: ")
+        Msgs.show_types()
+        Mix.shell().info("Service types: ")
+        Srvs.show_types()
+        Mix.shell().info("Action types: ")
+        Action.show_types()
+
+      _ ->
+        Mix.shell().info(@moduledoc)
     end
+  end
 
-    def recompile!() do
-      if Mix.Project.config()[:app] == :rclex do
-        Mix.Task.rerun("compile.elixir_make")
-      else
-        Mix.Task.rerun("deps.compile", ["rclex", "--force"])
-      end
+  def recompile!() do
+    if Mix.Project.config()[:app] == :rclex do
+      Mix.Task.rerun("compile.elixir_make")
+    else
+      Mix.Task.rerun("deps.compile", ["rclex", "--force"])
     end
+  end
 
-    def rclex_dir_path!() do
-      if Mix.Project.config()[:app] == :rclex do
-        File.cwd!()
-      else
-        Path.join(File.cwd!(), "deps/rclex")
-      end
+  def rclex_dir_path!() do
+    if Mix.Project.config()[:app] == :rclex do
+      File.cwd!()
+    else
+      Path.join(File.cwd!(), "deps/rclex")
     end
-
+  end
 end

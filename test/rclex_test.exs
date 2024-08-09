@@ -553,8 +553,8 @@ defmodule RclexTest do
         :accept
       end
 
-      handle_accepted_callback = fn action_server, goal_info ->
-        GoalHandle.execute_goal(action_server, goal_info)
+      handle_accepted_callback = fn goal_info_struct, action_type, action_name, name, namespace ->
+        GoalHandle.execute_goal(goal_info_struct, action_type, action_name, name, namespace)
       end
 
       cancel_callback = fn _goal_info ->
@@ -708,8 +708,8 @@ defmodule RclexTest do
         :accept
       end
 
-      handle_accepted_callback = fn action_server, goal_info ->
-        GoalHandle.execute_goal(action_server, goal_info)
+      handle_accepted_callback = fn goal_info_struct, action_type, action_name, name, namespace ->
+        GoalHandle.execute_goal(goal_info_struct, action_type, action_name, name, namespace)
       end
 
       action_type = Action.RotateAbsolute
@@ -778,23 +778,22 @@ defmodule RclexTest do
       me = self()
       result_callback = fn status, result -> send(me, {:got_result, status, result.delta}) end
 
-      capture_log(fn ->
+      # capture_log(fn ->
 
-        uuid = <<1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16>>
+      uuid = <<1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16>>
 
-        assert :ok =
-                 Rclex.get_result_async(
-                   uuid,
-                   result_callback,
-                   action_type,
-                   "/rotate_absolute",
-                   "name"
-                 )
+      assert :ok =
+               Rclex.get_result_async(
+                 uuid,
+                 result_callback,
+                 action_type,
+                 "/rotate_absolute",
+                 "name"
+               )
 
-        assert_receive {:got_result, 0, _}
-     end)
+      assert_receive {:got_result, 0, _}
+      # end)
     end
-
   end
 
   describe "timer" do

@@ -220,7 +220,7 @@ ERL_NIF_TERM nif_rcl_action_expire_goals(ErlNifEnv *env, int argc, const ERL_NIF
       enif_free(expired_goals_terms);
       return raise(env, __FILE__, __LINE__);
     }
-    
+
     void **obj             = enif_alloc_resource(rt_ros_message, sizeof(void *));
     *obj                   = (void *)goal_info_p;
     expired_goals_terms[i] = enif_make_resource(env, obj);

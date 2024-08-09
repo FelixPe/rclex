@@ -32,6 +32,14 @@ defmodule Rclex.ActionServer do
     end
   end
 
+  def accept_new_goal(goal_info, action_type, action_name, name, namespace \\ "/") do
+    case GenServer.whereis(name(action_type, action_name, name, namespace)) do
+      nil -> {:error, :not_found}
+      {_atom, _node} -> raise("should not happen")
+      pid -> GenServer.call(pid, {:accept_new_goal, goal_info})
+    end
+  end
+
   def publish_feedback(goal_id, feedback, action_type, action_name, name, namespace \\ "/") do
     case GenServer.whereis(name(action_type, action_name, name, namespace)) do
       nil -> {:error, :not_found}
@@ -71,8 +79,12 @@ defmodule Rclex.ActionServer do
     goal_callback = Keyword.fetch!(args, :goal_callback)
 
     handle_accepted_callback =
-      Keyword.get(args, :handle_accepted_callback, fn action_server, goal_info ->
-        GoalHandle.execute_goal(action_server, goal_info)
+      Keyword.get(args, :handle_accepted_callback, fn goal_info_struct,
+                                                      action_type,
+                                                      action_name,
+                                                      name,
+                                                      namespace ->
+        GoalHandle.execute_goal(goal_info_struct, action_type, action_name, name, namespace)
       end)
 
     cancel_callback = Keyword.get(args, :cancel_callback, fn _req -> false end)
@@ -93,7 +105,7 @@ defmodule Rclex.ActionServer do
 
     2 = :erlang.fun_info(execute_callback)[:arity]
     1 = :erlang.fun_info(goal_callback)[:arity]
-    2 = :erlang.fun_info(handle_accepted_callback)[:arity]
+    5 = :erlang.fun_info(handle_accepted_callback)[:arity]
     1 = :erlang.fun_info(cancel_callback)[:arity]
 
     type_support = apply(action_type, :type_support!, [])
@@ -195,11 +207,10 @@ defmodule Rclex.ActionServer do
         {goal, %{goal | waiting_result_requests: []}}
       end)
 
-
     {:ok, expired_goal_infos} = Nif.rcl_action_expire_goals!(action_server, 100)
 
-      expired_uuids =
-        expired_goal_infos
+    expired_uuids =
+      expired_goal_infos
       |> Enum.map(fn goal_info_msg ->
         goal_info_struct = apply(Rclex.Pkgs.ActionMsgs.Msg.GoalInfo, :get!, [goal_info_msg])
         apply(Rclex.Pkgs.ActionMsgs.Msg.GoalInfo, :destroy!, [goal_info_msg])
@@ -207,7 +218,9 @@ defmodule Rclex.ActionServer do
       end)
 
     if length(expired_uuids) > 0 do
-      Logger.debug("#{__MODULE__}: expire goals #{inspect(Enum.map(expired_uuids, fn uuid -> Base.encode16(uuid) end))}")
+      Logger.debug(
+        "#{__MODULE__}: expire goals #{inspect(Enum.map(expired_uuids, fn uuid -> Base.encode16(uuid) end))}"
+      )
     end
 
     goals = Map.drop(goals, expired_uuids)
@@ -255,6 +268,15 @@ defmodule Rclex.ActionServer do
   def handle_cast({:publish_feedback, goal_id, feedback}, state) do
     publish_feedback(goal_id, feedback, state)
     {:noreply, state}
+  end
+
+  def handle_call(
+        {:accept_new_goal, goal_info_struct},
+        _from,
+        %{action_server: action_server} = state
+      ) do
+    goal_handle = accept_goal(action_server, goal_info_struct)
+    {:reply, {:ok, goal_handle}, state}
   end
 
   def handle_info(
@@ -312,7 +334,6 @@ defmodule Rclex.ActionServer do
                     goal,
                     execute_callback,
                     handle_accepted_callback,
-                    action_server,
                     action_type,
                     action_name,
                     name,
@@ -355,7 +376,13 @@ defmodule Rclex.ActionServer do
                 Task.Supervisor.start_child(
                   {:via, PartitionSupervisor, {Rclex.TaskSupervisors, self()}},
                   fn ->
-                    handle_accepted_callback.(action_server, goal_info_struct)
+                    handle_accepted_callback.(
+                      goal_info_struct,
+                      action_type,
+                      action_name,
+                      name,
+                      namespace
+                    )
                   end
                 )
 
@@ -365,7 +392,10 @@ defmodule Rclex.ActionServer do
                    goal_info: goal_info_struct,
                    result_response: nil,
                    goal_status:
-                     GoalHandle.gen_goal_status(goal_info_struct, apply(GoalStatus, :status_unknown, [])),
+                     GoalHandle.gen_goal_status(
+                       goal_info_struct,
+                       apply(GoalStatus, :status_unknown, [])
+                     ),
                    waiting_result_requests: []
                  }}
               else
@@ -400,6 +430,10 @@ defmodule Rclex.ActionServer do
         {:new_cancel_request, number_of_events},
         %{
           action_server: action_server,
+          action_type: action_type,
+          action_name: action_name,
+          name: name,
+          namespace: namespace,
           goals: goals,
           cancel_callback: cancel_callback
         } = state
@@ -442,7 +476,7 @@ defmodule Rclex.ActionServer do
                         "#{__MODULE__}: [uuid: #{Base.encode16(uuid)}] cancel goal handler"
                       )
 
-                      GoalHandle.cancel_goal(action_server, goal_info)
+                      GoalHandle.cancel_goal(goal_info, action_type, action_name, name, namespace)
                     end
 
                   :error ->
@@ -634,6 +668,14 @@ defmodule Rclex.ActionServer do
   defp gen_feedback_message_struct(feedback_message_type, goal_id, feedback) do
     feedback_message_struct = struct(feedback_message_type)
     %{feedback_message_struct | goal_id: goal_id, feedback: feedback}
+  end
+
+  defp accept_goal(action_server, goal_info_struct) do
+    goal_info_msg = apply(Rclex.Pkgs.ActionMsgs.Msg.GoalInfo, :create!, [])
+    :ok = apply(Rclex.Pkgs.ActionMsgs.Msg.GoalInfo, :set!, [goal_info_msg, goal_info_struct])
+    {:ok, goal_handle} = Nif.rcl_action_accept_new_goal!(action_server, goal_info_msg)
+    :ok = apply(Rclex.Pkgs.ActionMsgs.Msg.GoalInfo, :destroy!, [goal_info_msg])
+    goal_handle
   end
 
   defp publish_status(%{action_server: action_server, goals: goals} = _state) do

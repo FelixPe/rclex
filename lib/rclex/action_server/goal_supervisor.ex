@@ -23,7 +23,6 @@ defmodule Rclex.ActionServer.GoalSupervisor do
         goal,
         execute_callback,
         handle_accepted_callback,
-        action_server,
         action_type,
         action_name,
         name,
@@ -37,7 +36,6 @@ defmodule Rclex.ActionServer.GoalSupervisor do
          action_name: action_name,
          name: name,
          namespace: namespace,
-         action_server: action_server,
          goal_info: goal_info,
          goal: goal,
          execute_callback: execute_callback,
@@ -46,8 +44,9 @@ defmodule Rclex.ActionServer.GoalSupervisor do
     )
   end
 
-  def stop_goal(goal_info, action_server, action_type, action_name, name, namespace \\ "/") do
-    goal_name = Rclex.ActionServer.GoalHandle.name(action_server, goal_info)
+  def stop_goal(goal_info, action_type, action_name, name, namespace \\ "/") do
+    goal_name =
+      Rclex.ActionServer.GoalHandle.name(goal_info, action_type, action_name, name, namespace)
 
     case GenServer.whereis(goal_name) do
       nil ->
