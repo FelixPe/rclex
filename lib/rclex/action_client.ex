@@ -7,6 +7,8 @@ defmodule Rclex.ActionClient do
 
   alias Rclex.Nif
 
+  import Rclex.ActionHelpers
+
   def start_link(args) do
     action_type = Keyword.fetch!(args, :action_type)
     action_name = Keyword.fetch!(args, :action_name)
@@ -206,7 +208,7 @@ defmodule Rclex.ActionClient do
         } = state
       ) do
     request_type = apply(action_type, :send_goal_request_type, [])
-    request_struct = gen_send_goal_request_struct(request_type, goal_struct, uuid)
+    request_struct = gen_goal_request_struct(request_type, goal_struct, uuid)
     request_message = apply(request_type, :create!, [])
 
     {:ok, sequence_number} =
@@ -273,7 +275,7 @@ defmodule Rclex.ActionClient do
         } = state
       ) do
     request_type = apply(action_type, :get_result_request_type, [])
-    request_struct = gen_get_result_request_struct(request_type, uuid)
+    request_struct = gen_result_request_struct(request_type, uuid)
     request_message = apply(request_type, :create!, [])
 
     {:ok, sequence_number} =
@@ -536,41 +538,5 @@ defmodule Rclex.ActionClient do
       end
 
     {:noreply, state}
-  end
-
-  defp gen_get_result_request_struct(request_type, uuid) do
-    request_struct = struct(request_type)
-    %{request_struct | goal_id: gen_uuid_struct(uuid)}
-  end
-
-  defp gen_send_goal_request_struct(request_type, goal_struct, uuid) do
-    request_struct = struct(request_type)
-    %{request_struct | goal: goal_struct, goal_id: gen_uuid_struct(uuid)}
-  end
-
-  defp gen_cancel_goal_request_struct(uuid) do
-    request_struct = struct(Rclex.Pkgs.ActionMsgs.Srv.CancelGoal.Request)
-    %{request_struct | goal_info: gen_goal_info_struct(uuid)}
-  end
-
-  defp gen_goal_info_struct(uuid) do
-    goal_info_struct = struct(Rclex.Pkgs.ActionMsgs.Msg.GoalInfo)
-    %{goal_info_struct | stamp: gen_time_struct(), goal_id: gen_uuid_struct(uuid)}
-  end
-
-  def gen_uuid() do
-    unix_time = DateTime.utc_now() |> DateTime.to_unix()
-    <<_r0::32, r1::16, _r2::4, r3::12, _r4::2, r5::62>> = :crypto.strong_rand_bytes(16)
-    <<unix_time::32, r1::16, 4::4, r3::12, 2::2, r5::62>>
-  end
-
-  defp gen_time_struct() do
-    time_struct = struct(Rclex.Pkgs.BuiltinInterfaces.Msg.Time)
-    %{time_struct | sec: 0, nanosec: 0}
-  end
-
-  defp gen_uuid_struct(uuid) do
-    uuid_struct = struct(Rclex.Pkgs.UniqueIdentifierMsgs.Msg.UUID)
-    %{uuid_struct | uuid: uuid}
   end
 end

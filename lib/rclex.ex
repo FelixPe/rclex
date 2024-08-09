@@ -799,7 +799,7 @@ defmodule Rclex do
       when is_binary(action_name) and
              is_binary(node_name) and is_list(opts) do
     namespace = Keyword.get(opts, :namespace, "/")
-    goal_uuid = Keyword.get(opts, :goal_uuid, Rclex.ActionClient.gen_uuid())
+    goal_uuid = Keyword.get(opts, :goal_uuid, Rclex.ActionHelpers.gen_uuid())
     feedback_callback = Keyword.get(opts, :feedback_callback, fn _feedback -> nil end)
 
     Rclex.ActionClient.send_goal_async(
