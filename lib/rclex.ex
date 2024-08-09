@@ -609,10 +609,13 @@ defmodule Rclex do
   ### Examples
 
       iex> alias Rclex.Pkgs.Turtlesim.Action
+      iex> handle_accepted_callback = fn goal_info_struct, action_type, action_name, name, namespace -> Rclex.execute_goal(goal_info_struct, action_type, action_name, name, namespace) end
+      end
+      iex> Rclex.start_action_server(execute_callback, Action.RotateAbsolute, "/rotate_absolute", "node", namespace: "/example", goal_callback: goal_callback, handle_accepted_callback: handle_accepted_callback, cancel_callback: cancel_callback)
+      :ok
       iex> Rclex.stop_action_server(Action.RotateAbsolute, "/rotate_absolute", "node", namespace: "/example")
       :ok
-      iex> Rclex.stop_action_server(Action.RotateAbsolute, "/does_not_exist", "node", namespace: "/example")
-      {:error, :not_found}
+
   """
   @doc section: :action_server
   @spec execute_goal(
