@@ -392,9 +392,9 @@ defmodule Rclex.Nif do
     :erlang.nif_error(:nif_not_loaded)
   end
 
-  #def rcl_action_goal_handle_fini!(_goal_handle) do
+  # def rcl_action_goal_handle_fini!(_goal_handle) do
   #  :erlang.nif_error(:nif_not_loaded)
-  #end
+  # end
 
   def rcl_action_goal_handle_get_status!(_goal_handle) do
     :erlang.nif_error(:nif_not_loaded)
