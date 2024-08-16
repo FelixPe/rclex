@@ -30,7 +30,7 @@ void make_action_client_atom(ErlNifEnv *env) {
 }
 
 ERL_NIF_TERM nif_rcl_action_client_init(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
-  if (argc != 8) return enif_make_badarg(env);
+  if (argc != 4) return enif_make_badarg(env);
 
   rcl_node_t *node_p;
   if (!enif_get_resource(env, argv[0], rt_rcl_node_t, (void **)&node_p))
@@ -54,11 +54,15 @@ ERL_NIF_TERM nif_rcl_action_client_init(ErlNifEnv *env, int argc, const ERL_NIF_
     return raise_with_message(env, __FILE__, __LINE__, message);
   }
 
-  ERL_NIF_TERM goal_service_qos_map   = argv[3];
-  ERL_NIF_TERM result_service_qos_map = argv[4];
-  ERL_NIF_TERM cancel_service_qos_map = argv[5];
-  ERL_NIF_TERM feedback_topic_qos_map = argv[6];
-  ERL_NIF_TERM status_topic_qos_map   = argv[7];
+  int arity;
+  const ERL_NIF_TERM *qos_tuple;
+  if (!enif_get_tuple(env, argv[3], &arity, &qos_tuple) || arity != 5) return enif_make_badarg(env);
+
+  ERL_NIF_TERM goal_service_qos_map   = qos_tuple[0];
+  ERL_NIF_TERM result_service_qos_map = qos_tuple[1];
+  ERL_NIF_TERM cancel_service_qos_map = qos_tuple[2];
+  ERL_NIF_TERM feedback_topic_qos_map = qos_tuple[3];
+  ERL_NIF_TERM status_topic_qos_map   = qos_tuple[4];
 
   ERL_NIF_TERM ret;
   rmw_qos_profile_t goal_service_qos, result_service_qos, cancel_service_qos, feedback_topic_qos,

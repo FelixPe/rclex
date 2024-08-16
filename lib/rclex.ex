@@ -526,13 +526,8 @@ defmodule Rclex do
           node_name :: String.t(),
           opts :: [
             namespace: String.t(),
-            goal_service_qos: QoS.t(),
-            result_service_qos: QoS.t(),
-            cancel_service_qos: QoS.t(),
-            feedback_topic_qos: QoS.t(),
-            status_topic_qos: QoS.t(),
+            options: Rclex.ActionServerOptions.t(),
             clock_type: atom(),
-            result_timeout: float(),
             goal_callback: function(),
             handle_accepted_callback: function(),
             cancel_callback: function()
@@ -548,13 +543,7 @@ defmodule Rclex do
       when is_function(execute_callback) and is_atom(action_type) and is_binary(action_name) and
              is_binary(node_name) and is_list(opts) do
     namespace = Keyword.get(opts, :namespace, "/")
-    clock_type = Keyword.get(opts, :clock_type, :steady_time)
-    goal_service_qos = Keyword.get(opts, :goal_service_qos, QoS.profile_services_default())
-    result_service_qos = Keyword.get(opts, :result_service_qos, QoS.profile_services_default())
-    cancel_service_qos = Keyword.get(opts, :cancel_service_qos, QoS.profile_services_default())
-    feedback_topic_qos = Keyword.get(opts, :feedback_topic_qos, QoS.profile_default())
-    status_topic_qos = Keyword.get(opts, :status_topic_qos, QoS.profile_status_default())
-    result_timeout = Keyword.get(opts, :result_timeout, 10.0)
+    options = Keyword.get(opts, :options, Rclex.ActionServerOptions.default())
     goal_callback = Keyword.get(opts, :goal_callback, fn _goal -> :accept end)
     cancel_callback = Keyword.get(opts, :cancel_callback, fn _goal -> :reject end)
 
@@ -574,21 +563,12 @@ defmodule Rclex do
       end)
 
     case Rclex.Node.start_action_server(
-           execute_callback,
-           goal_callback,
-           handle_accepted_callback,
-           cancel_callback,
+           {execute_callback, goal_callback, handle_accepted_callback, cancel_callback},
            action_type,
            action_name,
            node_name,
            namespace,
-           clock_type,
-           goal_service_qos,
-           result_service_qos,
-           cancel_service_qos,
-           feedback_topic_qos,
-           status_topic_qos,
-           result_timeout
+           options
          ) do
       {:ok, _pid} -> :ok
       {:error, {:already_started, _pid}} -> {:error, :already_started}
@@ -699,11 +679,7 @@ defmodule Rclex do
           node_name :: String.t(),
           opts :: [
             namespace: String.t(),
-            goal_service_qos: QoS.t(),
-            result_service_qos: QoS.t(),
-            cancel_service_qos: QoS.t(),
-            feedback_topic_qos: QoS.t(),
-            status_topic_qos: QoS.t()
+            options: Rclex.ActionClientOptions.t()
           ]
         ) :: :ok | {:error, :already_started} | {:error, term()}
   def start_action_client(
@@ -715,22 +691,14 @@ defmodule Rclex do
       when is_atom(action_type) and is_binary(action_name) and is_binary(node_name) and
              is_list(opts) do
     namespace = Keyword.get(opts, :namespace, "/")
-    goal_service_qos = Keyword.get(opts, :goal_service_qos, QoS.profile_services_default())
-    result_service_qos = Keyword.get(opts, :result_service_qos, QoS.profile_services_default())
-    cancel_service_qos = Keyword.get(opts, :cancel_service_qos, QoS.profile_services_default())
-    feedback_topic_qos = Keyword.get(opts, :feedback_topic_qos, QoS.profile_default())
-    status_topic_qos = Keyword.get(opts, :status_topic_qos, QoS.profile_status_default())
+    options = Keyword.get(opts, :options, Rclex.ActionClientOptions.default())
 
     case Rclex.Node.start_action_client(
            action_type,
            action_name,
            node_name,
            namespace,
-           goal_service_qos,
-           result_service_qos,
-           cancel_service_qos,
-           feedback_topic_qos,
-           status_topic_qos
+           options
          ) do
       {:ok, _pid} -> :ok
       {:error, {:already_started, _pid}} -> {:error, :already_started}

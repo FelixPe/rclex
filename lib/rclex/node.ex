@@ -61,30 +61,20 @@ defmodule Rclex.Node do
   end
 
   def start_action_server(
-        execute_callback,
-        goal_callback,
-        handle_accepted_callback,
-        cancel_callback,
+        {execute_callback, goal_callback, handle_accepted_callback, cancel_callback},
         action_type,
         action_name,
         name,
         namespace,
-        clock_type,
-        goal_service_qos,
-        result_service_qos,
-        cancel_service_qos,
-        feedback_topic_qos,
-        status_topic_qos,
-        result_timeout
+        options
       ) do
     server = name(name, namespace)
 
     GenServer.call(
       server,
-      {:start_action_server, execute_callback, goal_callback, handle_accepted_callback,
-       cancel_callback, action_type, action_name, clock_type, goal_service_qos,
-       result_service_qos, cancel_service_qos, feedback_topic_qos, status_topic_qos,
-       result_timeout}
+      {:start_action_server,
+       {execute_callback, goal_callback, handle_accepted_callback, cancel_callback}, action_type,
+       action_name, options}
     )
   end
 
@@ -98,18 +88,13 @@ defmodule Rclex.Node do
         action_name,
         name,
         namespace,
-        goal_service_qos,
-        result_service_qos,
-        cancel_service_qos,
-        feedback_topic_qos,
-        status_topic_qos
+        options
       ) do
     server = name(name, namespace)
 
     GenServer.call(
       server,
-      {:start_action_client, action_type, action_name, goal_service_qos, result_service_qos,
-       cancel_service_qos, feedback_topic_qos, status_topic_qos}
+      {:start_action_client, action_type, action_name, options}
     )
   end
 
@@ -340,32 +325,22 @@ defmodule Rclex.Node do
   end
 
   def handle_call(
-        {:start_action_server, execute_callback, goal_callback, handle_accepted_callback,
-         cancel_callback, action_type, action_name, clock_type, goal_service_qos,
-         result_service_qos, cancel_service_qos, feedback_topic_qos, status_topic_qos,
-         result_timeout},
+        {:start_action_server,
+         {execute_callback, goal_callback, handle_accepted_callback, cancel_callback},
+         action_type, action_name, options},
         _from,
         state
       ) do
     return =
       ES.start_action_server(
         state.context,
-        execute_callback,
-        goal_callback,
-        handle_accepted_callback,
-        cancel_callback,
+        {execute_callback, goal_callback, handle_accepted_callback, cancel_callback},
         state.node,
         action_type,
         action_name,
         state.name,
         state.namespace,
-        clock_type,
-        goal_service_qos,
-        result_service_qos,
-        cancel_service_qos,
-        feedback_topic_qos,
-        status_topic_qos,
-        result_timeout
+        options
       )
 
     {:reply, return, state}
@@ -378,8 +353,7 @@ defmodule Rclex.Node do
   end
 
   def handle_call(
-        {:start_action_client, action_type, action_name, goal_service_qos, result_service_qos,
-         cancel_service_qos, feedback_topic_qos, status_topic_qos},
+        {:start_action_client, action_type, action_name, options},
         _from,
         state
       ) do
@@ -391,11 +365,7 @@ defmodule Rclex.Node do
         action_name,
         state.name,
         state.namespace,
-        goal_service_qos,
-        result_service_qos,
-        cancel_service_qos,
-        feedback_topic_qos,
-        status_topic_qos
+        options
       )
 
     {:reply, return, state}

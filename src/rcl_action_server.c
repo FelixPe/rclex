@@ -37,7 +37,7 @@ void make_action_server_atom(ErlNifEnv *env) {
 }
 
 ERL_NIF_TERM nif_rcl_action_server_init(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
-  if (argc != 10) return enif_make_badarg(env);
+  if (argc != 6) return enif_make_badarg(env);
 
   rcl_node_t *node_p;
   if (!enif_get_resource(env, argv[0], rt_rcl_node_t, (void **)&node_p))
@@ -65,14 +65,18 @@ ERL_NIF_TERM nif_rcl_action_server_init(ErlNifEnv *env, int argc, const ERL_NIF_
   if (!enif_get_resource(env, argv[3], rt_rcl_clock_t, (void **)&clock_p))
     return enif_make_badarg(env);
 
-  ERL_NIF_TERM goal_service_qos_map   = argv[4];
-  ERL_NIF_TERM result_service_qos_map = argv[5];
-  ERL_NIF_TERM cancel_service_qos_map = argv[6];
-  ERL_NIF_TERM feedback_topic_qos_map = argv[7];
-  ERL_NIF_TERM status_topic_qos_map   = argv[8];
+  int arity;
+  const ERL_NIF_TERM *qos_tuple;  
+  if (!enif_get_tuple(env, argv[4], &arity, &qos_tuple) || arity != 5) return enif_make_badarg(env);
+
+  ERL_NIF_TERM goal_service_qos_map   = qos_tuple[0];
+  ERL_NIF_TERM result_service_qos_map = qos_tuple[1];
+  ERL_NIF_TERM cancel_service_qos_map = qos_tuple[2];
+  ERL_NIF_TERM feedback_topic_qos_map = qos_tuple[3];
+  ERL_NIF_TERM status_topic_qos_map   = qos_tuple[4];
 
   double result_timeout_seconds;
-  if (!enif_get_double(env, argv[9], &result_timeout_seconds)) return enif_make_badarg(env);
+  if (!enif_get_double(env, argv[5], &result_timeout_seconds)) return enif_make_badarg(env);
   rcl_duration_t result_timeout;
   result_timeout.nanoseconds = RCUTILS_S_TO_NS(result_timeout_seconds);
 

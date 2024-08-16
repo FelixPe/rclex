@@ -65,20 +65,15 @@ defmodule Rclex.ActionServer do
       end)
 
     cancel_callback = Keyword.get(args, :cancel_callback, fn _req -> false end)
-    clock_type = Keyword.get(args, :clock_type, :steady_time)
-    clock = Nif.rcl_clock_init!(clock_type)
 
-    goal_service_qos = Keyword.get(args, :goal_service_qos, Rclex.QoS.profile_services_default())
-
-    result_service_qos =
-      Keyword.get(args, :result_service_qos, Rclex.QoS.profile_services_default())
-
-    cancel_service_qos =
-      Keyword.get(args, :cancel_service_qos, Rclex.QoS.profile_services_default())
-
-    feedback_topic_qos = Keyword.get(args, :feedback_topic_qos, Rclex.QoS.profile_default())
-    status_topic_qos = Keyword.get(args, :status_topic_qos, Rclex.QoS.profile_status_default())
-    result_timeout = Keyword.get(args, :result_timeout, 10.0)
+    options = Keyword.get(args, :options, Rclex.ActionServerOptions.default())
+    goal_service_qos = options.goal_service_qos
+    result_service_qos = options.result_service_qos
+    cancel_service_qos = options.cancel_service_qos
+    feedback_topic_qos = options.feedback_topic_qos
+    status_topic_qos = options.status_topic_qos
+    result_timeout = options.result_timeout
+    clock = Nif.rcl_clock_init!(options.clock_type)
 
     2 = :erlang.fun_info(execute_callback)[:arity]
     1 = :erlang.fun_info(goal_callback)[:arity]
@@ -93,11 +88,11 @@ defmodule Rclex.ActionServer do
         type_support,
         ~c"#{action_name}",
         clock,
-        goal_service_qos,
+        {goal_service_qos,
         result_service_qos,
         cancel_service_qos,
         feedback_topic_qos,
-        status_topic_qos,
+        status_topic_qos},
         result_timeout
       )
 

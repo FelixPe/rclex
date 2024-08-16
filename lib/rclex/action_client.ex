@@ -102,16 +102,12 @@ defmodule Rclex.ActionClient do
     name = Keyword.fetch!(args, :name)
     namespace = Keyword.fetch!(args, :namespace)
 
-    goal_service_qos = Keyword.get(args, :goal_service_qos, Rclex.QoS.profile_services_default())
-
-    result_service_qos =
-      Keyword.get(args, :result_service_qos, Rclex.QoS.profile_services_default())
-
-    cancel_service_qos =
-      Keyword.get(args, :cancel_service_qos, Rclex.QoS.profile_services_default())
-
-    feedback_topic_qos = Keyword.get(args, :feedback_topic_qos, Rclex.QoS.profile_default())
-    status_topic_qos = Keyword.get(args, :status_topic_qos, Rclex.QoS.profile_status_default())
+    options = Keyword.get(args, :options, Rclex.ActionClientOptions.default())
+    goal_service_qos = options.goal_service_qos
+    result_service_qos = options.result_service_qos
+    cancel_service_qos = options.cancel_service_qos
+    feedback_topic_qos = options.feedback_topic_qos
+    status_topic_qos = options.status_topic_qos
 
     type_support = apply(action_type, :type_support!, [])
 
@@ -120,11 +116,11 @@ defmodule Rclex.ActionClient do
         node,
         type_support,
         ~c"#{action_name}",
-        goal_service_qos,
+        {goal_service_qos,
         result_service_qos,
         cancel_service_qos,
         feedback_topic_qos,
-        status_topic_qos
+        status_topic_qos}
       )
 
     {:ok,

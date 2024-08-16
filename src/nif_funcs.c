@@ -88,7 +88,7 @@ static ErlNifFunc nif_funcs[] = {
     nif_regular_func(rcl_client_set_on_new_response_callback, 1),
     nif_regular_func(rcl_client_clear_response_callback, 2),
 #endif
-    nif_io_bound_func(rcl_action_client_init, 8),
+    nif_io_bound_func(rcl_action_client_init, 4),
     nif_io_bound_func(rcl_action_client_fini, 2),
 #ifndef ROS_DISTRO_foxy
     nif_regular_func(rcl_action_client_set_cancel_client_callback, 1),
@@ -125,7 +125,7 @@ static ErlNifFunc nif_funcs[] = {
     nif_regular_func(rcl_get_subscribers_info_by_topic, 3),
     nif_regular_func(rcl_get_topic_names_and_types, 2),
     nif_regular_func(rcl_service_server_is_available, 2),
-    nif_io_bound_func(rcl_action_server_init, 10),
+    nif_io_bound_func(rcl_action_server_init, 6),
     nif_io_bound_func(rcl_action_server_fini, 2),
     nif_regular_func(rcl_action_accept_new_goal, 2),
     nif_regular_func(rcl_action_expire_goals, 2),

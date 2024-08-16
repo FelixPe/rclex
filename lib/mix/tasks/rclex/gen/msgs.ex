@@ -388,6 +388,11 @@ defmodule Mix.Tasks.Rclex.Gen.Msgs do
     interface_type == "srv" and String.ends_with?(type, "_Request")
   end
 
+  defp action_subtype?(ros2_message_type) do
+    [_, interface_type, _] = String.split(ros2_message_type, "/")
+    interface_type == "action"
+  end
+
   defp action_feedback_type?(ros2_message_type) do
     [_, interface_type, type] = String.split(ros2_message_type, "/")
     interface_type == "action" and String.ends_with?(type, "_Feedback")
@@ -428,70 +433,117 @@ defmodule Mix.Tasks.Rclex.Gen.Msgs do
     interface_type == "action" and String.ends_with?(type, "_GetResult_Response")
   end
 
-  defp get_msg_definition(ros2_message_type, from) do
+  defp get_action_feedback_type_definition(ros2_message_type, from) do
+    path = get_action_path(String.trim_trailing(ros2_message_type, "_Feedback"), from)
+    [_goal_msg, _result_msg, feedback_msg] = Regex.split(~r/^---\n/m, File.read!(path))
+    feedback_msg
+  end
+
+  defp get_action_feedback_message_type_definition(ros2_message_type, _from) do
+    [_, "action", type] = String.split(ros2_message_type, "/")
+    action_type = String.trim_trailing(type, "_FeedbackMessage")
+
+    """
+    unique_identifier_msgs/UUID goal_id
+    #{action_type}_Feedback feedback
+    """
+  end
+
+  defp get_action_goal_type_definition(ros2_message_type, from) do
+    path = get_action_path(String.trim_trailing(ros2_message_type, "_Goal"), from)
+    [goal_msg, _result_msg, _feedback_msg] = Regex.split(~r/^---\n/m, File.read!(path))
+    goal_msg
+  end
+
+  defp get_action_send_goal_request_type_definition(ros2_message_type, _from) do
+    [_, "action", type] = String.split(ros2_message_type, "/")
+    action_type = String.trim_trailing(type, "_SendGoal_Request")
+
+    """
+    unique_identifier_msgs/UUID goal_id
+    #{action_type}_Goal goal
+    """
+  end
+
+  defp get_action_send_goal_response_type_definition(_ros2_message_type, _from) do
+    """
+    bool accepted
+    builtin_interfaces/Time stamp
+    """
+  end
+
+  defp get_action_get_result_request_type_definition(_ros2_message_type, _from) do
+    """
+    unique_identifier_msgs/UUID goal_id
+    """
+  end
+
+  defp get_action_get_result_response_type_definition(ros2_message_type, _from) do
+    [_, "action", type] = String.split(ros2_message_type, "/")
+    action_type = String.trim_trailing(type, "_GetResult_Response")
+
+    """
+    uint8 status
+    #{action_type}_Result result
+    """
+  end
+
+  defp get_action_get_result_type_definition(ros2_message_type, from) do
+    path = get_action_path(String.trim_trailing(ros2_message_type, "_Result"), from)
+    [_goal_msg, result_msg, _feedback_msg] = Regex.split(~r/^---\n/m, File.read!(path))
+    result_msg
+  end
+
+  defp get_service_response_message_type_definition(ros2_message_type, from) do
+    path = get_srv_path(String.trim_trailing(ros2_message_type, "_Response"), from)
+    [_request_msg, response_msg] = Regex.split(~r/^---\n/m, File.read!(path))
+    response_msg
+  end
+
+  defp get_service_request_message_type_definition(ros2_message_type, from) do
+    path = get_srv_path(String.trim_trailing(ros2_message_type, "_Request"), from)
+    [request_msg, _reponse_msg] = Regex.split(~r/^---\n/m, File.read!(path))
+    request_msg
+  end
+
+  defp get_action_msg_definition(ros2_message_type, from) do
     cond do
       action_feedback_type?(ros2_message_type) ->
-        path = get_action_path(String.trim_trailing(ros2_message_type, "_Feedback"), from)
-        [_goal_msg, _result_msg, feedback_msg] = Regex.split(~r/^---\n/m, File.read!(path))
-        feedback_msg
+        get_action_feedback_type_definition(ros2_message_type, from)
 
       action_feedback_message_type?(ros2_message_type) ->
-        [_, "action", type] = String.split(ros2_message_type, "/")
-        action_type = String.trim_trailing(type, "_FeedbackMessage")
-
-        """
-        unique_identifier_msgs/UUID goal_id
-        #{action_type}_Feedback feedback
-        """
+        get_action_feedback_message_type_definition(ros2_message_type, from)
 
       action_goal_type?(ros2_message_type) ->
-        path = get_action_path(String.trim_trailing(ros2_message_type, "_Goal"), from)
-        [goal_msg, _result_msg, _feedback_msg] = Regex.split(~r/^---\n/m, File.read!(path))
-        goal_msg
+        get_action_goal_type_definition(ros2_message_type, from)
 
       action_send_goal_request_type?(ros2_message_type) ->
-        [_, "action", type] = String.split(ros2_message_type, "/")
-        action_type = String.trim_trailing(type, "_SendGoal_Request")
-
-        """
-        unique_identifier_msgs/UUID goal_id
-        #{action_type}_Goal goal
-        """
+        get_action_send_goal_request_type_definition(ros2_message_type, from)
 
       action_send_goal_response_type?(ros2_message_type) ->
-        """
-        bool accepted
-        builtin_interfaces/Time stamp
-        """
+        get_action_send_goal_response_type_definition(ros2_message_type, from)
 
       action_get_result_request_type?(ros2_message_type) ->
-        """
-        unique_identifier_msgs/UUID goal_id
-        """
+        get_action_get_result_request_type_definition(ros2_message_type, from)
 
       action_get_result_response_type?(ros2_message_type) ->
-        [_, "action", type] = String.split(ros2_message_type, "/")
-        action_type = String.trim_trailing(type, "_GetResult_Response")
-
-        """
-        uint8 status
-        #{action_type}_Result result
-        """
+        get_action_get_result_response_type_definition(ros2_message_type, from)
 
       action_result_type?(ros2_message_type) ->
-        path = get_action_path(String.trim_trailing(ros2_message_type, "_Result"), from)
-        [_goal_msg, result_msg, _feedback_msg] = Regex.split(~r/^---\n/m, File.read!(path))
-        result_msg
+        get_action_get_result_type_definition(ros2_message_type, from)
+    end
+  end
+
+  defp get_msg_definition(ros2_message_type, from) do
+    cond do
+      action_subtype?(ros2_message_type) ->
+        get_action_msg_definition(ros2_message_type, from)
 
       service_response_message_type?(ros2_message_type) ->
-        path = get_srv_path(String.trim_trailing(ros2_message_type, "_Response"), from)
-        [_request_msg, response_msg] = Regex.split(~r/^---\n/m, File.read!(path))
-        response_msg
+        get_service_response_message_type_definition(ros2_message_type, from)
 
       service_request_message_type?(ros2_message_type) ->
-        path = get_srv_path(String.trim_trailing(ros2_message_type, "_Request"), from)
-        [request_msg, _reponse_msg] = Regex.split(~r/^---\n/m, File.read!(path))
-        request_msg
+        get_service_request_message_type_definition(ros2_message_type, from)
 
       true ->
         path = get_msg_path(ros2_message_type, from)

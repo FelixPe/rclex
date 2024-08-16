@@ -91,22 +91,13 @@ defmodule Rclex.EntitiesSupervisor do
 
   def start_action_server(
         context,
-        execute_callback,
-        goal_callback,
-        handle_accepted_callback,
-        cancel_callback,
+        {execute_callback, goal_callback, handle_accepted_callback, cancel_callback},
         node,
         action_type,
         action_name,
         name,
         namespace,
-        clock_type,
-        goal_service_qos,
-        result_service_qos,
-        cancel_service_qos,
-        feedback_topic_qos,
-        status_topic_qos,
-        result_timeout
+        options
       ) do
     DynamicSupervisor.start_child(
       name(name, namespace),
@@ -118,13 +109,7 @@ defmodule Rclex.EntitiesSupervisor do
          action_name: action_name,
          name: name,
          namespace: namespace,
-         goal_service_qos: goal_service_qos,
-         result_service_qos: result_service_qos,
-         cancel_service_qos: cancel_service_qos,
-         feedback_topic_qos: feedback_topic_qos,
-         status_topic_qos: status_topic_qos,
-         clock_type: clock_type,
-         result_timeout: result_timeout,
+         options: options,
          execute_callback: execute_callback,
          goal_callback: goal_callback,
          handle_accepted_callback: handle_accepted_callback,
@@ -140,11 +125,7 @@ defmodule Rclex.EntitiesSupervisor do
         action_name,
         name,
         namespace,
-        goal_service_qos,
-        result_service_qos,
-        cancel_service_qos,
-        feedback_topic_qos,
-        status_topic_qos
+        options
       ) do
     DynamicSupervisor.start_child(
       name(name, namespace),
@@ -156,11 +137,7 @@ defmodule Rclex.EntitiesSupervisor do
          action_name: action_name,
          name: name,
          namespace: namespace,
-         goal_service_qos: goal_service_qos,
-         result_service_qos: result_service_qos,
-         cancel_service_qos: cancel_service_qos,
-         feedback_topic_qos: feedback_topic_qos,
-         status_topic_qos: status_topic_qos
+         options: options
        ]}
     )
   end
