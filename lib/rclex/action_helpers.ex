@@ -1,4 +1,6 @@
 defmodule Rclex.ActionHelpers do
+  @moduledoc false
+
   def get_uuid(goal_info) when is_struct(goal_info, Rclex.Pkgs.ActionMsgs.Msg.GoalInfo) do
     goal_info.goal_id.uuid
   end

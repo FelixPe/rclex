@@ -350,32 +350,7 @@ defmodule Rclex.ActionServer do
                   accept_new_goal(action_server, goal_info_struct)
                 end
 
-              response_message_struct =
-                gen_goal_response_struct(response_type, accepted, time)
-
-              response_message = apply(response_type, :create!, [])
-
-              try do
-                :ok =
-                  apply(response_type, :set!, [
-                    response_message,
-                    response_message_struct
-                  ])
-
-                :ok =
-                  Nif.rcl_action_send_goal_response!(
-                    action_server,
-                    request_header,
-                    response_message
-                  )
-              rescue
-                # client is gone...we need to survive this
-                e ->
-                  Logger.error("#{__MODULE__}: Client gone while goal request.")
-                  dbg(e)
-              after
-                :ok = apply(response_type, :destroy!, [response_message])
-              end
+              send_goal_response(action_server, request_header, response_type, accepted, time)
 
               if accepted do
                 Logger.debug(
@@ -473,31 +448,34 @@ defmodule Rclex.ActionServer do
                   "#{__MODULE__}: cancel request processing result: #{inspect(Enum.map(response_message_struct.goals_canceling, fn goal_info -> Base.encode16(goal_info.goal_id.uuid) end))}"
                 )
 
-                Enum.reduce(response_message_struct.goals_canceling, goals, fn goal_info_struct,
-                                                                               goals ->
-                  uuid = goal_info_struct.goal_id.uuid
+                goals =
+                  Enum.reduce(response_message_struct.goals_canceling, goals, fn goal_info_struct,
+                                                                                 goals ->
+                    uuid = goal_info_struct.goal_id.uuid
 
-                  case Map.fetch(goals, uuid) do
-                    {:ok, %{goal_info: goal_info}} ->
-                      accepted = cancel_callback.(goal_info) == :accept
+                    case Map.fetch(goals, uuid) do
+                      {:ok, %{goal_info: goal_info}} ->
+                        accepted = cancel_callback.(goal_info) == :accept
 
-                      if accepted do
-                        Logger.debug("#{__MODULE__}: #{uuid_pretty(uuid)} cancel goal handler")
+                        if accepted do
+                          Logger.debug("#{__MODULE__}: #{uuid_pretty(uuid)} cancel goal handler")
 
-                        {_ret, goals} =
-                          cancel_goal(goals, goal_info_struct, action_server, action_type)
+                          {_ret, goals} =
+                            cancel_goal(goals, goal_info_struct, action_server, action_type)
+
+                          goals
+                        else
+                          goals
+                        end
+
+                      :error ->
+                        Logger.error(
+                          "#{__MODULE__}: #{uuid_pretty(uuid)} goal to cancel not found"
+                        )
 
                         goals
-                      else
-                        goals
-                      end
-
-                    :error ->
-                      Logger.error("#{__MODULE__}: #{uuid_pretty(uuid)} goal to cancel not found")
-
-                      goals
-                  end
-                end)
+                    end
+                  end)
 
                 :ok =
                   Nif.rcl_action_send_cancel_response!(
@@ -505,13 +483,13 @@ defmodule Rclex.ActionServer do
                     request_header,
                     response_message
                   )
+
+                goals
               rescue
-                e -> dbg(e)
+                e -> Logger.error("Error while taking cancel request: #{inspect(e)}")
               after
                 :ok = apply(response_type, :destroy!, [response_message])
               end
-
-              goals
 
             :action_server_take_failed ->
               Logger.debug(
@@ -810,6 +788,34 @@ defmodule Rclex.ActionServer do
     end
   end
 
+  defp send_goal_response(action_server, request_header, response_type, accepted, time) do
+    response_message_struct =
+      gen_goal_response_struct(response_type, accepted, time)
+
+    response_message = apply(response_type, :create!, [])
+
+    try do
+      :ok =
+        apply(response_type, :set!, [
+          response_message,
+          response_message_struct
+        ])
+
+      :ok =
+        Nif.rcl_action_send_goal_response!(
+          action_server,
+          request_header,
+          response_message
+        )
+    rescue
+      # client is gone...we need to survive this
+      e ->
+        Logger.error("#{__MODULE__}: Client gone while goal request: #{inspect(e)}")
+    after
+      :ok = apply(response_type, :destroy!, [response_message])
+    end
+  end
+
   ### Helpers
 
   defp now(clock) do
@@ -819,10 +825,10 @@ defmodule Rclex.ActionServer do
   defp find_goal_for_task_ref(goals, task_ref) do
     goals
     |> Enum.find(fn {_uuid, goal} ->
-      if not is_nil(goal[:task]) do
-        goal.task.ref == task_ref
-      else
+      if is_nil(goal[:task]) do
         false
+      else
+        goal.task.ref == task_ref
       end
     end)
     |> elem(1)
