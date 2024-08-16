@@ -116,11 +116,8 @@ defmodule Rclex.ActionClient do
         node,
         type_support,
         ~c"#{action_name}",
-        {goal_service_qos,
-        result_service_qos,
-        cancel_service_qos,
-        feedback_topic_qos,
-        status_topic_qos}
+        {goal_service_qos, result_service_qos, cancel_service_qos, feedback_topic_qos,
+         status_topic_qos}
       )
 
     {:ok,

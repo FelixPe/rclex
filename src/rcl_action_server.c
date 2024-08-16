@@ -66,7 +66,7 @@ ERL_NIF_TERM nif_rcl_action_server_init(ErlNifEnv *env, int argc, const ERL_NIF_
     return enif_make_badarg(env);
 
   int arity;
-  const ERL_NIF_TERM *qos_tuple;  
+  const ERL_NIF_TERM *qos_tuple;
   if (!enif_get_tuple(env, argv[4], &arity, &qos_tuple) || arity != 5) return enif_make_badarg(env);
 
   ERL_NIF_TERM goal_service_qos_map   = qos_tuple[0];

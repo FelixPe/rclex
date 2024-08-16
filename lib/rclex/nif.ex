@@ -208,11 +208,8 @@ defmodule Rclex.Nif do
         _node,
         _type_support,
         _action_name,
-        {_goal_service_qos,
-        _result_service_qos,
-        _cancel_service_qos,
-        _feedback_topic_qos,
-        _status_topic_qos}
+        {_goal_service_qos, _result_service_qos, _cancel_service_qos, _feedback_topic_qos,
+         _status_topic_qos}
       ) do
     :erlang.nif_error(:nif_not_loaded)
   end
@@ -302,11 +299,8 @@ defmodule Rclex.Nif do
         _type_support,
         _action_name,
         _clock,
-        {_goal_service_qos,
-        _result_service_qos,
-        _cancel_service_qos,
-        _feedback_topic_qos,
-        _status_topic_qos},
+        {_goal_service_qos, _result_service_qos, _cancel_service_qos, _feedback_topic_qos,
+         _status_topic_qos},
         _result_timeout
       ) do
     :erlang.nif_error(:nif_not_loaded)

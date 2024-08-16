@@ -88,11 +88,8 @@ defmodule Rclex.ActionServer do
         type_support,
         ~c"#{action_name}",
         clock,
-        {goal_service_qos,
-        result_service_qos,
-        cancel_service_qos,
-        feedback_topic_qos,
-        status_topic_qos},
+        {goal_service_qos, result_service_qos, cancel_service_qos, feedback_topic_qos,
+         status_topic_qos},
         result_timeout
       )
 
