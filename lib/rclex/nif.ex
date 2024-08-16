@@ -36,6 +36,18 @@ defmodule Rclex.Nif do
     :erlang.nif_error(:nif_not_loaded)
   end
 
+  def rcl_node_get_graph_guard_condition!(_node) do
+    :erlang.nif_error(:nif_not_loaded)
+  end
+
+  def node_start_waitset_thread!(_context, _guard_condition) do
+    :erlang.nif_error(:nif_not_loaded)
+  end
+
+  def node_stop_waitset_thread!(_thread_context) do
+    :erlang.nif_error(:nif_not_loaded)
+  end
+
   def rcl_node_fini!(_node) do
     :erlang.nif_error(:nif_not_loaded)
   end
@@ -392,9 +404,9 @@ defmodule Rclex.Nif do
     :erlang.nif_error(:nif_not_loaded)
   end
 
-  #def rcl_action_goal_handle_fini!(_goal_handle) do
+  # def rcl_action_goal_handle_fini!(_goal_handle) do
   #  :erlang.nif_error(:nif_not_loaded)
-  #end
+  # end
 
   def rcl_action_goal_handle_get_status!(_goal_handle) do
     :erlang.nif_error(:nif_not_loaded)
