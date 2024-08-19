@@ -3,6 +3,7 @@ defmodule RclexTest do
 
   import ExUnit.CaptureLog
 
+  alias Rclex.Pkgs.Turtlesim
   alias Rclex.Pkgs.StdMsgs
   alias Rclex.Pkgs.StdSrvs
   alias Rclex.Pkgs.RclInterfaces
@@ -63,10 +64,14 @@ defmodule RclexTest do
       assert_receive :graph_changed
       :ok = Rclex.start_publisher(StdMsgs.Msg.String, "/chatter", "name", namespace: "/")
       assert_receive :graph_changed
-      :ok = Rclex.start_subscription(fn _msg -> nil end, StdMsgs.Msg.String, "/chatter", "name", namespace: "/")
+
+      :ok =
+        Rclex.start_subscription(fn _msg -> nil end, StdMsgs.Msg.String, "/chatter", "name",
+          namespace: "/"
+        )
+
       assert_receive :graph_changed
       :ok = Rclex.start_timer(10, fn -> nil end, "timer", "name", namespace: "/")
-      assert_receive :graph_changed
 
       logs =
         capture_log(fn ->
@@ -859,6 +864,8 @@ defmodule RclexTest do
       topic_name = "/chatter"
       service_name = "/get_test_params_types"
       service_type = RclInterfaces.Srv.GetParameterTypes
+      action_name = "/rotate_absolute"
+      action_type = Turtlesim.Action.RotateAbsolute
 
       :ok = Rclex.start_node("name")
       :ok = Rclex.start_publisher(StdMsgs.Msg.String, topic_name, name)
@@ -884,6 +891,13 @@ defmodule RclexTest do
 
       :ok = Rclex.start_client(receive_callback, service_type, service_name, name)
 
+      execute_callback = fn _goal, _feedback_callback ->
+        %Turtlesim.Action.RotateAbsolute.Result{}
+      end
+
+      :ok = Rclex.start_action_server(execute_callback, action_type, action_name, name)
+      :ok = Rclex.start_action_client(action_type, action_name, name)
+
       on_exit(fn -> capture_log(fn -> Rclex.stop_node("name") end) end)
       :timer.sleep(50)
 
@@ -891,7 +905,9 @@ defmodule RclexTest do
         name: name,
         topic_name: topic_name,
         service_type: service_type,
-        service_name: service_name
+        service_name: service_name,
+        action_type: action_type,
+        action_name: action_name
       }
     end
 
@@ -904,12 +920,14 @@ defmodule RclexTest do
     end
 
     test "get_client_names_and_types_by_node/4", %{name: name, service_name: service_name} do
-      assert [{^service_name, ["rcl_interfaces/srv/GetParameterTypes"]}] =
+      assert Enum.member?(
                Rclex.get_client_names_and_types_by_node(
                  name,
                  name,
                  "/"
-               )
+               ),
+               {service_name, ["rcl_interfaces/srv/GetParameterTypes"]}
+             )
     end
 
     test "get_node_names/2", %{} do
@@ -921,8 +939,10 @@ defmodule RclexTest do
     end
 
     test "get_publisher_names_and_types_by_node/4", %{topic_name: topic_name} do
-      assert [{^topic_name, ["std_msgs/msg/String"]}] =
-               Rclex.get_publisher_names_and_types_by_node("name", "name", "/")
+      assert Enum.member?(
+               Rclex.get_publisher_names_and_types_by_node("name", "name", "/"),
+               {topic_name, ["std_msgs/msg/String"]}
+             )
 
       assert {:error, :not_found} =
                Rclex.get_publisher_names_and_types_by_node("name", "non_existent", "/")
@@ -946,18 +966,24 @@ defmodule RclexTest do
     end
 
     test "get_service_names_and_types/2", %{name: name, service_name: service_name} do
-      assert [{^service_name, ["rcl_interfaces/srv/GetParameterTypes"]}] =
-               Rclex.get_service_names_and_types(name)
+      assert Enum.member?(
+               Rclex.get_service_names_and_types(name),
+               {service_name, ["rcl_interfaces/srv/GetParameterTypes"]}
+             )
     end
 
     test "get_service_names_and_types_by_node/4", %{name: name, service_name: service_name} do
-      [{^service_name, ["rcl_interfaces/srv/GetParameterTypes"]}] =
-        Rclex.get_service_names_and_types_by_node(name, name, "/")
+      assert Enum.member?(
+               Rclex.get_service_names_and_types_by_node(name, name, "/"),
+               {service_name, ["rcl_interfaces/srv/GetParameterTypes"]}
+             )
     end
 
     test "get_subscriber_names_and_types_by_node/4", %{topic_name: topic_name} do
-      assert [{^topic_name, ["std_msgs/msg/String"]}] =
-               Rclex.get_subscriber_names_and_types_by_node("name", "name", "/")
+      assert Enum.member?(
+               Rclex.get_subscriber_names_and_types_by_node("name", "name", "/"),
+               {topic_name, ["std_msgs/msg/String"]}
+             )
 
       assert {:error, :not_found} =
                Rclex.get_subscriber_names_and_types_by_node("name", "non_existent", "/")
@@ -981,7 +1007,25 @@ defmodule RclexTest do
     end
 
     test "get_topic_names_and_types/2", %{} do
-      assert [{"/chatter", ["std_msgs/msg/String"]}] = Rclex.get_topic_names_and_types("name")
+      assert Enum.member?(
+               Rclex.get_topic_names_and_types("name"),
+               {"/chatter", ["std_msgs/msg/String"]}
+             )
+    end
+
+    test "action_get_names_and_types/1", %{} do
+      assert [{"/rotate_absolute", ["turtlesim/action/RotateAbsolute"]}] =
+               Rclex.action_get_names_and_types("name")
+    end
+
+    test "action_get_client_names_and_types_by_node/3", %{} do
+      assert [{"/rotate_absolute", ["turtlesim/action/RotateAbsolute"]}] =
+               Rclex.action_get_client_names_and_types_by_node("name", "name", "/")
+    end
+
+    test "action_get_server_names_and_types_by_node/3", %{} do
+      assert [{"/rotate_absolute", ["turtlesim/action/RotateAbsolute"]}] =
+               Rclex.action_get_server_names_and_types_by_node("name", "name", "/")
     end
 
     test "service_server_available?/4", %{
