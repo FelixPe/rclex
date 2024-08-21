@@ -157,10 +157,11 @@ jobs:
 
       - name: mix test
         run: |
+          apt install ros-${ROS_DISTRO}-turtlesim
           source /opt/ros/${ROS_DISTRO}/setup.bash
           cd rclex
-          mix rclex.gen.msgs
-          mix rclex.gen.srvs
+          mix local.hex --force
+          mix rclex.gen
           mix test --warnings-as-errors --cover
 
       - name: connection tests
