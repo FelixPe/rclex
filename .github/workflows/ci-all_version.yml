@@ -64,6 +64,7 @@ jobs:
 
       - name: mix test
         run: |
+          apt install ros-${ROS_DISTRO}-turtlesim
           source /opt/ros/${ROS_DISTRO}/setup.bash
           cd rclex
           mix local.hex --force
