@@ -99,11 +99,6 @@ defmodule Rclex.ActionHelpers do
     <<unix_time::32, r1::16, 4::4, r3::12, 2::2, r5::62>>
   end
 
-  def gen_time_struct() do
-    time_struct = struct(Rclex.Pkgs.BuiltinInterfaces.Msg.Time)
-    %{time_struct | sec: 0, nanosec: 0}
-  end
-
   def gen_uuid_struct(uuid) do
     uuid_struct = struct(Rclex.Pkgs.UniqueIdentifierMsgs.Msg.UUID)
     %{uuid_struct | uuid: uuid}

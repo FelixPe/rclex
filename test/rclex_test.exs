@@ -463,11 +463,14 @@ defmodule RclexTest do
     test "start_action_client/3", %{
       action_type: action_type
     } do
+      options = Rclex.ActionClientOptions.default()
+
       assert :ok =
                Rclex.start_action_client(
                  action_type,
                  "/rotate_absolute",
-                 "name"
+                 "name",
+                 options: options
                )
 
       assert {:error, :already_started} =
@@ -511,6 +514,9 @@ defmodule RclexTest do
           "/rotate_absolute",
           "name"
         )
+
+      assert {:error, :not_found} ==
+               Rclex.action_server_available?(action_type, "/does_not_exist", "name")
 
       assert false == Rclex.action_server_available?(action_type, "/rotate_absolute", "name")
 
@@ -640,7 +646,71 @@ defmodule RclexTest do
       }
     end
 
-    test "send_goal_async/3, execute_callback gets canceled", %{action_type: action_type} do
+    test "send_goal_async/3, feedback_callback wrong arity", %{} do
+      capture_log(fn ->
+        assert_raise RuntimeError, fn ->
+          Rclex.send_goal_async(
+            %Action.RotateAbsolute.Goal{theta: 2.0},
+            "/rotate_absolute",
+            "name",
+            namespace: "/",
+            feedback_callback: fn _, _ -> nil end
+          )
+        end
+      end)
+    end
+
+    test "send_goal_async/3, action client not found", %{} do
+      assert {:error, :not_found} =
+               Rclex.send_goal_async(
+                 %Action.RotateAbsolute.Goal{theta: 2.0},
+                 "/does_not_exist",
+                 "name"
+               )
+    end
+
+    test "cancel_goal_async/5, uuid exists", %{action_type: action_type} do
+      me = self()
+      result_callback = fn status, result -> send(me, {:got_result, status, result.delta}) end
+
+      capture_log(fn ->
+        assert {:ok, uuid} =
+                 Rclex.send_goal_async(
+                   %Action.RotateAbsolute.Goal{theta: 2.0},
+                   "/rotate_absolute",
+                   "name"
+                 )
+
+        assert {:ok, second_uuid} =
+                 Rclex.send_goal_async(
+                   %Action.RotateAbsolute.Goal{theta: 2.0},
+                   "/rotate_absolute",
+                   "name",
+                   goal_uuid: uuid
+                 )
+
+        assert second_uuid == uuid
+
+        assert :ok =
+                 Rclex.get_result_async(
+                   uuid,
+                   result_callback,
+                   action_type,
+                   "/rotate_absolute",
+                   "name"
+                 )
+
+        assert_receive :goal_callback
+        assert_receive :started_execute_callback
+        assert_receive :feedback
+        assert_receive :feedback
+        assert_receive :feedback
+        assert_receive :finished_execute_callback
+        assert_receive {:got_result, 4, _}
+      end)
+    end
+
+    test "cancel_goal_async/5, execute_callback gets canceled", %{action_type: action_type} do
       me = self()
       result_callback = fn status, result -> send(me, {:got_result, status, result.delta}) end
 
@@ -687,7 +757,56 @@ defmodule RclexTest do
       end)
     end
 
-    test "send_goal_async/3, execute_callback receives result", %{action_type: action_type} do
+    test "cancel_goal_async/5, wrong arity for cancel_callback", %{action_type: action_type} do
+      cancel_callback = fn _something, _return_code, _goals_canceling ->
+        nil
+      end
+
+      capture_log(fn ->
+        assert {:ok, uuid} =
+                 Rclex.send_goal_async(
+                   %Action.RotateAbsolute.Goal{theta: 2.0},
+                   "/rotate_absolute",
+                   "name"
+                 )
+
+        assert_raise RuntimeError, fn ->
+          Rclex.cancel_goal_async(
+            uuid,
+            cancel_callback,
+            action_type,
+            "/rotate_absolute",
+            "name"
+          )
+        end
+      end)
+    end
+
+    test "cancel_goal_async/5, action client not found", %{action_type: action_type} do
+      cancel_callback = fn _return_code, _goals_canceling ->
+        nil
+      end
+
+      capture_log(fn ->
+        assert {:ok, uuid} =
+                 Rclex.send_goal_async(
+                   %Action.RotateAbsolute.Goal{theta: 2.0},
+                   "/rotate_absolute",
+                   "name"
+                 )
+
+        assert {:error, :not_found} =
+                 Rclex.cancel_goal_async(
+                   uuid,
+                   cancel_callback,
+                   action_type,
+                   "/does_not_exist",
+                   "name"
+                 )
+      end)
+    end
+
+    test "get_result_async/5, execute_callback receives result", %{action_type: action_type} do
       me = self()
       result_callback = fn status, result -> send(me, {:got_result, status, result.delta}) end
 
@@ -717,6 +836,51 @@ defmodule RclexTest do
           assert_receive :finished_execute_callback
           assert_receive {:got_result, 4, 1.0}
         end
+      end)
+    end
+
+    test "get_result_async/5, result_callback with wrong arity", %{action_type: action_type} do
+      result_callback = fn _something, _status, _result -> nil end
+
+      capture_log(fn ->
+        assert {:ok, uuid} =
+                 Rclex.send_goal_async(
+                   %Action.RotateAbsolute.Goal{theta: 2.0},
+                   "/rotate_absolute",
+                   "name"
+                 )
+
+        assert_raise RuntimeError, fn ->
+          Rclex.get_result_async(
+            uuid,
+            result_callback,
+            action_type,
+            "/rotate_absolute",
+            "name"
+          )
+        end
+      end)
+    end
+
+    test "get_result_async/5, action client not found", %{action_type: action_type} do
+      result_callback = fn _status, _result -> nil end
+
+      capture_log(fn ->
+        assert {:ok, uuid} =
+                 Rclex.send_goal_async(
+                   %Action.RotateAbsolute.Goal{theta: 2.0},
+                   "/rotate_absolute",
+                   "name"
+                 )
+
+        assert {:error, :not_found} =
+                 Rclex.get_result_async(
+                   uuid,
+                   result_callback,
+                   action_type,
+                   "/does_not_exist",
+                   "name"
+                 )
       end)
     end
   end

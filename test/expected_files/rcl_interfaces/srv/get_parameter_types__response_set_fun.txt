@@ -1,0 +1,10 @@
+  ErlNifBinary types_bin;
+  if(!enif_inspect_binary(env, tuple[0], &types_bin))
+    return enif_make_badarg(env);
+
+  unsigned int types_length = types_bin.size;
+  rosidl_runtime_c__uint8__Sequence types;
+  if(!rosidl_runtime_c__uint8__Sequence__init(&types, types_length))
+    return enif_make_badarg(env);
+  message_p->types = types;
+  memcpy(message_p->types.data, types_bin.data, types_length);

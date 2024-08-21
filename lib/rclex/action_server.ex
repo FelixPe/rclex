@@ -320,19 +320,13 @@ defmodule Rclex.ActionServer do
 
               goal_info_struct = gen_goal_info_struct(goal_id)
 
-              goal_info_msg = apply(GoalInfo, :create!, [])
+              uuid_exists = goal_exists?(action_server, goal_info_struct)
 
-              try do
-                :ok = apply(GoalInfo, :set!, [goal_info_msg, goal_info_struct])
-
-                if Nif.rcl_action_server_goal_exists!(action_server, goal_info_msg) do
-                  raise "#{uuid_pretty(goal_id.uuid)} goal id exists"
-                end
-              after
-                :ok = apply(GoalInfo, :destroy!, [goal_info_msg])
+              if uuid_exists do
+                Logger.error("#{__MODULE__}: #{uuid_pretty(goal_id.uuid)} Goal exists.")
               end
 
-              accepted = goal_callback.(goal) == :accept
+              accepted = not uuid_exists and goal_callback.(goal) == :accept
               time = now(clock)
 
               goal_info_struct = gen_goal_info_struct(goal_id, time)
@@ -824,5 +818,16 @@ defmodule Rclex.ActionServer do
       end
     end)
     |> elem(1)
+  end
+
+  defp goal_exists?(action_server, goal_info_struct) do
+    goal_info_msg = apply(GoalInfo, :create!, [])
+
+    try do
+      :ok = apply(GoalInfo, :set!, [goal_info_msg, goal_info_struct])
+      Nif.rcl_action_server_goal_exists!(action_server, goal_info_msg)
+    after
+      :ok = apply(GoalInfo, :destroy!, [goal_info_msg])
+    end
   end
 end

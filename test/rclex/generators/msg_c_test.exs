@@ -25,7 +25,17 @@ defmodule Rclex.Generators.MsgCTest do
         "geometry_msgs/msg/Vector3",
         "geometry_msgs/msg/Twist",
         "std_srvs/srv/SetBool_Request",
-        "std_srvs/srv/SetBool_Response"
+        "std_srvs/srv/SetBool_Response",
+        "rcl_interfaces/srv/GetParameterTypes_Request",
+        "rcl_interfaces/srv/GetParameterTypes_Response",
+        "turtlesim/action/RotateAbsolute_FeedbackMessage",
+        "turtlesim/action/RotateAbsolute_Feedback",
+        "turtlesim/action/RotateAbsolute_Goal",
+        "turtlesim/action/RotateAbsolute_Result",
+        "turtlesim/action/RotateAbsolute_GetResult_Request",
+        "turtlesim/action/RotateAbsolute_GetResult_Response",
+        "turtlesim/action/RotateAbsolute_SendGoal_Request",
+        "turtlesim/action/RotateAbsolute_SendGoal_Response"
       ] do
     test "generate/2 #{ros2_message_type}" do
       ros2_message_type = unquote(ros2_message_type)
@@ -47,7 +57,11 @@ defmodule Rclex.Generators.MsgCTest do
         "std_msgs/msg/MultiArrayLayout",
         "std_msgs/msg/UInt32MultiArray",
         "geometry_msgs/msg/Vector3",
-        "geometry_msgs/msg/Twist"
+        "geometry_msgs/msg/Twist",
+        "std_srvs/srv/SetBool_Request",
+        "std_srvs/srv/SetBool_Response",
+        "rcl_interfaces/srv/GetParameterTypes_Request",
+        "rcl_interfaces/srv/GetParameterTypes_Response"
       ] do
     test "get_fun_fragments/2 #{ros2_message_type}" do
       ros2_message_type = unquote(ros2_message_type)
@@ -70,7 +84,11 @@ defmodule Rclex.Generators.MsgCTest do
         "std_msgs/msg/MultiArrayLayout",
         "std_msgs/msg/UInt32MultiArray",
         "geometry_msgs/msg/Vector3",
-        "geometry_msgs/msg/Twist"
+        "geometry_msgs/msg/Twist",
+        "std_srvs/srv/SetBool_Request",
+        "std_srvs/srv/SetBool_Response",
+        "rcl_interfaces/srv/GetParameterTypes_Request",
+        "rcl_interfaces/srv/GetParameterTypes_Response"
       ] do
     test "set_fun_fragments/2 #{ros2_message_type}" do
       ros2_message_type = unquote(ros2_message_type)

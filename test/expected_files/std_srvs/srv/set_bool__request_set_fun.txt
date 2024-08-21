@@ -1,0 +1,9 @@
+  unsigned int data_length;
+  if (!enif_get_atom_length(env, tuple[0], &data_length, ERL_NIF_LATIN1))
+    return enif_make_badarg(env);
+
+  char data[data_length + 1];
+  if (enif_get_atom(env, tuple[0], data, data_length + 1, ERL_NIF_LATIN1) <= 0)
+    return enif_make_badarg(env);
+
+  message_p->data = (strncmp(data, "true", 4) == 0);

@@ -1,0 +1,10 @@
+  ErlNifBinary types_bin;
+  if(!enif_alloc_binary(message_p->types.size, &types_bin))
+    return raise(env, __FILE__, __LINE__);
+
+  memcpy(types_bin.data, message_p->types.data, message_p->types.size);
+  ERL_NIF_TERM types = enif_make_binary(env, &types_bin);
+
+  return enif_make_tuple(env, 1,
+    types
+  );

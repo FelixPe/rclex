@@ -21,7 +21,15 @@ defmodule Rclex.Generators.MsgHTest do
         "geometry_msgs/msg/Vector3",
         "geometry_msgs/msg/Twist",
         "std_srvs/srv/SetBool_Request",
-        "std_srvs/srv/SetBool_Response"
+        "std_srvs/srv/SetBool_Response",
+        "turtlesim/action/RotateAbsolute_FeedbackMessage",
+        "turtlesim/action/RotateAbsolute_Feedback",
+        "turtlesim/action/RotateAbsolute_Goal",
+        "turtlesim/action/RotateAbsolute_Result",
+        "turtlesim/action/RotateAbsolute_GetResult_Request",
+        "turtlesim/action/RotateAbsolute_GetResult_Response",
+        "turtlesim/action/RotateAbsolute_SendGoal_Request",
+        "turtlesim/action/RotateAbsolute_SendGoal_Response"
       ] do
     test "generate/2 #{ros2_message_type}" do
       ros2_message_type = unquote(ros2_message_type)

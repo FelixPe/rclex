@@ -1,0 +1,10 @@
+  ERL_NIF_TERM names[message_p->names.size];
+
+  for (size_t names_i = 0; names_i < message_p->names.size; ++names_i)
+  {
+    names[names_i] = enif_make_string(env, message_p->names.data[names_i].data, ERL_NIF_LATIN1);
+  }
+
+  return enif_make_tuple(env, 1,
+    enif_make_list_from_array(env, names, message_p->names.size)
+  );

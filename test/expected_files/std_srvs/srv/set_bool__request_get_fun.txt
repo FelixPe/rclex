@@ -1,0 +1,3 @@
+  return enif_make_tuple(env, 1,
+    enif_make_atom(env, message_p->data ? "true" : "false")
+  );
