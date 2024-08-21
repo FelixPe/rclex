@@ -138,7 +138,7 @@ static void *graph_guard_waiter(void *arg) {
   rc = rcl_wait_set_init(&wait_set, 0, 2, 0, 0, 0, 0, &ctx_p->context, rcl_get_default_allocator());
   if (rc != RCL_RET_OK) {
     msg = enif_make_tuple(env, 2, atom_error, atom_new_graph_event);
-    enif_send(env, &ctx_p->pid, env, msg);
+    enif_send(NULL, &ctx_p->pid, env, msg);
     enif_free_env(env);
     return NULL;
   }
@@ -152,13 +152,15 @@ static void *graph_guard_waiter(void *arg) {
     rc = rcl_wait_set_add_guard_condition(&wait_set, &ctx_p->wait_condition, &index_event);
     if (rc != RCL_RET_OK) {
       msg = enif_make_tuple(env, 2, atom_error, atom_adding_to_waitset_failed);
-      enif_send(env, &ctx_p->pid, env, msg);
+      enif_send(NULL, &ctx_p->pid, env, msg);
+      enif_clear_env(env);
     }
 
     rc = rcl_wait_set_add_guard_condition(&wait_set, &ctx_p->exit_condition, &index_exit);
     if (rc != RCL_RET_OK) {
       msg = enif_make_tuple(env, 2, atom_error, atom_adding_to_waitset_failed);
-      enif_send(env, &ctx_p->pid, env, msg);
+      enif_send(NULL, &ctx_p->pid, env, msg);
+      enif_clear_env(env);
     }
 
     rc = rcl_wait(&wait_set, RCL_MS_TO_NS(10000)); // 10000ms == 10s, passed as ns
@@ -172,14 +174,16 @@ static void *graph_guard_waiter(void *arg) {
 
     if (wait_set.guard_conditions[index_event]) {
       msg = enif_make_tuple(env, 2, atom_new_graph_event, enif_make_uint(env, index_event));
-      enif_send(env, &ctx_p->pid, env, msg);
+      enif_send(NULL, &ctx_p->pid, env, msg);
+      enif_clear_env(env);
     }
   }
 
   rc = rcl_wait_set_fini(&wait_set);
   if (rc != RCL_RET_OK) {
     msg = enif_make_tuple(env, 2, atom_error, atom_new_graph_event);
-    enif_send(env, &ctx_p->pid, env, msg);
+    enif_send(NULL, &ctx_p->pid, env, msg);
+    enif_clear_env(env);
   }
 
   enif_free_env(env);
