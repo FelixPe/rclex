@@ -27,9 +27,12 @@ make_names_and_types(ErlNifEnv *env, const rcl_names_and_types_t *topic_names_an
     names_and_types_array[i] =
         enif_make_tuple2(env, enif_make_string(env, names.data[i], ERL_NIF_LATIN1),
                          enif_make_list_from_array(env, types_array, types_length));
+    enif_free(types_array);
   }
 
-  return enif_make_list_from_array(env, names_and_types_array, names_length);
+  ERL_NIF_TERM result = enif_make_list_from_array(env, names_and_types_array, names_length);
+  enif_free(names_and_types_array);
+  return result;
 }
 
 static inline ERL_NIF_TERM
@@ -51,6 +54,7 @@ make_topic_endpoint_info_list(ErlNifEnv *env,
 
     ErlNifBinary bin_gid;
     if (!enif_alloc_binary(RMW_GID_STORAGE_SIZE, &bin_gid)) {
+      enif_free(info_array);
       return raise(env, __FILE__, __LINE__);
     }
     memcpy(bin_gid.data, topic_endpoint_info->info_array[i].endpoint_gid, RMW_GID_STORAGE_SIZE);
@@ -72,11 +76,14 @@ make_topic_endpoint_info_list(ErlNifEnv *env,
         get_ex_qos_profile(env, topic_endpoint_info->info_array[i].qos_profile)};
 
     if (!enif_make_map_from_arrays(env, keys, values, 6, &info_array[i])) {
+      enif_free(info_array);
       return raise(env, __FILE__, __LINE__);
     }
   }
 
-  return enif_make_list_from_array(env, info_array, info_length);
+  ERL_NIF_TERM result = enif_make_list_from_array(env, info_array, info_length);
+  enif_free(info_array);
+  return result;
 }
 
 ERL_NIF_TERM nif_rcl_count_publishers(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
@@ -207,6 +214,7 @@ ERL_NIF_TERM nif_rcl_get_node_names(ErlNifEnv *env, int argc, const ERL_NIF_TERM
       node_names_array[i]         = enif_make_tuple2(env, node_name, node_namespace);
     }
     term = enif_make_list_from_array(env, node_names_array, node_names_length);
+    enif_free(node_names_array);
   } else if (rc == RCL_RET_INVALID_ARGUMENT) { // if any arguments are invalid
     term = enif_make_badarg(env);
   } else if (rc == RCL_RET_BAD_ALLOC) {
@@ -263,6 +271,7 @@ ERL_NIF_TERM nif_rcl_get_node_names_with_enclaves(ErlNifEnv *env, int argc,
       node_names_array[i]         = enif_make_tuple3(env, node_name, node_namespace, node_enclave);
     }
     term = enif_make_list_from_array(env, node_names_array, node_names_length);
+    enif_free(node_names_array);
   } else if (rc == RCL_RET_INVALID_ARGUMENT) { // if any arguments are invalid
     term = enif_make_badarg(env);
   } else if (rc == RCL_RET_BAD_ALLOC) {
