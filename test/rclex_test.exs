@@ -669,16 +669,18 @@ defmodule RclexTest do
                )
     end
 
-    test "cancel_goal_async/5, uuid exists", %{action_type: action_type} do
+    test "send_goal_async/4, uuid exists", %{action_type: action_type} do
       me = self()
       result_callback = fn status, result -> send(me, {:got_result, status, result.delta}) end
+      accepted_callback = fn uuid, accepted, _time -> send(me, {:accepted, uuid, accepted}) end
 
       capture_log(fn ->
         assert {:ok, uuid} =
                  Rclex.send_goal_async(
                    %Action.RotateAbsolute.Goal{theta: 2.0},
                    "/rotate_absolute",
-                   "name"
+                   "name",
+                   accepted_callback: accepted_callback
                  )
 
         assert {:ok, second_uuid} =
@@ -686,7 +688,8 @@ defmodule RclexTest do
                    %Action.RotateAbsolute.Goal{theta: 2.0},
                    "/rotate_absolute",
                    "name",
-                   goal_uuid: uuid
+                   goal_uuid: uuid,
+                   accepted_callback: accepted_callback
                  )
 
         assert second_uuid == uuid
@@ -701,6 +704,8 @@ defmodule RclexTest do
                  )
 
         assert_receive :goal_callback
+        assert_receive {:accepted, ^uuid, true}
+        assert_receive {:accepted, ^uuid, false}
         assert_receive :started_execute_callback
         assert_receive :feedback
         assert_receive :feedback

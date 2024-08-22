@@ -26,6 +26,7 @@ defmodule Rclex.ActionClient do
         %request_type{} = goal,
         uuid,
         feedback_callback,
+        accepted_callback,
         action_name,
         name,
         namespace \\ "/"
@@ -37,10 +38,19 @@ defmodule Rclex.ActionClient do
       raise("feedback_callback must expect feedback as parameters")
     end
 
+    if :erlang.fun_info(accepted_callback)[:arity] != 3 do
+      raise("accepted_callback must expect uuid, accepted and timestamp as parameters")
+    end
+
     case GenServer.whereis(name(action_type, action_name, name, namespace)) do
-      nil -> {:error, :not_found}
-      {_atom, _node} -> raise("should not happen")
-      pid -> GenServer.call(pid, {:send_goal_async, goal, uuid, feedback_callback})
+      nil ->
+        {:error, :not_found}
+
+      {_atom, _node} ->
+        raise("should not happen")
+
+      pid ->
+        GenServer.call(pid, {:send_goal_async, goal, uuid, feedback_callback, accepted_callback})
     end
   end
 
@@ -192,7 +202,7 @@ defmodule Rclex.ActionClient do
   end
 
   def handle_call(
-        {:send_goal_async, goal_struct, uuid, feedback_callback},
+        {:send_goal_async, goal_struct, uuid, feedback_callback, accepted_callback},
         _from,
         %{
           action_client: action_client,
@@ -219,7 +229,8 @@ defmodule Rclex.ActionClient do
     requests =
       Map.put_new(requests, sequence_number, %{
         request_struct: request_struct,
-        feedback_callback: feedback_callback
+        feedback_callback: feedback_callback,
+        accepted_callback: accepted_callback
       })
 
     {:reply, {:ok, uuid}, Map.put(state, :goal_requests, requests)}
@@ -326,22 +337,36 @@ defmodule Rclex.ActionClient do
 
           response_struct = apply(response_type, :get!, [response_message])
 
-          {%{request_struct: request_struct, feedback_callback: feedback_callback}, requests} =
+          {%{
+             request_struct: request_struct,
+             feedback_callback: feedback_callback,
+             accepted_callback: accepted_callback
+           },
+           requests} =
             Map.pop(requests, response_sequence_number, %{
               request_struct: nil,
-              feedback_callback: nil
+              feedback_callback: nil,
+              accepted_callback: nil
             })
 
           uuid = request_struct.goal_id.uuid
 
           if request_struct do
             Logger.debug(
-              "#{__MODULE__}: [seq: #{response_sequence_number}] -> [uuid: #{Base.encode16(request_struct.goal_id.uuid)}] goal #{if response_struct.accepted do
+              "#{__MODULE__}: [seq: #{response_sequence_number}] -> [uuid: #{Base.encode16(uuid)}] goal #{if response_struct.accepted do
                 "accepted"
               else
                 "rejected"
-              end} for #{inspect(request_struct.goal)}"
+              end} for #{inspect(request_struct.goal)} call #{inspect(accepted_callback)}"
             )
+
+            {:ok, _pid} =
+              Task.Supervisor.start_child(
+                {:via, PartitionSupervisor, {Rclex.TaskSupervisors, self()}},
+                fn ->
+                  accepted_callback.(uuid, response_struct.accepted, response_struct.stamp)
+                end
+              )
 
             if response_struct.accepted do
               goals =

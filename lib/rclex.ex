@@ -752,7 +752,8 @@ defmodule Rclex do
   ### opts
 
   - #{@namespace_doc}
-  - The function, defined by `:feedback_callback`, get called whenever new feedback is available for the action goal. The callback function needs to have a arity of 1, with a feedback struct of the action type as it's only parameter.
+  - The function, defined by `:feedback_callback`, gets called, whenever new feedback is available for the action goal. The callback function needs to have a arity of 1, with a feedback struct of the action type as it's only parameter.
+  - The function, defined by `:accepted_callback`, gets called, when the action server responded to the sent goal request. The callback function need to expect 3 parameters: uuid as binary, accepted as bool and timestamp as `Rclex.Pkgs.BuiltinInterfaces.Msg.Time`.
   - #{@goal_uuid_doc}
 
   ### Examples
@@ -768,6 +769,7 @@ defmodule Rclex do
           opts :: [
             namespace: String.t(),
             feedback_callback: function(),
+            accepted_callback: function(),
             goal_uuid: goal_uuid()
           ]
         ) ::
@@ -779,10 +781,14 @@ defmodule Rclex do
     goal_uuid = Keyword.get(opts, :goal_uuid, Rclex.ActionHelpers.gen_uuid())
     feedback_callback = Keyword.get(opts, :feedback_callback, fn _feedback -> nil end)
 
+    accepted_callback =
+      Keyword.get(opts, :accepted_callback, fn _uuid, _accepted, _timestamp -> nil end)
+
     Rclex.ActionClient.send_goal_async(
       goal,
       goal_uuid,
       feedback_callback,
+      accepted_callback,
       action_name,
       node_name,
       namespace
