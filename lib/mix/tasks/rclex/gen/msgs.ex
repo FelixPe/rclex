@@ -167,8 +167,8 @@ defmodule Mix.Tasks.Rclex.Gen.Msgs do
 
     msg_types =
       msg_types ++
-        Enum.map(srv_types, fn type -> String.replace_suffix(type, "", "_Request") end) ++
-        Enum.map(srv_types, fn type -> String.replace_suffix(type, "", "_Response") end)
+        Enum.map(srv_types, fn type -> type <> "_Request" end) ++
+        Enum.map(srv_types, fn type -> type <> "_Response" end)
 
     msg_types = msg_types ++ msg_types_for_actions(action_types)
 
