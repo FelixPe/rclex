@@ -69,6 +69,22 @@ defmodule Mix.Tasks.Rclex.Gen.Msgs do
   alias Rclex.Generators.Util
   alias Mix.Tasks.Rclex.Gen
 
+  @action_msg_suffixes [
+    "_Feedback",
+    "_Goal",
+    "_Result",
+    "_FeedbackMessage",
+    "_SendGoal_Request",
+    "_SendGoal_Response",
+    "_GetResult_Request",
+    "_GetResult_Response"
+  ]
+
+  @service_msg_suffixes [
+    "_Request",
+    "_Response"
+  ]
+
   @doc false
   def run(args) do
     {valid_options, _, _} =
@@ -300,21 +316,9 @@ defmodule Mix.Tasks.Rclex.Gen.Msgs do
   end
 
   defp msg_types_for_actions(action_types) do
-    action_msg_suffixes =
-      [
-        "_Feedback",
-        "_Goal",
-        "_Result",
-        "_FeedbackMessage",
-        "_SendGoal_Request",
-        "_SendGoal_Response",
-        "_GetResult_Request",
-        "_GetResult_Response"
-      ]
-
     msgs =
       Enum.reduce(action_types, [], fn action, acc ->
-        Enum.map(action_msg_suffixes, fn s -> action <> s end) ++ acc
+        Enum.map(@action_msg_suffixes, fn s -> action <> s end) ++ acc
       end)
 
     [
@@ -506,6 +510,10 @@ defmodule Mix.Tasks.Rclex.Gen.Msgs do
     request_msg
   end
 
+  defp action_sub_msg_definition?(ros2_message_type) do
+    String.ends_with?(ros2_message_type, @action_msg_suffixes)
+  end
+
   defp get_action_msg_definition(ros2_message_type, from) do
     cond do
       action_feedback_type?(ros2_message_type) ->
@@ -616,10 +624,10 @@ defmodule Mix.Tasks.Rclex.Gen.Msgs do
 
       cond do
         interface_type == "srv" and
-            (String.ends_with?(type, "_Request") or String.ends_with?(type, "_Response")) ->
+            String.ends_with?(type, @service_msg_suffixes) ->
           [interfaces, "srv", type]
 
-        interface_type == "action" ->
+        interface_type == "action" and action_sub_msg_definition?(type) ->
           [interfaces, "action", type]
 
         true ->
