@@ -1,0 +1,6 @@
+  return enif_make_tuple(env, 4,
+    enif_make_string(env, message_p->name.data, ERL_NIF_LATIN1),
+    enif_make_uint(env, message_p->type),
+    enif_make_string(env, message_p->description.data, ERL_NIF_LATIN1),
+    enif_make_string(env, message_p->additional_constraints.data, ERL_NIF_LATIN1)
+  );

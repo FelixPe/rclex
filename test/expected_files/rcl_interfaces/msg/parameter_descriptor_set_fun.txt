@@ -1,0 +1,52 @@
+  unsigned int name_length;
+#if (ERL_NIF_MAJOR_VERSION == 2 && ERL_NIF_MINOR_VERSION >= 17) // OTP-26 and later
+  if (!enif_get_string_length(env, tuple[0], &name_length, ERL_NIF_LATIN1))
+    return enif_make_badarg(env);
+#else
+  if (!enif_get_list_length(env, tuple[0], &name_length))
+    return enif_make_badarg(env);
+#endif
+
+  char name[name_length + 1];
+  if (enif_get_string(env, tuple[0], name, name_length + 1, ERL_NIF_LATIN1) <= 0)
+    return enif_make_badarg(env);
+
+  if (!rosidl_runtime_c__String__assign(&(message_p->name), name))
+    return raise(env, __FILE__, __LINE__);
+
+  unsigned int type;
+  if (!enif_get_uint(env, tuple[1], &type))
+    return enif_make_badarg(env);
+  message_p->type = type;
+
+  unsigned int description_length;
+#if (ERL_NIF_MAJOR_VERSION == 2 && ERL_NIF_MINOR_VERSION >= 17) // OTP-26 and later
+  if (!enif_get_string_length(env, tuple[2], &description_length, ERL_NIF_LATIN1))
+    return enif_make_badarg(env);
+#else
+  if (!enif_get_list_length(env, tuple[2], &description_length))
+    return enif_make_badarg(env);
+#endif
+
+  char description[description_length + 1];
+  if (enif_get_string(env, tuple[2], description, description_length + 1, ERL_NIF_LATIN1) <= 0)
+    return enif_make_badarg(env);
+
+  if (!rosidl_runtime_c__String__assign(&(message_p->description), description))
+    return raise(env, __FILE__, __LINE__);
+
+  unsigned int additional_constraints_length;
+#if (ERL_NIF_MAJOR_VERSION == 2 && ERL_NIF_MINOR_VERSION >= 17) // OTP-26 and later
+  if (!enif_get_string_length(env, tuple[3], &additional_constraints_length, ERL_NIF_LATIN1))
+    return enif_make_badarg(env);
+#else
+  if (!enif_get_list_length(env, tuple[3], &additional_constraints_length))
+    return enif_make_badarg(env);
+#endif
+
+  char additional_constraints[additional_constraints_length + 1];
+  if (enif_get_string(env, tuple[3], additional_constraints, additional_constraints_length + 1, ERL_NIF_LATIN1) <= 0)
+    return enif_make_badarg(env);
+
+  if (!rosidl_runtime_c__String__assign(&(message_p->additional_constraints), additional_constraints))
+    return raise(env, __FILE__, __LINE__);

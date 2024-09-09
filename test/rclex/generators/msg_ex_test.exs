@@ -24,6 +24,7 @@ defmodule Rclex.Generators.MsgExTest do
         "geometry_msgs/msg/Twist",
         "std_srvs/srv/SetBool_Request",
         "std_srvs/srv/SetBool_Response",
+        "rcl_interfaces/msg/ParameterDescriptor",
         "rcl_interfaces/srv/GetParameterTypes_Request",
         "rcl_interfaces/srv/GetParameterTypes_Response",
         "turtlesim/action/RotateAbsolute_FeedbackMessage",
@@ -63,6 +64,7 @@ defmodule Rclex.Generators.MsgExTest do
               "geometry_msgs/msg/Twist",
               "std_srvs/srv/SetBool_Request",
               "std_srvs/srv/SetBool_Response",
+              "rcl_interfaces/msg/ParameterDescriptor",
               "rcl_interfaces/srv/GetParameterTypes_Request",
               "rcl_interfaces/srv/GetParameterTypes_Response"
             ],
