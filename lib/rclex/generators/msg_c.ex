@@ -146,6 +146,9 @@ defmodule Rclex.Generators.MsgC do
 
   def enif_get({:msg_type_array, type}, acc, ros2_message_type_map) do
     case get_array_type(type) do
+      %{size: _, type: type, kind: :bounded_dynamic} ->
+        enif_get({:msg_type_array_unbounded, type}, acc, ros2_message_type_map)
+
       %{type: type, kind: :unbounded_dynamic} ->
         enif_get({:msg_type_array_unbounded, type}, acc, ros2_message_type_map)
     end
@@ -194,6 +197,9 @@ defmodule Rclex.Generators.MsgC do
   def enif_get({:builtin_type_array, type}, acc, ros2_message_type_map) do
     case get_array_type(type) do
       %{type: type, kind: :unbounded_dynamic} ->
+        enif_get({:builtin_type_array_unbounded, type}, acc, ros2_message_type_map)
+
+      %{type: type, kind: :bounded_dynamic, size: _} ->
         enif_get({:builtin_type_array_unbounded, type}, acc, ros2_message_type_map)
 
       %{type: type, kind: :static, size: size} ->
@@ -434,12 +440,26 @@ defmodule Rclex.Generators.MsgC do
           %Acc{acc | type: {:msg_type, type}},
           ros2_message_type_map
         )
+
+      %{type: type, kind: :bounded_dynamic, size: _} ->
+        array_for(
+          {:unbounded, type},
+          %Acc{acc | type: {:msg_type, type}},
+          ros2_message_type_map
+        )
     end
   end
 
   def build_get_fun_fragments_array({:builtin_type_array, type}, acc, ros2_message_type_map) do
     case get_array_type(type) do
       %{type: type, kind: :unbounded_dynamic} ->
+        array_for(
+          {:unbounded, type},
+          %Acc{acc | type: {:builtin_type, type}},
+          ros2_message_type_map
+        )
+
+      %{type: type, kind: :bounded_dynamic, size: _} ->
         array_for(
           {:unbounded, type},
           %Acc{acc | type: {:builtin_type, type}},
@@ -566,6 +586,9 @@ defmodule Rclex.Generators.MsgC do
       %{type: type, kind: :unbounded_dynamic} ->
         {enif_make_array({:unbounded, type}, acc), [acc]}
 
+      %{type: type, kind: :bounded_dynamic, size: _} ->
+        {enif_make_array({:unbounded, type}, acc), [acc]}
+
       %{type: type, kind: :static, size: size} ->
         {enif_make_array({:static, type, size}, acc), [acc]}
     end
@@ -574,6 +597,9 @@ defmodule Rclex.Generators.MsgC do
   def enif_make({:builtin_type_array, type}, acc, _ros2_message_type_map) do
     case get_array_type(type) do
       %{type: type, kind: :unbounded_dynamic} ->
+        {enif_make_array({:unbounded, type}, acc), [acc]}
+
+      %{type: type, kind: :bounded_dynamic, size: _} ->
         {enif_make_array({:unbounded, type}, acc), [acc]}
 
       %{type: type, kind: :static, size: size} ->
