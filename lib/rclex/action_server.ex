@@ -59,9 +59,7 @@ defmodule Rclex.ActionServer do
                                                       action_name,
                                                       name,
                                                       namespace ->
-        Rclex.ActionServer.execute_goal(goal_info_struct, action_type, action_name, name,
-          namespace: namespace
-        )
+        Rclex.execute_goal(goal_info_struct, action_type, action_name, name, namespace: namespace)
       end)
 
     cancel_callback = Keyword.get(args, :cancel_callback, fn _req -> false end)
