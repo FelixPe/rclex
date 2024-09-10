@@ -50,7 +50,7 @@ defmodule Rclex.Parsers.Helpers do
     |> optional(field_default_value())
     |> ignore(optional(whitespace()))
     |> ignore(optional(comment()))
-    |> ignore(new_line())
+    |> ignore(eol_or_eos())
   end
 
   def constant_line(combinator \\ empty()) do
@@ -65,20 +65,20 @@ defmodule Rclex.Parsers.Helpers do
     |> choice([value_float(), value_integer(), value_string()])
     |> ignore(optional(whitespace()))
     |> ignore(optional(comment()))
-    |> ignore(new_line())
+    |> ignore(eol_or_eos())
   end
 
   defp comment_line(combinator \\ empty()) do
     combinator
     |> optional(whitespace())
     |> comment()
-    |> new_line()
+    |> eol_or_eos()
   end
 
   defp empty_line(combinator \\ empty()) do
     combinator
     |> optional(whitespace())
-    |> new_line()
+    |> eol()
   end
 
   defp field_type(combinator) do
@@ -227,7 +227,11 @@ defmodule Rclex.Parsers.Helpers do
     combinator |> ascii_string([?\s, ?\t], min: 1)
   end
 
-  defp new_line(combinator \\ empty()) do
+  def eol(combinator \\ empty()) do
     combinator |> choice([string("\n"), string("\r\n")])
+  end
+
+  def eol_or_eos(combinator \\ empty()) do
+    combinator |> choice([eol(), eos()])
   end
 end
