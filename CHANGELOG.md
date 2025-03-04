@@ -1,5 +1,64 @@
 # CHANGELOG
 
+## v0.12.0 on 04 Mar 2025
+
+**Full Changelog**: https://github.com/rclex/rclex/compare/v0.11.3...v0.12.0
+
+* New features:
+  * Support jazzy by @pojiro in https://github.com/rclex/rclex/pull/361
+  * Remove old distro's dependent code that has already reached EOL by @takasehideki in https://github.com/rclex/rclex/pull/365
+  * Bump supported versions and CI targets by @takasehideki in https://github.com/rclex/rclex/pull/364
+  * Reapply git_hooks (v0.8.0 that has been addressed about path issue) by @takasehideki in https://github.com/rclex/rclex/pull/366
+* Code Improvements/Fixes:
+  * Patch for #366 by @pojiro in https://github.com/rclex/rclex/pull/368
+* Bumps: none
+* Note in this release: 
+  * Please welecome Jazzy Jalisco to our supported ROS 2 LTS distribution!! :tada:
+  * We decided to stop the support for old distributions (Foxy, Galactic and Iron) which have already reached EOL because of the concentrataion of our development resources in the future. If you want to use these distributions, please consider to employ v0.11.3 or earlier (see [#PR365](https://github.com/rclex/rclex/pull/365)).
+
+## v0.11.3 on 25 Feb 2025
+
+**Full Changelog**: https://github.com/rclex/rclex/compare/v0.11.2...v0.11.3
+
+* New features: none
+* Code Improvements/Fixes: none
+* Bumps: 
+  * Bump nimble_parsec from 1.4.0 to 1.4.2 by @dependabot in https://github.com/rclex/rclex/pull/360
+  * Bump credo from 1.7.8 to 1.7.11 by @dependabot in https://github.com/rclex/rclex/pull/358
+  * Bump ex_doc from 0.34.2 to 0.36.1 by @dependabot in https://github.com/rclex/rclex/pull/357
+  * Bump elixir_make from 0.8.4 to 0.9.0 by @dependabot in https://github.com/rclex/rclex/pull/353
+  * Bump dialyxir from 1.4.4 to 1.4.5 by @dependabot in https://github.com/rclex/rclex/pull/354
+  * Manually update of deps by `mix deps.update --all` by @takasehideki in https://github.com/rclex/rclex/pull/362
+* Note in this release: 
+  * This may be the final release to support old ROS distribution, e.g., Foxy, Galactic and Iron.
+  * Support for Jazzy is available in `main` branch. We'd like to release this ASAP (ref: https://github.com/rclex/rclex/pull/361)
+
+## v0.11.2 on 13 Oct 2024
+
+**Full Changelog**: https://github.com/rclex/rclex/compare/v0.11.1...v0.11.2
+
+* New features: none
+* Code Improvements/Fixes:
+  * Optimize binary copy for ROS2 rcl uint8 array by @pojiro in https://github.com/rclex/rclex/pull/348
+    * Reported and confirmed by @mlainez. Thank you.
+* Bumps: none
+* Note in this release: none
+
+## v0.11.1 on 03 Oct 2024
+
+**Full Changelog**: https://github.com/rclex/rclex/compare/v0.11.0...v0.11.1
+
+* New features: none
+* Code Improvements/Fixes:
+  * Fix UnicodeConversionError caused by treating a uint8 array as Unicode by @pojiro in https://github.com/rclex/rclex/pull/345
+* Bumps:
+  * Bump dialyxir from 1.4.3 to 1.4.4 by @dependabot in https://github.com/rclex/rclex/pull/343
+  * Bump credo from 1.7.7 to 1.7.8 by @dependabot in https://github.com/rclex/rclex/pull/342
+  * Bump ex_doc from 0.34.1 to 0.34.2 by @dependabot in https://github.com/rclex/rclex/pull/335
+* Note in this release:
+  * We deeply apologize,,, v0.11.0 could not be released on hex.pm because API key had revoked for GHA,,,
+
+>>>>>>> f1cdf0f (Release v0.12.0)
 ## v0.11.0 on 07 Jul 2024
 
 **Full Changelog**: https://github.com/rclex/rclex/compare/v0.10.1...v0.11.0
