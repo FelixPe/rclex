@@ -5,6 +5,7 @@
 // IWYU pragma: no_include "rmw/time.h" for foxy
 #include <rcl_action/default_qos.h>
 #include <rmw/qos_profiles.h>
+#include <rmw/time.h>
 #include <rmw/types.h>
 #include <stdbool.h>
 #include <stddef.h>
