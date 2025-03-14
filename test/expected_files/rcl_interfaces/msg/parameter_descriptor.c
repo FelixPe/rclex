@@ -76,20 +76,11 @@ ERL_NIF_TERM nif_rcl_interfaces_msg_parameter_descriptor_set(ErlNifEnv *env, int
   const ERL_NIF_TERM *tuple;
   if (!enif_get_tuple(env, argv[1], &arity, &tuple)) return enif_make_badarg(env);
 
-  unsigned int name_length;
-#if (ERL_NIF_MAJOR_VERSION == 2 && ERL_NIF_MINOR_VERSION >= 17) // OTP-26 and later
-  if (!enif_get_string_length(env, tuple[0], &name_length, ERL_NIF_LATIN1))
-    return enif_make_badarg(env);
-#else
-  if (!enif_get_list_length(env, tuple[0], &name_length))
-    return enif_make_badarg(env);
-#endif
-
-  char name[name_length + 1];
-  if (enif_get_string(env, tuple[0], name, name_length + 1, ERL_NIF_LATIN1) <= 0)
+  ErlNifBinary name_binary;
+  if (!enif_inspect_binary(env, tuple[0], &name_binary))
     return enif_make_badarg(env);
 
-  if (!rosidl_runtime_c__String__assign(&(message_p->name), name))
+  if (!rosidl_runtime_c__String__assignn(&(message_p->name), (const char *)name_binary.data, name_binary.size))
     return raise(env, __FILE__, __LINE__);
 
   unsigned int type;
@@ -97,36 +88,18 @@ ERL_NIF_TERM nif_rcl_interfaces_msg_parameter_descriptor_set(ErlNifEnv *env, int
     return enif_make_badarg(env);
   message_p->type = type;
 
-  unsigned int description_length;
-#if (ERL_NIF_MAJOR_VERSION == 2 && ERL_NIF_MINOR_VERSION >= 17) // OTP-26 and later
-  if (!enif_get_string_length(env, tuple[2], &description_length, ERL_NIF_LATIN1))
-    return enif_make_badarg(env);
-#else
-  if (!enif_get_list_length(env, tuple[2], &description_length))
-    return enif_make_badarg(env);
-#endif
-
-  char description[description_length + 1];
-  if (enif_get_string(env, tuple[2], description, description_length + 1, ERL_NIF_LATIN1) <= 0)
+  ErlNifBinary description_binary;
+  if (!enif_inspect_binary(env, tuple[2], &description_binary))
     return enif_make_badarg(env);
 
-  if (!rosidl_runtime_c__String__assign(&(message_p->description), description))
+  if (!rosidl_runtime_c__String__assignn(&(message_p->description), (const char *)description_binary.data, description_binary.size))
     return raise(env, __FILE__, __LINE__);
 
-  unsigned int additional_constraints_length;
-#if (ERL_NIF_MAJOR_VERSION == 2 && ERL_NIF_MINOR_VERSION >= 17) // OTP-26 and later
-  if (!enif_get_string_length(env, tuple[3], &additional_constraints_length, ERL_NIF_LATIN1))
-    return enif_make_badarg(env);
-#else
-  if (!enif_get_list_length(env, tuple[3], &additional_constraints_length))
-    return enif_make_badarg(env);
-#endif
-
-  char additional_constraints[additional_constraints_length + 1];
-  if (enif_get_string(env, tuple[3], additional_constraints, additional_constraints_length + 1, ERL_NIF_LATIN1) <= 0)
+  ErlNifBinary additional_constraints_binary;
+  if (!enif_inspect_binary(env, tuple[3], &additional_constraints_binary))
     return enif_make_badarg(env);
 
-  if (!rosidl_runtime_c__String__assign(&(message_p->additional_constraints), additional_constraints))
+  if (!rosidl_runtime_c__String__assignn(&(message_p->additional_constraints), (const char *)additional_constraints_binary.data, additional_constraints_binary.size))
     return raise(env, __FILE__, __LINE__);
 
   return atom_ok;
@@ -142,10 +115,10 @@ ERL_NIF_TERM nif_rcl_interfaces_msg_parameter_descriptor_get(ErlNifEnv *env, int
   rcl_interfaces__msg__ParameterDescriptor *message_p = (rcl_interfaces__msg__ParameterDescriptor *)*ros_message_pp;
 
   return enif_make_tuple(env, 4,
-    enif_make_string(env, message_p->name.data, ERL_NIF_LATIN1),
+    enif_make_binary_wrapper(env, message_p->name.data, message_p->name.size),
     enif_make_uint(env, message_p->type),
-    enif_make_string(env, message_p->description.data, ERL_NIF_LATIN1),
-    enif_make_string(env, message_p->additional_constraints.data, ERL_NIF_LATIN1)
+    enif_make_binary_wrapper(env, message_p->description.data, message_p->description.size),
+    enif_make_binary_wrapper(env, message_p->additional_constraints.data, message_p->additional_constraints.size)
   );
 }
 // clang-format on

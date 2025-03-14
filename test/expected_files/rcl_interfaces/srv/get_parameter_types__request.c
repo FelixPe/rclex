@@ -92,20 +92,11 @@ ERL_NIF_TERM nif_rcl_interfaces_srv_get_parameter_types__request_set(ErlNifEnv *
     if (!enif_get_list_cell(env, names_left, &names_head, &names_tail))
       return enif_make_badarg(env);
 
-    unsigned int names_string_length;
-#if (ERL_NIF_MAJOR_VERSION == 2 && ERL_NIF_MINOR_VERSION >= 17) // OTP-26 and later
-    if (!enif_get_string_length(env, names_head, &names_string_length, ERL_NIF_LATIN1))
-      return enif_make_badarg(env);
-#else
-    if (!enif_get_list_length(env, names_head, &names_string_length))
-      return enif_make_badarg(env);
-#endif
-
-    char names_string[names_string_length + 1];
-    if (enif_get_string(env, names_head, names_string, names_string_length + 1, ERL_NIF_LATIN1) <= 0)
+    ErlNifBinary names_string_binary;
+    if (!enif_inspect_binary(env, names_head, &names_string_binary))
       return enif_make_badarg(env);
 
-    if (!rosidl_runtime_c__String__assign(&(message_p->names.data[names_i]), names_string))
+    if (!rosidl_runtime_c__String__assignn(&(message_p->names.data[names_i]), (const char *)names_string_binary.data, names_string_binary.size))
       return raise(env, __FILE__, __LINE__);
   }
 
@@ -125,7 +116,7 @@ ERL_NIF_TERM nif_rcl_interfaces_srv_get_parameter_types__request_get(ErlNifEnv *
 
   for (size_t names_i = 0; names_i < message_p->names.size; ++names_i)
   {
-    names[names_i] = enif_make_string(env, message_p->names.data[names_i].data, ERL_NIF_LATIN1);
+    names[names_i] = enif_make_binary_wrapper(env, message_p->names.data[names_i].data, message_p->names.data[names_i].size);
   }
 
   return enif_make_tuple(env, 1,

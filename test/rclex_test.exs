@@ -334,11 +334,11 @@ defmodule RclexTest do
     end
 
     test "call_async/4", %{service_name: service_name, name: name} do
-      request = struct(RclInterfaces.Srv.GetParameterTypes.Request, %{names: [~c"test"]})
+      request = struct(RclInterfaces.Srv.GetParameterTypes.Request, %{names: ["test"]})
       assert Rclex.call_async(request, "does_not_exist", name) == {:error, :not_found}
 
       for i <- 1..10 do
-        names = Enum.map(0..i, fn _ -> ~c"abc" end)
+        names = Enum.map(0..i, fn _ -> "abc" end)
         request = struct(RclInterfaces.Srv.GetParameterTypes.Request, %{names: names})
 
         response =

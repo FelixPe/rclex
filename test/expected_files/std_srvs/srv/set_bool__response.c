@@ -86,20 +86,11 @@ ERL_NIF_TERM nif_std_srvs_srv_set_bool__response_set(ErlNifEnv *env, int argc, c
 
   message_p->success = (strncmp(success, "true", 4) == 0);
 
-  unsigned int message_length;
-#if (ERL_NIF_MAJOR_VERSION == 2 && ERL_NIF_MINOR_VERSION >= 17) // OTP-26 and later
-  if (!enif_get_string_length(env, tuple[1], &message_length, ERL_NIF_LATIN1))
-    return enif_make_badarg(env);
-#else
-  if (!enif_get_list_length(env, tuple[1], &message_length))
-    return enif_make_badarg(env);
-#endif
-
-  char message[message_length + 1];
-  if (enif_get_string(env, tuple[1], message, message_length + 1, ERL_NIF_LATIN1) <= 0)
+  ErlNifBinary message_binary;
+  if (!enif_inspect_binary(env, tuple[1], &message_binary))
     return enif_make_badarg(env);
 
-  if (!rosidl_runtime_c__String__assign(&(message_p->message), message))
+  if (!rosidl_runtime_c__String__assignn(&(message_p->message), (const char *)message_binary.data, message_binary.size))
     return raise(env, __FILE__, __LINE__);
 
   return atom_ok;
@@ -116,7 +107,7 @@ ERL_NIF_TERM nif_std_srvs_srv_set_bool__response_get(ErlNifEnv *env, int argc, c
 
   return enif_make_tuple(env, 2,
     enif_make_atom(env, message_p->success ? "true" : "false"),
-    enif_make_string(env, message_p->message.data, ERL_NIF_LATIN1)
+    enif_make_binary_wrapper(env, message_p->message.data, message_p->message.size)
   );
 }
 // clang-format on

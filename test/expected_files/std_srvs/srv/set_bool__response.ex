@@ -30,10 +30,10 @@ defmodule Rclex.Pkgs.StdSrvs.Srv.SetBool.Response do
   end
 
   def to_tuple(%__MODULE__{success: success, message: message}) do
-    {success, ~c"#{message}"}
+    {success, message}
   end
 
   def to_struct({success, message}) do
-    %__MODULE__{success: success, message: "#{message}"}
+    %__MODULE__{success: success, message: message}
   end
 end

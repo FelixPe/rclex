@@ -1,6 +1,6 @@
   return enif_make_tuple(env, 4,
-    enif_make_string(env, message_p->name.data, ERL_NIF_LATIN1),
+    enif_make_binary_wrapper(env, message_p->name.data, message_p->name.size),
     enif_make_uint(env, message_p->type),
-    enif_make_string(env, message_p->description.data, ERL_NIF_LATIN1),
-    enif_make_string(env, message_p->additional_constraints.data, ERL_NIF_LATIN1)
+    enif_make_binary_wrapper(env, message_p->description.data, message_p->description.size),
+    enif_make_binary_wrapper(env, message_p->additional_constraints.data, message_p->additional_constraints.size)
   );

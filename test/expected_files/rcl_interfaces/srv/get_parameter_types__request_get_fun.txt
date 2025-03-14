@@ -2,7 +2,7 @@
 
   for (size_t names_i = 0; names_i < message_p->names.size; ++names_i)
   {
-    names[names_i] = enif_make_string(env, message_p->names.data[names_i].data, ERL_NIF_LATIN1);
+    names[names_i] = enif_make_binary_wrapper(env, message_p->names.data[names_i].data, message_p->names.data[names_i].size);
   }
 
   return enif_make_tuple(env, 1,

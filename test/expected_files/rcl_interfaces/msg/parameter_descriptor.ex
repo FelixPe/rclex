@@ -42,15 +42,15 @@ defmodule Rclex.Pkgs.RclInterfaces.Msg.ParameterDescriptor do
         description: description,
         additional_constraints: additional_constraints
       }) do
-    {~c"#{name}", type, ~c"#{description}", ~c"#{additional_constraints}"}
+    {name, type, description, additional_constraints}
   end
 
   def to_struct({name, type, description, additional_constraints}) do
     %__MODULE__{
-      name: "#{name}",
+      name: name,
       type: type,
-      description: "#{description}",
-      additional_constraints: "#{additional_constraints}"
+      description: description,
+      additional_constraints: additional_constraints
     }
   end
 end
