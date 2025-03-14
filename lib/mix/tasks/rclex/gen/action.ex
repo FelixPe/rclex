@@ -186,14 +186,14 @@ defmodule Mix.Tasks.Rclex.Gen.Action do
         end
         """
       end
-      |> Enum.join("\n")
-      |> String.replace_suffix("\n", "")
-      |> String.split("\n")
-      |> Enum.map_join("\n", &Kernel.<>(String.duplicate(" ", 6), &1))
+      |> Enum.join()
 
     EEx.eval_file(Path.join(Util.templates_dir_path(:action), "action_funcs.eex"),
       action_funcs: action_funcs
     )
+    |> Code.format_string!()
+    |> IO.iodata_to_binary()
+    |> then(&"#{&1}\n")
   end
 
   @doc false

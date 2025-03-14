@@ -182,14 +182,14 @@ defmodule Mix.Tasks.Rclex.Gen.Srvs do
         end
         """
       end
-      |> Enum.join("\n")
-      |> String.replace_suffix("\n", "")
-      |> String.split("\n")
-      |> Enum.map_join("\n", &Kernel.<>(String.duplicate(" ", 6), &1))
+      |> Enum.join()
 
     EEx.eval_file(Path.join(Util.templates_dir_path(:srv), "srv_funcs.eex"),
       srv_funcs: srv_funcs
     )
+    |> Code.format_string!()
+    |> IO.iodata_to_binary()
+    |> then(&"#{&1}\n")
   end
 
   @doc false
