@@ -2,7 +2,6 @@
 #include "terms.h"
 #include <erl_nif.h>
 #include <math.h>
-// IWYU pragma: no_include "rmw/time.h" for foxy
 #include <rcl_action/default_qos.h>
 #include <rmw/qos_profiles.h>
 #include <rmw/time.h>

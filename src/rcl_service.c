@@ -143,7 +143,6 @@ ERL_NIF_TERM nif_rcl_send_response(ErlNifEnv *env, int argc, const ERL_NIF_TERM 
   return atom_ok;
 }
 
-#ifndef ROS_DISTRO_foxy
 static void new_request_callback(const void *user_data, size_t number_of_events) {
   ErlNifPid *pid_p = (ErlNifPid *)user_data;
 
@@ -196,4 +195,3 @@ ERL_NIF_TERM nif_rcl_service_clear_request_callback(ErlNifEnv *env, int argc,
 
   return atom_ok;
 }
-#endif

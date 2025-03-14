@@ -28,14 +28,9 @@ ERL_LDFLAGS ?= -L$(ERL_EI_LIBDIR) -lei
 ifeq ($(ROS_DISTRO), humble)
 ROS_INCS    ?= rcl rcutils rmw rcl_yaml_param_parser type_description_interfaces rosidl_runtime_c service_msgs builtin_interfaces rosidl_typesupport_interface rosidl_dynamic_typesupport rcl_action action_msgs unique_identifier_msgs
 ROS_CFLAGS  ?= $(addprefix -I$(ROS_DIR)/include/, $(ROS_INCS))
-else ifeq ($(ROS_DISTRO), iron)
-ROS_INCS    ?= rcl rcutils rmw rcl_yaml_param_parser type_description_interfaces rosidl_runtime_c service_msgs builtin_interfaces rosidl_typesupport_interface rosidl_dynamic_typesupport rcl_action action_msgs unique_identifier_msgs
-ROS_CFLAGS  ?= $(addprefix -I$(ROS_DIR)/include/, $(ROS_INCS))
 else ifeq ($(ROS_DISTRO), jazzy)
 ROS_INCS    ?= rcl rcutils rmw rcl_yaml_param_parser type_description_interfaces rosidl_runtime_c service_msgs builtin_interfaces rosidl_typesupport_interface rosidl_dynamic_typesupport rcl_action action_msgs unique_identifier_msgs
 ROS_CFLAGS  ?= $(addprefix -I$(ROS_DIR)/include/, $(ROS_INCS))
-else ifeq ($(ROS_DISTRO), foxy)
-ROS_CFLAGS  ?= -I$(ROS_DIR)/include
 endif
 
 ROS_LDFLAGS ?= -L$(ROS_DIR)/lib
@@ -61,14 +56,6 @@ SRV_OBJ_DIR  = $(SRV_PKGS:%=$(OBJ_DIR)/pkgs/%/srv)
 ACTION_OBJ_DIR  = $(ACTION_PKGS:%=$(OBJ_DIR)/pkgs/%/action)
 ifeq ($(ROS_DISTRO), humble)
 ROS_CFLAGS  += $(addprefix -I,$(wildcard $(addprefix $(ROS_DIR)/include/, $(MSG_PKGS))))
-ROS_CFLAGS  += $(addprefix -I,$(wildcard $(foreach dir,$(subst :, ,$(ROS2_DIRECTORIES)),$(MSG_PKGS:%=$(dir)/include/%/))))
-ROS_CFLAGS  += $(addprefix -I,$(wildcard $(foreach dir,$(subst :, ,$(AMENT_PREFIX_PATH)),$(MSG_PKGS:%=$(dir)/include/%/))))
-ROS_CFLAGS  += $(addprefix -I,$(wildcard $(foreach dir,$(subst :, ,$(ROS2_DIRECTORIES)),$(SRV_PKGS:%=$(dir)/include/%/))))
-ROS_CFLAGS  += $(addprefix -I,$(wildcard $(foreach dir,$(subst :, ,$(AMENT_PREFIX_PATH)),$(SRV_PKGS:%=$(dir)/include/%/))))
-ROS_CFLAGS  += $(addprefix -I,$(wildcard $(foreach dir,$(subst :, ,$(ROS2_DIRECTORIES)),$(ACTION_PKGS:%=$(dir)/include/%/))))
-ROS_CFLAGS  += $(addprefix -I,$(wildcard $(foreach dir,$(subst :, ,$(AMENT_PREFIX_PATH)),$(ACTION_PKGS:%=$(dir)/include/%/))))
-else ifeq ($(ROS_DISTRO), iron)
-ROS_CFLAGS  += $(addprefix -I$(ROS_DIR)/include/, $(MSG_PKGS))
 ROS_CFLAGS  += $(addprefix -I,$(wildcard $(foreach dir,$(subst :, ,$(ROS2_DIRECTORIES)),$(MSG_PKGS:%=$(dir)/include/%/))))
 ROS_CFLAGS  += $(addprefix -I,$(wildcard $(foreach dir,$(subst :, ,$(AMENT_PREFIX_PATH)),$(MSG_PKGS:%=$(dir)/include/%/))))
 ROS_CFLAGS  += $(addprefix -I,$(wildcard $(foreach dir,$(subst :, ,$(ROS2_DIRECTORIES)),$(SRV_PKGS:%=$(dir)/include/%/))))

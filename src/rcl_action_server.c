@@ -592,7 +592,6 @@ ERL_NIF_TERM nif_rcl_action_take_result_request(ErlNifEnv *env, int argc,
   }
 }
 
-#ifndef ROS_DISTRO_foxy
 static void new_cancel_request_callback(const void *user_data, size_t number_of_events) {
   ErlNifPid *pid_p = (ErlNifPid *)user_data;
 
@@ -756,7 +755,6 @@ ERL_NIF_TERM nif_rcl_action_server_clear_result_service_callback(ErlNifEnv *env,
 
   return atom_ok;
 }
-#endif
 
 ERL_NIF_TERM nif_rcl_action_goal_handle_fini(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
   if (argc != 1) return enif_make_badarg(env);
