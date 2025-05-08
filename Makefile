@@ -34,7 +34,7 @@ ROS_CFLAGS  ?= $(addprefix -I$(ROS_DIR)/include/, $(ROS_INCS))
 endif
 
 ROS_LDFLAGS ?= -L$(ROS_DIR)/lib
-ROS_LDFLAGS += -lrcl -lrcl_action
+ROS_LDFLAGS += -lrcl -lrcl_action -laction_msgs__rosidl_generator_c -laction_msgs__rosidl_typesupport_c
 
 SRC_C  = $(wildcard $(SRC_DIR)/*.c)
 SRC_H  = $(wildcard $(SRC_DIR)/*.h)
