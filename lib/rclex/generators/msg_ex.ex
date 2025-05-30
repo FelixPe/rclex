@@ -70,6 +70,13 @@ defmodule Rclex.Generators.MsgEx do
           [{:builtin_type, type}, name] ->
             "#{name}: #{Map.get(@ros2_elixir_default_map, type, "nil")}"
 
+
+          [{:builtin_type, "float32"}, name, default] ->
+            "#{name}: #{inspect(1.0*default)}"
+
+          [{:builtin_type, "float64"}, name, default] ->
+            "#{name}: #{inspect(1.0*default)}"
+
           [{:builtin_type, _type}, name, default] ->
             "#{name}: #{inspect(default)}"
 
