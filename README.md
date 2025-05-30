@@ -129,7 +129,7 @@ The message types you want to use in your project can be specified in `ros2_mess
 Multiple types can be specified separated by comma `,`.
 
 
-The following `config/config.exs` example wants to use `String` message type, `SetBool` service type and `RotateAbsolute` action type.
+The following `config/config.exs` example wants to use `String` message type, `SetBool` service type and `LookupTransform` action type.
 
 ```elixir
 import Config
@@ -142,7 +142,7 @@ config :rclex,
     "std_srvs/srv/SetBool"
   ],
   ros2_action_types: [
-    "turtlesim/action/RotateAbsolute"
+    "tf2_msgs/action/LookupTransform"
   ]
 ```
 

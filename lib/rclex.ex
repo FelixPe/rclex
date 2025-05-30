@@ -518,10 +518,10 @@ defmodule Rclex do
 
   ### Examples
 
-      iex> alias Rclex.Pkgs.Turtlesim.Action
-      iex> Rclex.start_action_server(execute_callback, Action.RotateAbsolute, "/rotate_absolute", "node", namespace: "/example", goal_callback: goal_callback, handle_accepted_callback: handle_accepted_callback, cancel_callback: cancel_callback)
+      iex> alias Rclex.Pkgs.Tf2Msgs.Action
+      iex> Rclex.start_action_server(execute_callback, Action.LookupTransform, "/lookup_transform", "node", namespace: "/example", goal_callback: goal_callback, handle_accepted_callback: handle_accepted_callback, cancel_callback: cancel_callback)
       :ok
-      iex> Rclex.start_action_server(execute_callback, Action.RotateAbsolute, "/rotate_absolute", "node", namespace: "/example", goal_callback: goal_callback, handle_accepted_callback: handle_accepted_callback, cancel_callback: cancel_callback)
+      iex> Rclex.start_action_server(execute_callback, Action.LookupTransform, "/lookup_transform", "node", namespace: "/example", goal_callback: goal_callback, handle_accepted_callback: handle_accepted_callback, cancel_callback: cancel_callback)
       {:error, :already_started}
   """
   @doc section: :action_server
@@ -593,12 +593,12 @@ defmodule Rclex do
 
   ### Examples
 
-      iex> alias Rclex.Pkgs.Turtlesim.Action
+      iex> alias Rclex.Pkgs.Tf2Msgs.Action
       iex> handle_accepted_callback = fn goal_info_struct, action_type, action_name, name, namespace -> Rclex.execute_goal(goal_info_struct, action_type, action_name, name, namespace: namespace) end
       end
-      iex> Rclex.start_action_server(execute_callback, Action.RotateAbsolute, "/rotate_absolute", "node", namespace: "/example", goal_callback: goal_callback, handle_accepted_callback: handle_accepted_callback, cancel_callback: cancel_callback)
+      iex> Rclex.start_action_server(execute_callback, Action.LookupTransform, "/lookup_transform", "node", namespace: "/example", goal_callback: goal_callback, handle_accepted_callback: handle_accepted_callback, cancel_callback: cancel_callback)
       :ok
-      iex> Rclex.stop_action_server(Action.RotateAbsolute, "/rotate_absolute", "node", namespace: "/example")
+      iex> Rclex.stop_action_server(Action.LookupTransform, "/lookup_transform", "node", namespace: "/example")
       :ok
 
   """
@@ -629,10 +629,10 @@ defmodule Rclex do
 
   ### Examples
 
-      iex> alias Rclex.Pkgs.Turtlesim.Action
-      iex> Rclex.stop_action_server(Action.RotateAbsolute, "/rotate_absolute", "node", namespace: "/example")
+      iex> alias Rclex.Pkgs.Tf2Msgs.Action
+      iex> Rclex.stop_action_server(Action.LookupTransform, "/lookup_transform", "node", namespace: "/example")
       :ok
-      iex> Rclex.stop_action_server(Action.RotateAbsolute, "/does_not_exist", "node", namespace: "/example")
+      iex> Rclex.stop_action_server(Action.LookupTransform, "/does_not_exist", "node", namespace: "/example")
       {:error, :not_found}
   """
   @doc section: :action_server
@@ -672,10 +672,10 @@ defmodule Rclex do
 
   ### Examples
 
-      iex> alias Rclex.Pkgs.Turtlesim.Action
-      iex> Rclex.start_action_client(Action.RotateAbsolute, "/rotate_absolute", "node", namespace: "/example")
+      iex> alias Rclex.Pkgs.Tf2Msgs.Action
+      iex> Rclex.start_action_client(Action.LookupTransform, "/lookup_transform", "node", namespace: "/example")
       :ok
-      iex> Rclex.start_action_client(Action.RotateAbsolute, "/rotate_absolute", "node", namespace: "/example")
+      iex> Rclex.start_action_client(Action.LookupTransform, "/lookup_transform", "node", namespace: "/example")
       {:error, :already_started}
   """
   @doc section: :action_client
@@ -723,10 +723,10 @@ defmodule Rclex do
 
   ### Examples
 
-      iex> alias Rclex.Pkgs.Turtlesim.Action
-      iex> Rclex.stop_action_client(Action.RotateAbsolute, "/rotate_absolute", "node", namespace: "/example")
+      iex> alias Rclex.Pkgs.Tf2Msgs.Action
+      iex> Rclex.stop_action_client(Action.LookupTransform, "/lookup_transform", "node", namespace: "/example")
       :ok
-      iex> Rclex.stop_action_client(Action.RotateAbsolute, "/does_not_exist", "node", namespace: "/example")
+      iex> Rclex.stop_action_client(Action.LookupTransform, "/does_not_exist", "node", namespace: "/example")
       {:error, :not_found}
   """
   @doc section: :action_client
@@ -758,8 +758,8 @@ defmodule Rclex do
 
   ### Examples
 
-      iex> alias Rclex.Pkgs.Turtlesim.Action
-      iex> {:ok, uuid} = Rclex.send_goal_async(%Action.RotateAbsolute.Goal{theta: 0.123}, "/rotate_absolute", "node", namespace: "/example")
+      iex> alias Rclex.Pkgs.Tf2Msgs.Action
+      iex> {:ok, uuid} = Rclex.send_goal_async(%Action.LookupTransform.Goal{theta: 0.123}, "/lookup_transform", "node", namespace: "/example")
   """
   @doc section: :action_client
   @spec send_goal_async(
@@ -808,9 +808,9 @@ defmodule Rclex do
 
   ### Examples
 
-      iex> alias Rclex.Pkgs.Turtlesim.Action
-      iex> {:ok, uuid} = Rclex.send_goal_async(%Action.RotateAbsolute.Goal{theta: 0.123}, "/rotate_absolute", "node", namespace: "/example")
-      iex> Rclex.cancel_goal_async(uuid, cancel_callback, Action.RotateAbsolute, "/rotate_absolute", "node", namespace: "/example")
+      iex> alias Rclex.Pkgs.Tf2Msgs.Action
+      iex> {:ok, uuid} = Rclex.send_goal_async(%Action.LookupTransform.Goal{theta: 0.123}, "/lookup_transform", "node", namespace: "/example")
+      iex> Rclex.cancel_goal_async(uuid, cancel_callback, Action.LookupTransform, "/lookup_transform", "node", namespace: "/example")
       :ok
   """
   @doc section: :action_client
@@ -860,9 +860,9 @@ defmodule Rclex do
 
   ### Examples
 
-      iex> alias Rclex.Pkgs.Turtlesim.Action
-      iex> {:ok, uuid} = Rclex.send_goal_async(%Action.RotateAbsolute.Goal{theta: 0.123}, "/rotate_absolute", "node", namespace: "/example")
-      iex> Rclex.get_result_async(uuid, result_callback, Action.RotateAbsolute, "/rotate_absolute", "node", namespace: "/example")
+      iex> alias Rclex.Pkgs.Tf2Msgs.Action
+      iex> {:ok, uuid} = Rclex.send_goal_async(%Action.LookupTransform.Goal{target_frame: "/base_frame"}, "/lookup_transform", "node", namespace: "/example")
+      iex> Rclex.get_result_async(uuid, result_callback, Action.LookupTransform, "/lookup_transform", "node", namespace: "/example")
       :ok
   """
   @doc section: :action_client
@@ -910,8 +910,8 @@ defmodule Rclex do
 
   ### Examples
 
-      iex> alias Rclex.Pkgs.Turtlesim.Action
-      iex> Rclex.send_goal_async(Action.RotateAbsolute, "/rotate_absolute", "node", namespace: "/example")
+      iex> alias Rclex.Pkgs.Tf2Msgs.Action
+      iex> Rclex.send_goal_async(Action.LookupTransform, "/lookup_transform", "node", namespace: "/example")
       :ok
   """
   @doc section: :action_client
@@ -1350,7 +1350,7 @@ defmodule Rclex do
   ### Examples
 
       iex> Rclex.action_get_server_names_and_types_by_node("node", "/chatter", "/example")
-      [{"/rotate_absolute", ["turtlesim/action/RotateAbsolute"]}]
+      [{"/lookup_transform", ["tf2_msgs/action/LookupTransform"]}]
   """
   @doc section: :graph
   @spec action_get_server_names_and_types_by_node(
@@ -1380,7 +1380,7 @@ defmodule Rclex do
   ### Examples
 
       iex> Rclex.action_get_client_names_and_types_by_node("node", "/chatter", "/example")
-      [{"/rotate_absolute", ["turtlesim/action/RotateAbsolute"]}]
+      [{"/lookup_transform", ["tf2_msgs/action/LookupTransform"]}]
   """
   @doc section: :graph
   @spec action_get_client_names_and_types_by_node(
@@ -1410,7 +1410,7 @@ defmodule Rclex do
   ### Examples
 
       iex> Rclex.action_get_names_and_types("node", namespace: "/example")
-      [{"/rotate_absolute", ["turtlesim/action/RotateAbsolute"]}]
+      [{"/lookup_transform", ["tf2_msgs/action/LookupTransform"]}]
   """
   @doc section: :graph
   @spec action_get_names_and_types(

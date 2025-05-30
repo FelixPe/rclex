@@ -5,7 +5,7 @@ defmodule Rclex.Generators.ActionHTest do
   alias Rclex.Generators.Util
 
   for ros2_action_type <- [
-        "turtlesim/action/RotateAbsolute"
+        "tf2_msgs/action/LookupTransform"
       ] do
     test "generate/2 #{ros2_action_type}" do
       ros2_action_type = unquote(ros2_action_type)

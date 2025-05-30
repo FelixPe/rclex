@@ -273,11 +273,11 @@ defmodule Rclex.NifBenchmarkTest do
       context = Nif.rcl_init!()
       name = ~c"name"
       namespace = ~c"/namespace"
-      action_name = ~c"/rotate_absolute"
+      action_name = ~c"/lookup_transform"
       node = Nif.rcl_node_init!(context, name, namespace)
       clock_type = :system_time
       clock = Nif.rcl_clock_init!(clock_type)
-      type_support = Nif.turtlesim_action_rotate_absolute_type_support!()
+      type_support = Nif.tf2_msgs_action_lookup_transform_type_support!()
       goal_service_qos = Rclex.QoS.profile_services_default()
       result_service_qos = Rclex.QoS.profile_services_default()
       cancel_service_qos = Rclex.QoS.profile_services_default()
@@ -357,9 +357,9 @@ defmodule Rclex.NifBenchmarkTest do
     } do
       uuid = <<1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16>>
 
-      feedback_message = Nif.turtlesim_action_rotate_absolute__feedback_message_create!()
+      feedback_message = Nif.tf2_msgs_action_lookup_transform__feedback_message_create!()
 
-      Nif.turtlesim_action_rotate_absolute__feedback_message_set!(
+      Nif.tf2_msgs_action_lookup_transform__feedback_message_set!(
         feedback_message,
         {{uuid}, {1.234}}
       )
@@ -374,7 +374,7 @@ defmodule Rclex.NifBenchmarkTest do
 
       assert time_us <= @nif_tenth_limit_time_us
 
-      Nif.turtlesim_action_rotate_absolute__feedback_message_destroy!(feedback_message)
+      Nif.tf2_msgs_action_lookup_transform__feedback_message_destroy!(feedback_message)
     end
 
     test "rcl_action_publish_status!/2 and rcl_action_take_status!/2", %{
@@ -456,15 +456,15 @@ defmodule Rclex.NifBenchmarkTest do
       sec = 123_456
       nanosec = 789
 
-      request_message = Nif.turtlesim_action_rotate_absolute__send_goal__request_create!()
-      response_message = Nif.turtlesim_action_rotate_absolute__send_goal__response_create!()
+      request_message = Nif.tf2_msgs_action_lookup_transform__send_goal__request_create!()
+      response_message = Nif.tf2_msgs_action_lookup_transform__send_goal__response_create!()
 
-      Nif.turtlesim_action_rotate_absolute__send_goal__request_set!(
+      Nif.tf2_msgs_action_lookup_transform__send_goal__request_set!(
         request_message,
         {{uuid}, {1.234}}
       )
 
-      Nif.turtlesim_action_rotate_absolute__send_goal__response_set!(
+      Nif.tf2_msgs_action_lookup_transform__send_goal__response_set!(
         response_message,
         {false, {sec, nanosec}}
       )
@@ -495,8 +495,8 @@ defmodule Rclex.NifBenchmarkTest do
 
       assert request_id_send == request_id_recv
 
-      Nif.turtlesim_action_rotate_absolute__send_goal__request_destroy!(request_message)
-      Nif.turtlesim_action_rotate_absolute__send_goal__response_destroy!(response_message)
+      Nif.tf2_msgs_action_lookup_transform__send_goal__request_destroy!(request_message)
+      Nif.tf2_msgs_action_lookup_transform__send_goal__response_destroy!(response_message)
     end
 
     test "rcl_action_send/take_result_request! & rcl_action_send/take_result_response!", %{
@@ -505,12 +505,12 @@ defmodule Rclex.NifBenchmarkTest do
     } do
       uuid = <<1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16>>
 
-      request_message = Nif.turtlesim_action_rotate_absolute__get_result__request_create!()
-      response_message = Nif.turtlesim_action_rotate_absolute__get_result__response_create!()
+      request_message = Nif.tf2_msgs_action_lookup_transform__get_result__request_create!()
+      response_message = Nif.tf2_msgs_action_lookup_transform__get_result__response_create!()
 
-      Nif.turtlesim_action_rotate_absolute__get_result__request_set!(request_message, {{uuid}})
+      Nif.tf2_msgs_action_lookup_transform__get_result__request_set!(request_message, {{uuid}})
 
-      Nif.turtlesim_action_rotate_absolute__get_result__response_set!(
+      Nif.tf2_msgs_action_lookup_transform__get_result__response_set!(
         response_message,
         {0, {1.234}}
       )
@@ -541,8 +541,8 @@ defmodule Rclex.NifBenchmarkTest do
 
       assert request_id_send == request_id_recv
 
-      Nif.turtlesim_action_rotate_absolute__get_result__request_destroy!(request_message)
-      Nif.turtlesim_action_rotate_absolute__get_result__response_destroy!(response_message)
+      Nif.tf2_msgs_action_lookup_transform__get_result__request_destroy!(request_message)
+      Nif.tf2_msgs_action_lookup_transform__get_result__response_destroy!(response_message)
     end
   end
 

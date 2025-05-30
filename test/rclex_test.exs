@@ -3,11 +3,12 @@ defmodule RclexTest do
 
   import ExUnit.CaptureLog
 
-  alias Rclex.Pkgs.Turtlesim
+  alias Rclex.Pkgs.Tf2Msgs
   alias Rclex.Pkgs.StdMsgs
   alias Rclex.Pkgs.StdSrvs
   alias Rclex.Pkgs.RclInterfaces
-  alias Rclex.Pkgs.Turtlesim.Action
+  alias Rclex.Pkgs.Tf2Msgs.Msg.TF2Error
+  alias Rclex.Pkgs.Tf2Msgs.Action
   alias Rclex.NodeSupervisor
 
   setup do
@@ -357,17 +358,21 @@ defmodule RclexTest do
       :ok = Rclex.start_node("name")
       on_exit(fn -> capture_log(fn -> Rclex.stop_node("name") end) end)
 
-      execute_callback = fn %Action.RotateAbsolute.Goal{theta: val}, fb_cb ->
-        for i <- 1..10 do
+      execute_callback = fn %Action.LookupTransform.Goal{
+                              target_frame: _target_frame,
+                              source_frame: _source_frame
+                            },
+                            fb_cb ->
+        for _i <- 1..10 do
           Process.sleep(200)
-          fb_cb.(%Action.RotateAbsolute.Feedback{remaining: val - val * 0.1 * i})
+          fb_cb.(%Action.LookupTransform.Feedback{})
         end
 
-        %Action.RotateAbsolute.Result{delta: 1.0 * val}
+        %Action.LookupTransform.Result{}
       end
 
       %{
-        action_type: Action.RotateAbsolute,
+        action_type: Action.LookupTransform,
         execute_callback: execute_callback
       }
     end
@@ -380,7 +385,7 @@ defmodule RclexTest do
                Rclex.start_action_server(
                  execute_callback,
                  action_type,
-                 "/rotate_absolute",
+                 "/lookup_transform",
                  "name",
                  goal_callback: fn _req -> :accept end
                )
@@ -391,7 +396,7 @@ defmodule RclexTest do
                Rclex.start_action_server(
                  execute_callback,
                  action_type,
-                 "/rotate_absolute",
+                 "/lookup_transform",
                  "name"
                )
     end
@@ -405,7 +410,7 @@ defmodule RclexTest do
                  Rclex.start_action_server(
                    execute_callback,
                    action_type,
-                   "/rotate_absolute",
+                   "/lookup_transform",
                    "not_exist"
                  )
                )
@@ -432,21 +437,21 @@ defmodule RclexTest do
         Rclex.start_action_server(
           execute_callback,
           action_type,
-          "/rotate_absolute",
+          "/lookup_transform",
           "name"
         )
 
       assert capture_log(fn ->
-               :ok = Rclex.stop_action_server(action_type, "/rotate_absolute", "name")
+               :ok = Rclex.stop_action_server(action_type, "/lookup_transform", "name")
              end) =~ "ActionServer: :shutdown"
 
       assert {:error, :not_found} =
-               Rclex.stop_action_server(action_type, "/rotate_absolute", "name")
+               Rclex.stop_action_server(action_type, "/lookup_transform", "name")
     end
 
     test "stop_action_server/3, node doesn't exist", %{action_type: action_type} do
       assert {:noproc, _} =
-               catch_exit(Rclex.stop_action_server(action_type, "/rotate_absolute", "notexists"))
+               catch_exit(Rclex.stop_action_server(action_type, "/lookup_transform", "notexists"))
     end
   end
 
@@ -456,7 +461,7 @@ defmodule RclexTest do
       on_exit(fn -> capture_log(fn -> Rclex.stop_node("name") end) end)
 
       %{
-        action_type: Action.RotateAbsolute
+        action_type: Action.LookupTransform
       }
     end
 
@@ -468,7 +473,7 @@ defmodule RclexTest do
       assert :ok =
                Rclex.start_action_client(
                  action_type,
-                 "/rotate_absolute",
+                 "/lookup_transform",
                  "name",
                  options: options
                )
@@ -476,7 +481,7 @@ defmodule RclexTest do
       assert {:error, :already_started} =
                Rclex.start_action_client(
                  action_type,
-                 "/rotate_absolute",
+                 "/lookup_transform",
                  "name"
                )
     end
@@ -488,7 +493,7 @@ defmodule RclexTest do
                catch_exit(
                  Rclex.start_action_client(
                    action_type,
-                   "/rotate_absolute",
+                   "/lookup_transform",
                    "not_exist"
                  )
                )
@@ -511,36 +516,36 @@ defmodule RclexTest do
       :ok =
         Rclex.start_action_client(
           action_type,
-          "/rotate_absolute",
+          "/lookup_transform",
           "name"
         )
 
       assert {:error, :not_found} ==
                Rclex.action_server_available?(action_type, "/does_not_exist", "name")
 
-      assert false == Rclex.action_server_available?(action_type, "/rotate_absolute", "name")
+      assert false == Rclex.action_server_available?(action_type, "/lookup_transform", "name")
 
-      execute_callback = fn %Action.RotateAbsolute.Goal{theta: val}, _fb_cb ->
-        %Action.RotateAbsolute.Result{delta: 0.5 * val}
+      execute_callback = fn %Action.LookupTransform.Goal{}, _fb_cb ->
+        %Action.LookupTransform.Result{error: %TF2Error{error: 0, error_string: "no error"}}
       end
 
       :ok =
         Rclex.start_action_server(
           execute_callback,
           action_type,
-          "/rotate_absolute",
+          "/lookup_transform",
           "name"
         )
 
       Process.sleep(10)
-      assert true == Rclex.action_server_available?(action_type, "/rotate_absolute", "name")
+      assert true == Rclex.action_server_available?(action_type, "/lookup_transform", "name")
 
       assert capture_log(fn ->
-               :ok = Rclex.stop_action_server(action_type, "/rotate_absolute", "name")
+               :ok = Rclex.stop_action_server(action_type, "/lookup_transform", "name")
              end) =~ "ActionServer: :shutdown"
 
       assert capture_log(fn ->
-               :ok = Rclex.stop_action_client(action_type, "/rotate_absolute", "name")
+               :ok = Rclex.stop_action_client(action_type, "/lookup_transform", "name")
              end) =~ "ActionClient: :shutdown"
     end
 
@@ -548,21 +553,21 @@ defmodule RclexTest do
       :ok =
         Rclex.start_action_client(
           action_type,
-          "/rotate_absolute",
+          "/lookup_transform",
           "name"
         )
 
       assert capture_log(fn ->
-               :ok = Rclex.stop_action_client(action_type, "/rotate_absolute", "name")
+               :ok = Rclex.stop_action_client(action_type, "/lookup_transform", "name")
              end) =~ "ActionClient: :shutdown"
 
       assert {:error, :not_found} =
-               Rclex.stop_action_client(action_type, "/rotate_absolute", "name")
+               Rclex.stop_action_client(action_type, "/lookup_transform", "name")
     end
 
     test "stop_action_client/3, node doesn't exist", %{action_type: action_type} do
       assert {:noproc, _} =
-               catch_exit(Rclex.stop_action_client(action_type, "/rotate_absolute", "notexists"))
+               catch_exit(Rclex.stop_action_client(action_type, "/lookup_transform", "notexists"))
     end
   end
 
@@ -570,18 +575,18 @@ defmodule RclexTest do
     setup do
       me = self()
 
-      execute_callback = fn %Action.RotateAbsolute.Goal{theta: val}, publish_feedback ->
+      execute_callback = fn %Action.LookupTransform.Goal{}, publish_feedback ->
         send(me, :started_execute_callback)
         # simulate some work
-        for i <- 1..3 do
+        for _i <- 1..3 do
           Process.sleep(50)
-          feedback = %Action.RotateAbsolute.Feedback{remaining: i * 0.1}
+          feedback = %Action.LookupTransform.Feedback{}
           send(me, :feedback)
           publish_feedback.(feedback)
         end
 
         send(me, :finished_execute_callback)
-        %Action.RotateAbsolute.Result{delta: 0.5 * val}
+        %Action.LookupTransform.Result{error: %TF2Error{error: 4, error_string: "no error"}}
       end
 
       goal_callback = fn _req ->
@@ -597,7 +602,7 @@ defmodule RclexTest do
         :accept
       end
 
-      action_type = Action.RotateAbsolute
+      action_type = Action.LookupTransform
 
       :ok = Rclex.start_node("name")
 
@@ -617,7 +622,7 @@ defmodule RclexTest do
         Rclex.start_action_server(
           execute_callback,
           action_type,
-          "/rotate_absolute",
+          "/lookup_transform",
           "name",
           goal_callback: goal_callback,
           handle_accepted_callback: handle_accepted_callback,
@@ -629,14 +634,14 @@ defmodule RclexTest do
       :ok =
         Rclex.start_action_client(
           action_type,
-          "/rotate_absolute",
+          "/lookup_transform",
           "name"
         )
 
       on_exit(fn ->
         capture_log(fn ->
-          Rclex.stop_action_client(action_type, "/rotate_absolute", "name")
-          Rclex.stop_action_server(action_type, "/rotate_absolute", "name")
+          Rclex.stop_action_client(action_type, "/lookup_transform", "name")
+          Rclex.stop_action_server(action_type, "/lookup_transform", "name")
           Rclex.stop_node("name")
         end)
       end)
@@ -650,8 +655,11 @@ defmodule RclexTest do
       capture_log(fn ->
         assert_raise RuntimeError, fn ->
           Rclex.send_goal_async(
-            %Action.RotateAbsolute.Goal{theta: 2.0},
-            "/rotate_absolute",
+            %Action.LookupTransform.Goal{
+              source_frame: "/source_frame",
+              target_frame: "/target_frame"
+            },
+            "/lookup_transform",
             "name",
             namespace: "/",
             feedback_callback: fn _, _ -> nil end
@@ -663,7 +671,10 @@ defmodule RclexTest do
     test "send_goal_async/3, action client not found", %{} do
       assert {:error, :not_found} =
                Rclex.send_goal_async(
-                 %Action.RotateAbsolute.Goal{theta: 2.0},
+                 %Action.LookupTransform.Goal{
+                   source_frame: "/source_frame",
+                   target_frame: "/target_frame"
+                 },
                  "/does_not_exist",
                  "name"
                )
@@ -671,22 +682,28 @@ defmodule RclexTest do
 
     test "send_goal_async/4, uuid exists", %{action_type: action_type} do
       me = self()
-      result_callback = fn status, result -> send(me, {:got_result, status, result.delta}) end
+      result_callback = fn status, result -> send(me, {:got_result, status, result.error}) end
       accepted_callback = fn uuid, accepted, _time -> send(me, {:accepted, uuid, accepted}) end
 
       capture_log(fn ->
         assert {:ok, uuid} =
                  Rclex.send_goal_async(
-                   %Action.RotateAbsolute.Goal{theta: 2.0},
-                   "/rotate_absolute",
+                   %Action.LookupTransform.Goal{
+                     source_frame: "/source_frame",
+                     target_frame: "/target_frame"
+                   },
+                   "/lookup_transform",
                    "name",
                    accepted_callback: accepted_callback
                  )
 
         assert {:ok, second_uuid} =
                  Rclex.send_goal_async(
-                   %Action.RotateAbsolute.Goal{theta: 2.0},
-                   "/rotate_absolute",
+                   %Action.LookupTransform.Goal{
+                     source_frame: "/source_frame",
+                     target_frame: "/target_frame"
+                   },
+                   "/lookup_transform",
                    "name",
                    goal_uuid: uuid,
                    accepted_callback: accepted_callback
@@ -699,7 +716,7 @@ defmodule RclexTest do
                    uuid,
                    result_callback,
                    action_type,
-                   "/rotate_absolute",
+                   "/lookup_transform",
                    "name"
                  )
 
@@ -717,7 +734,7 @@ defmodule RclexTest do
 
     test "cancel_goal_async/5, execute_callback gets canceled", %{action_type: action_type} do
       me = self()
-      result_callback = fn status, result -> send(me, {:got_result, status, result.delta}) end
+      result_callback = fn status, result -> send(me, {:got_result, status, result.error}) end
 
       cancel_callback = fn return_code, goals_canceling ->
         send(me, {:canceled, return_code, goals_canceling})
@@ -727,8 +744,11 @@ defmodule RclexTest do
         for _i <- 0..3 do
           assert {:ok, uuid} =
                    Rclex.send_goal_async(
-                     %Action.RotateAbsolute.Goal{theta: 2.0},
-                     "/rotate_absolute",
+                     %Action.LookupTransform.Goal{
+                       source_frame: "/source_frame",
+                       target_frame: "/target_frame"
+                     },
+                     "/lookup_transform",
                      "name"
                    )
 
@@ -737,7 +757,7 @@ defmodule RclexTest do
                      uuid,
                      result_callback,
                      action_type,
-                     "/rotate_absolute",
+                     "/lookup_transform",
                      "name"
                    )
 
@@ -748,7 +768,7 @@ defmodule RclexTest do
                      uuid,
                      cancel_callback,
                      action_type,
-                     "/rotate_absolute",
+                     "/lookup_transform",
                      "name"
                    )
 
@@ -770,8 +790,11 @@ defmodule RclexTest do
       capture_log(fn ->
         assert {:ok, uuid} =
                  Rclex.send_goal_async(
-                   %Action.RotateAbsolute.Goal{theta: 2.0},
-                   "/rotate_absolute",
+                   %Action.LookupTransform.Goal{
+                     source_frame: "/source_frame",
+                     target_frame: "/target_frame"
+                   },
+                   "/lookup_transform",
                    "name"
                  )
 
@@ -780,7 +803,7 @@ defmodule RclexTest do
             uuid,
             cancel_callback,
             action_type,
-            "/rotate_absolute",
+            "/lookup_transform",
             "name"
           )
         end
@@ -795,8 +818,11 @@ defmodule RclexTest do
       capture_log(fn ->
         assert {:ok, uuid} =
                  Rclex.send_goal_async(
-                   %Action.RotateAbsolute.Goal{theta: 2.0},
-                   "/rotate_absolute",
+                   %Action.LookupTransform.Goal{
+                     source_frame: "/source_frame",
+                     target_frame: "/target_frame"
+                   },
+                   "/lookup_transform",
                    "name"
                  )
 
@@ -813,14 +839,17 @@ defmodule RclexTest do
 
     test "get_result_async/5, execute_callback receives result", %{action_type: action_type} do
       me = self()
-      result_callback = fn status, result -> send(me, {:got_result, status, result.delta}) end
+      result_callback = fn status, result -> send(me, {:got_result, status, result.error}) end
 
       capture_log(fn ->
         for _i <- 0..3 do
           assert {:ok, uuid} =
                    Rclex.send_goal_async(
-                     %Action.RotateAbsolute.Goal{theta: 2.0},
-                     "/rotate_absolute",
+                     %Action.LookupTransform.Goal{
+                       source_frame: "/source_frame",
+                       target_frame: "/target_frame"
+                     },
+                     "/lookup_transform",
                      "name"
                    )
 
@@ -829,7 +858,7 @@ defmodule RclexTest do
                      uuid,
                      result_callback,
                      action_type,
-                     "/rotate_absolute",
+                     "/lookup_transform",
                      "name"
                    )
 
@@ -839,7 +868,9 @@ defmodule RclexTest do
           assert_receive :feedback
           assert_receive :feedback
           assert_receive :finished_execute_callback
-          assert_receive {:got_result, 4, 1.0}
+
+          assert_receive {:got_result, 4,
+                          %Rclex.Pkgs.Tf2Msgs.Msg.TF2Error{error: 4, error_string: "no error"}}
         end
       end)
     end
@@ -850,8 +881,11 @@ defmodule RclexTest do
       capture_log(fn ->
         assert {:ok, uuid} =
                  Rclex.send_goal_async(
-                   %Action.RotateAbsolute.Goal{theta: 2.0},
-                   "/rotate_absolute",
+                   %Action.LookupTransform.Goal{
+                     source_frame: "/source_frame",
+                     target_frame: "/target_frame"
+                   },
+                   "/lookup_transform",
                    "name"
                  )
 
@@ -860,7 +894,7 @@ defmodule RclexTest do
             uuid,
             result_callback,
             action_type,
-            "/rotate_absolute",
+            "/lookup_transform",
             "name"
           )
         end
@@ -873,8 +907,11 @@ defmodule RclexTest do
       capture_log(fn ->
         assert {:ok, uuid} =
                  Rclex.send_goal_async(
-                   %Action.RotateAbsolute.Goal{theta: 2.0},
-                   "/rotate_absolute",
+                   %Action.LookupTransform.Goal{
+                     source_frame: "/source_frame",
+                     target_frame: "/target_frame"
+                   },
+                   "/lookup_transform",
                    "name"
                  )
 
@@ -894,12 +931,16 @@ defmodule RclexTest do
     setup do
       me = self()
 
-      raising_execute_callback = fn %Action.RotateAbsolute.Goal{theta: val}, _fb_cb ->
+      raising_execute_callback = fn %Action.LookupTransform.Goal{
+                                      source_frame: _source_frame,
+                                      target_frame: _target_frame
+                                    },
+                                    _fb_cb ->
         send(me, :execute_callback)
         Process.sleep(50)
         raise("test raise")
         send(me, :finished_execute_callback)
-        %Action.RotateAbsolute.Result{delta: 2.0 * val}
+        %Action.LookupTransform.Result{}
       end
 
       goal_callback = fn _req ->
@@ -911,7 +952,7 @@ defmodule RclexTest do
         Rclex.execute_goal(goal_info_struct, action_type, action_name, name, namespace: namespace)
       end
 
-      action_type = Action.RotateAbsolute
+      action_type = Action.LookupTransform
 
       :ok = Rclex.start_node("name")
 
@@ -919,7 +960,7 @@ defmodule RclexTest do
         Rclex.start_action_server(
           raising_execute_callback,
           action_type,
-          "/rotate_absolute",
+          "/lookup_transform",
           "name",
           goal_callback: goal_callback,
           handle_accepted_callback: handle_accepted_callback
@@ -928,14 +969,14 @@ defmodule RclexTest do
       :ok =
         Rclex.start_action_client(
           action_type,
-          "/rotate_absolute",
+          "/lookup_transform",
           "name"
         )
 
       on_exit(fn ->
         capture_log(fn ->
-          Rclex.stop_action_server(action_type, "/rotate_absolute", "name")
-          Rclex.stop_action_client(action_type, "/rotate_absolute", "name")
+          Rclex.stop_action_server(action_type, "/lookup_transform", "name")
+          Rclex.stop_action_client(action_type, "/lookup_transform", "name")
           Rclex.stop_node("name")
         end)
       end)
@@ -947,13 +988,16 @@ defmodule RclexTest do
 
     test "send_goal_async/3, execute_callback raises", %{action_type: action_type} do
       me = self()
-      result_callback = fn status, result -> send(me, {:got_result, status, result.delta}) end
+      result_callback = fn status, result -> send(me, {:got_result, status, result.error}) end
 
       capture_log(fn ->
         assert {:ok, uuid} =
                  Rclex.send_goal_async(
-                   %Action.RotateAbsolute.Goal{theta: 0.123},
-                   "/rotate_absolute",
+                   %Action.LookupTransform.Goal{
+                     target_frame: "base_link",
+                     source_frame: "camera_link"
+                   },
+                   "/lookup_transform",
                    "name"
                  )
 
@@ -962,7 +1006,7 @@ defmodule RclexTest do
                    uuid,
                    result_callback,
                    action_type,
-                   "/rotate_absolute",
+                   "/lookup_transform",
                    "name"
                  )
 
@@ -975,7 +1019,7 @@ defmodule RclexTest do
 
     test "get_result_async/5 for unknown goal", %{action_type: action_type} do
       me = self()
-      result_callback = fn status, result -> send(me, {:got_result, status, result.delta}) end
+      result_callback = fn status, result -> send(me, {:got_result, status, result.error}) end
 
       capture_log(fn ->
         uuid = <<1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16>>
@@ -985,7 +1029,7 @@ defmodule RclexTest do
                    uuid,
                    result_callback,
                    action_type,
-                   "/rotate_absolute",
+                   "/lookup_transform",
                    "name"
                  )
 
@@ -1033,8 +1077,8 @@ defmodule RclexTest do
       topic_name = "/chatter"
       service_name = "/get_test_params_types"
       service_type = RclInterfaces.Srv.GetParameterTypes
-      action_name = "/rotate_absolute"
-      action_type = Turtlesim.Action.RotateAbsolute
+      action_name = "/lookup_transform"
+      action_type = Tf2Msgs.Action.LookupTransform
 
       :ok = Rclex.start_node("name")
       :ok = Rclex.start_publisher(StdMsgs.Msg.String, topic_name, name)
@@ -1061,7 +1105,7 @@ defmodule RclexTest do
       :ok = Rclex.start_client(receive_callback, service_type, service_name, name)
 
       execute_callback = fn _goal, _feedback_callback ->
-        %Turtlesim.Action.RotateAbsolute.Result{}
+        %Tf2Msgs.Action.LookupTransform.Result{}
       end
 
       :ok = Rclex.start_action_server(execute_callback, action_type, action_name, name)
@@ -1183,17 +1227,17 @@ defmodule RclexTest do
     end
 
     test "action_get_names_and_types/1", %{} do
-      assert [{"/rotate_absolute", ["turtlesim/action/RotateAbsolute"]}] =
+      assert [{"/lookup_transform", ["tf2_msgs/action/LookupTransform"]}] =
                Rclex.action_get_names_and_types("name")
     end
 
     test "action_get_client_names_and_types_by_node/3", %{} do
-      assert [{"/rotate_absolute", ["turtlesim/action/RotateAbsolute"]}] =
+      assert [{"/lookup_transform", ["tf2_msgs/action/LookupTransform"]}] =
                Rclex.action_get_client_names_and_types_by_node("name", "name", "/")
     end
 
     test "action_get_server_names_and_types_by_node/3", %{} do
-      assert [{"/rotate_absolute", ["turtlesim/action/RotateAbsolute"]}] =
+      assert [{"/lookup_transform", ["tf2_msgs/action/LookupTransform"]}] =
                Rclex.action_get_server_names_and_types_by_node("name", "name", "/")
     end
 

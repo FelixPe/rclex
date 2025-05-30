@@ -6,7 +6,7 @@ defmodule Mix.Tasks.Rclex.Gen.Action do
   Before generating, specifing action types in config.exs is needed.
 
   ```
-  config :rclex, ros2_action_types: ["turtlesim/action/RotateAbsolute"]
+  config :rclex, ros2_action_types: ["tf2_msgs/action/LookupTransform"]
   ```
 
   > #### Info {: .info }

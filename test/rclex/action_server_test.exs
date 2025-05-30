@@ -5,7 +5,7 @@ defmodule Rclex.ActionServerTest do
 
   alias Rclex.ActionServer
   alias Rclex.Nif
-  alias Rclex.Pkgs.Turtlesim.Action
+  alias Rclex.Pkgs.Tf2Msgs.Action
 
   setup do
     capture_log(fn -> Application.stop(:rclex) end)
@@ -31,8 +31,8 @@ defmodule Rclex.ActionServerTest do
              ActionServer.start_link(
                context: context,
                node: node,
-               action_type: Action.RotateAbsolute,
-               action_name: "/rotate_absolute",
+               action_type: Action.LookupTransform,
+               action_name: "/lookup_transform",
                name: name,
                namespace: namespace,
                execute_callback: fn _req, _fb_cb -> nil end,
@@ -57,8 +57,8 @@ defmodule Rclex.ActionServerTest do
              ActionServer.start_link(
                context: context,
                node: node,
-               action_type: Action.RotateAbsolute,
-               action_name: "rotate_absolute",
+               action_type: Action.LookupTransform,
+               action_name: "lookup_transform",
                name: name,
                namespace: namespace,
                execute_callback: nil,

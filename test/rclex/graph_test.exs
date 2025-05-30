@@ -7,7 +7,7 @@ defmodule Rclex.GraphTest do
   alias Rclex.Graph
   alias Rclex.Pkgs.StdMsgs
   alias Rclex.Pkgs.StdSrvs
-  alias Rclex.Pkgs.Turtlesim
+  alias Rclex.Pkgs.Tf2Msgs
   alias Rclex.QoS
 
   setup do
@@ -18,7 +18,7 @@ defmodule Rclex.GraphTest do
     non_existent = ~c"does_not_exist"
     topic_name = ~c"/chatter"
     service_name = ~c"/set_test_bool"
-    action_name = ~c"/rotate_absolute"
+    action_name = ~c"/lookup_transform"
 
     clock = Nif.rcl_clock_init!(:system_time)
 
@@ -27,7 +27,7 @@ defmodule Rclex.GraphTest do
 
     msg_type_support = apply(StdMsgs.Msg.String, :type_support!, [])
     srv_type_support = apply(StdSrvs.Srv.SetBool, :type_support!, [])
-    action_type_support = apply(Turtlesim.Action.RotateAbsolute, :type_support!, [])
+    action_type_support = apply(Tf2Msgs.Action.LookupTransform, :type_support!, [])
 
     publisher =
       Nif.rcl_publisher_init!(node, msg_type_support, topic_name, Rclex.QoS.profile_default())
@@ -128,24 +128,24 @@ defmodule Rclex.GraphTest do
            )
 
     assert [
-             {~c"rq/rotate_absolute/_action/cancel_goalRequest",
+             {~c"rq/lookup_transform/_action/cancel_goalRequest",
               [~c"action_msgs::srv::dds_::CancelGoal_Request_"]},
-             {~c"rq/rotate_absolute/_action/get_resultRequest",
-              [~c"turtlesim::action::dds_::RotateAbsolute_GetResult_Request_"]},
-             {~c"rq/rotate_absolute/_action/send_goalRequest",
-              [~c"turtlesim::action::dds_::RotateAbsolute_SendGoal_Request_"]},
+             {~c"rq/lookup_transform/_action/get_resultRequest",
+              [~c"tf2_msgs::action::dds_::LookupTransform_GetResult_Request_"]},
+             {~c"rq/lookup_transform/_action/send_goalRequest",
+              [~c"tf2_msgs::action::dds_::LookupTransform_SendGoal_Request_"]},
              {~c"rq/set_test_boolRequest", [~c"std_srvs::srv::dds_::SetBool_Request_"]},
-             {~c"rr/rotate_absolute/_action/cancel_goalReply",
+             {~c"rr/lookup_transform/_action/cancel_goalReply",
               [~c"action_msgs::srv::dds_::CancelGoal_Response_"]},
-             {~c"rr/rotate_absolute/_action/get_resultReply",
-              [~c"turtlesim::action::dds_::RotateAbsolute_GetResult_Response_"]},
-             {~c"rr/rotate_absolute/_action/send_goalReply",
-              [~c"turtlesim::action::dds_::RotateAbsolute_SendGoal_Response_"]},
+             {~c"rr/lookup_transform/_action/get_resultReply",
+              [~c"tf2_msgs::action::dds_::LookupTransform_GetResult_Response_"]},
+             {~c"rr/lookup_transform/_action/send_goalReply",
+              [~c"tf2_msgs::action::dds_::LookupTransform_SendGoal_Response_"]},
              {~c"rr/set_test_boolReply", [~c"std_srvs::srv::dds_::SetBool_Response_"]},
              {~c"rt/chatter", [~c"std_msgs::msg::dds_::String_"]},
-             {~c"rt/rotate_absolute/_action/feedback",
-              [~c"turtlesim::action::dds_::RotateAbsolute_FeedbackMessage_"]},
-             {~c"rt/rotate_absolute/_action/status",
+             {~c"rt/lookup_transform/_action/feedback",
+              [~c"tf2_msgs::action::dds_::LookupTransform_FeedbackMessage_"]},
+             {~c"rt/lookup_transform/_action/status",
               [~c"action_msgs::msg::dds_::GoalStatusArray_"]}
            ] = Graph.get_publisher_names_and_types_by_node(node, name, namespace, true)
 
@@ -198,24 +198,24 @@ defmodule Rclex.GraphTest do
            )
 
     assert [
-             {~c"rq/rotate_absolute/_action/cancel_goalRequest",
+             {~c"rq/lookup_transform/_action/cancel_goalRequest",
               [~c"action_msgs::srv::dds_::CancelGoal_Request_"]},
-             {~c"rq/rotate_absolute/_action/get_resultRequest",
-              [~c"turtlesim::action::dds_::RotateAbsolute_GetResult_Request_"]},
-             {~c"rq/rotate_absolute/_action/send_goalRequest",
-              [~c"turtlesim::action::dds_::RotateAbsolute_SendGoal_Request_"]},
+             {~c"rq/lookup_transform/_action/get_resultRequest",
+              [~c"tf2_msgs::action::dds_::LookupTransform_GetResult_Request_"]},
+             {~c"rq/lookup_transform/_action/send_goalRequest",
+              [~c"tf2_msgs::action::dds_::LookupTransform_SendGoal_Request_"]},
              {~c"rq/set_test_boolRequest", [~c"std_srvs::srv::dds_::SetBool_Request_"]},
-             {~c"rr/rotate_absolute/_action/cancel_goalReply",
+             {~c"rr/lookup_transform/_action/cancel_goalReply",
               [~c"action_msgs::srv::dds_::CancelGoal_Response_"]},
-             {~c"rr/rotate_absolute/_action/get_resultReply",
-              [~c"turtlesim::action::dds_::RotateAbsolute_GetResult_Response_"]},
-             {~c"rr/rotate_absolute/_action/send_goalReply",
-              [~c"turtlesim::action::dds_::RotateAbsolute_SendGoal_Response_"]},
+             {~c"rr/lookup_transform/_action/get_resultReply",
+              [~c"tf2_msgs::action::dds_::LookupTransform_GetResult_Response_"]},
+             {~c"rr/lookup_transform/_action/send_goalReply",
+              [~c"tf2_msgs::action::dds_::LookupTransform_SendGoal_Response_"]},
              {~c"rr/set_test_boolReply", [~c"std_srvs::srv::dds_::SetBool_Response_"]},
              {~c"rt/chatter", [~c"std_msgs::msg::dds_::String_"]},
-             {~c"rt/rotate_absolute/_action/feedback",
-              [~c"turtlesim::action::dds_::RotateAbsolute_FeedbackMessage_"]},
-             {~c"rt/rotate_absolute/_action/status",
+             {~c"rt/lookup_transform/_action/feedback",
+              [~c"tf2_msgs::action::dds_::LookupTransform_FeedbackMessage_"]},
+             {~c"rt/lookup_transform/_action/status",
               [~c"action_msgs::msg::dds_::GoalStatusArray_"]}
            ] = Graph.get_subscriber_names_and_types_by_node(node, name, namespace, true)
 
@@ -263,7 +263,7 @@ defmodule Rclex.GraphTest do
   end
 
   test "action_get_names_and_types/1", %{action_name: action_name, node: node} do
-    assert [{^action_name, [~c"turtlesim/action/RotateAbsolute"]}] =
+    assert [{^action_name, [~c"tf2_msgs/action/LookupTransform"]}] =
              Graph.action_get_names_and_types(node)
   end
 
@@ -273,7 +273,7 @@ defmodule Rclex.GraphTest do
     name: name,
     namespace: namespace
   } do
-    assert [{^action_name, [~c"turtlesim/action/RotateAbsolute"]}] =
+    assert [{^action_name, [~c"tf2_msgs/action/LookupTransform"]}] =
              Graph.action_get_server_names_and_types_by_node(node, name, namespace)
   end
 
@@ -283,7 +283,7 @@ defmodule Rclex.GraphTest do
     name: name,
     namespace: namespace
   } do
-    assert [{^action_name, [~c"turtlesim/action/RotateAbsolute"]}] =
+    assert [{^action_name, [~c"tf2_msgs/action/LookupTransform"]}] =
              Graph.action_get_client_names_and_types_by_node(node, name, namespace)
   end
 

@@ -18,7 +18,7 @@ defmodule Mix.Tasks.Rclex.Gen.Msgs do
   and the message types required for internal topics and services of actions defined in
 
   ```
-  config :rclex, ros2_action_types: ["turtlesim/action/RotateAbsolute"]
+  config :rclex, ros2_action_types: ["tf2_msgs/action/LookupTransform"]
   ```
 
   > #### Info {: .info }

@@ -27,14 +27,14 @@ defmodule Rclex.Generators.MsgExTest do
         "rcl_interfaces/msg/ParameterDescriptor",
         "rcl_interfaces/srv/GetParameterTypes_Request",
         "rcl_interfaces/srv/GetParameterTypes_Response",
-        "turtlesim/action/RotateAbsolute_FeedbackMessage",
-        "turtlesim/action/RotateAbsolute_Feedback",
-        "turtlesim/action/RotateAbsolute_Goal",
-        "turtlesim/action/RotateAbsolute_Result",
-        "turtlesim/action/RotateAbsolute_GetResult_Request",
-        "turtlesim/action/RotateAbsolute_GetResult_Response",
-        "turtlesim/action/RotateAbsolute_SendGoal_Request",
-        "turtlesim/action/RotateAbsolute_SendGoal_Response"
+        "tf2_msgs/action/LookupTransform_FeedbackMessage",
+        "tf2_msgs/action/LookupTransform_Feedback",
+        "tf2_msgs/action/LookupTransform_Goal",
+        "tf2_msgs/action/LookupTransform_Result",
+        "tf2_msgs/action/LookupTransform_GetResult_Request",
+        "tf2_msgs/action/LookupTransform_GetResult_Response",
+        "tf2_msgs/action/LookupTransform_SendGoal_Request",
+        "tf2_msgs/action/LookupTransform_SendGoal_Response"
       ] do
     test "generate/2 #{ros2_message_type}" do
       ros2_message_type = unquote(ros2_message_type)

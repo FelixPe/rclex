@@ -14,7 +14,7 @@ defmodule Mix.Tasks.Rclex.Gen do
     "std_srvs/srv/SetBool"
   ],
   ros2_action_types: [
-    "turtlesim/action/RotateAbsolute"
+    "tf2_msgs/action/LookupTransform"
   ]
   ```
 

@@ -18,5 +18,5 @@ config :rclex,
     # "action_msgs/srv/CancelGoal"
   ],
   ros2_action_types: [
-    "turtlesim/action/RotateAbsolute"
+    "tf2_msgs/action/LookupTransform"
   ]
