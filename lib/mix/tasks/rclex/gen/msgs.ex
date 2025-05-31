@@ -170,7 +170,7 @@ defmodule Mix.Tasks.Rclex.Gen.Msgs do
         Enum.map(srv_types, fn type -> type <> "_Request" end) ++
         Enum.map(srv_types, fn type -> type <> "_Response" end)
 
-    msg_types = msg_types ++ msg_types_for_actions(action_types)
+    msg_types = msg_types ++ msg_types_for_actions(action_types) ++ msg_types_for_rcl_interfaces()
 
     ros2_message_type_map =
       Enum.reduce(msg_types, %{}, fn type, acc ->
@@ -309,6 +309,30 @@ defmodule Mix.Tasks.Rclex.Gen.Msgs do
     |> Code.format_string!()
     |> IO.iodata_to_binary()
     |> then(&"#{&1}\n")
+  end
+
+  defp msg_types_for_rcl_interfaces() do
+    [
+      "rcl_interfaces/srv/GetParameterTypes_Request",
+      "rcl_interfaces/srv/GetParameterTypes_Response",
+      "rcl_interfaces/srv/ListParameters_Request",
+      "rcl_interfaces/srv/ListParameters_Response",
+      "rcl_interfaces/srv/SetParameters_Request",
+      "rcl_interfaces/srv/SetParameters_Response",
+      "rcl_interfaces/srv/SetParametersAtomically_Request",
+      "rcl_interfaces/srv/SetParametersAtomically_Response",
+      "rcl_interfaces/srv/GetParameters_Request",
+      "rcl_interfaces/srv/GetParameters_Response",
+      "rcl_interfaces/srv/DescribeParameters_Request",
+      "rcl_interfaces/srv/DescribeParameters_Response",
+      "rcl_interfaces/msg/FloatingPointRange",
+      "rcl_interfaces/msg/IntegerRange",
+      "rcl_interfaces/msg/ParameterEvent",
+      "rcl_interfaces/msg/ParameterEventDescriptors",
+      "rcl_interfaces/msg/ParameterType",
+      "rcl_interfaces/msg/Log"
+
+    ]
   end
 
   defp msg_types_for_actions([]) do

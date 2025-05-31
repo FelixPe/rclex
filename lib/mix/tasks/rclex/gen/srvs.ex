@@ -75,6 +75,8 @@ defmodule Mix.Tasks.Rclex.Gen.Srvs do
       Mix.raise("ros2_service_types is not specified in config.")
     end
 
+    srv_types = srv_types ++ srv_types_for_rcl_interfaces()
+
     for type <- srv_types do
       [interfaces, interface_type, type_name] = String.split(type, "/")
       type_name = Util.to_down_snake(type_name)
@@ -97,6 +99,17 @@ defmodule Mix.Tasks.Rclex.Gen.Srvs do
     File.write!(Path.join(to, "lib/rclex/srv_funcs.ex"), generate_srv_funcs_ex(srv_types))
     File.write!(Path.join(to, "src/srv_funcs.h"), generate_srv_funcs_h(srv_types))
     File.write!(Path.join(to, "src/srv_funcs.ec"), generate_srv_funcs_c(srv_types))
+  end
+
+  defp srv_types_for_rcl_interfaces() do
+    [
+      "rcl_interfaces/srv/GetParameters",
+      "rcl_interfaces/srv/GetParameterTypes",
+      "rcl_interfaces/srv/ListParameters",
+      "rcl_interfaces/srv/SetParameters",
+      "rcl_interfaces/srv/SetParametersAtomically",
+      "rcl_interfaces/srv/DescribeParameters"
+    ]
   end
 
   defp response_or_request_or_action?(f) do

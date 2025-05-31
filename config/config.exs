@@ -13,9 +13,7 @@ config :rclex,
   ],
   ros2_directories: [],
   ros2_service_types: [
-    "std_srvs/srv/SetBool",
-    "rcl_interfaces/srv/GetParameterTypes"
-    # "action_msgs/srv/CancelGoal"
+    "std_srvs/srv/SetBool"
   ],
   ros2_action_types: [
     "tf2_msgs/action/LookupTransform"
