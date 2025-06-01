@@ -331,7 +331,6 @@ defmodule Mix.Tasks.Rclex.Gen.Msgs do
       "rcl_interfaces/msg/ParameterEventDescriptors",
       "rcl_interfaces/msg/ParameterType",
       "rcl_interfaces/msg/Log"
-
     ]
   end
 

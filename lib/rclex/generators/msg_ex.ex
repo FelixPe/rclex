@@ -57,6 +57,22 @@ defmodule Rclex.Generators.MsgEx do
     |> then(&"#{&1}\n")
   end
 
+  defp defstruct_builtin_type_field(type, name) do
+    "#{name}: #{Map.get(@ros2_elixir_default_map, type, "nil")}"
+  end
+
+  defp defstruct_builtin_type_field("float32", name, default) do
+    "#{name}: #{inspect(1.0 * default)}"
+  end
+
+  defp defstruct_builtin_type_field("float64", name, default) do
+    "#{name}: #{inspect(1.0 * default)}"
+  end
+
+  defp defstruct_builtin_type_field(_type, name, default) do
+    "#{name}: #{inspect(default)}"
+  end
+
   def defstruct_fields(ros2_message_type, ros2_message_type_map) do
     fields = get_fields(ros2_message_type, ros2_message_type_map)
 
@@ -68,16 +84,10 @@ defmodule Rclex.Generators.MsgEx do
         # credo:disable-for-next-line Credo.Check.Refactor.Nesting
         case field do
           [{:builtin_type, type}, name] ->
-            "#{name}: #{Map.get(@ros2_elixir_default_map, type, "nil")}"
+            defstruct_builtin_type_field(type, name)
 
-          [{:builtin_type, "float32"}, name, default] ->
-            "#{name}: #{inspect(1.0 * default)}"
-
-          [{:builtin_type, "float64"}, name, default] ->
-            "#{name}: #{inspect(1.0 * default)}"
-
-          [{:builtin_type, _type}, name, default] ->
-            "#{name}: #{inspect(default)}"
+          [{:builtin_type, type}, name, default] ->
+            defstruct_builtin_type_field(type, name, default)
 
           [{:builtin_type_array, "uint8[" <> _}, name] ->
             "#{name}: <<>>"
