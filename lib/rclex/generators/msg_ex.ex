@@ -117,7 +117,7 @@ defmodule Rclex.Generators.MsgEx do
       acc <>
         case type do
           "string" -> "def #{String.downcase(name)}, do: \"#{value}\"\n"
-          _ -> "defmacro #{String.downcase(name)}, do: #{value}\n"
+          _ -> "def #{String.downcase(name)}, do: #{value}\n"
         end
     end)
   end
