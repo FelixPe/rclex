@@ -116,8 +116,14 @@ defmodule Rclex.Generators.MsgEx do
     Enum.reduce(constants, "", fn [{:builtin_type, type}, name, value], acc ->
       acc <>
         case type do
-          "string" -> "def #{String.downcase(name)}, do: \"#{value}\"\n"
-          _ -> "def #{String.downcase(name)}, do: #{value}\n"
+          "string" ->
+            "def #{String.downcase(name)}, do: \"#{value}\"\n"
+
+          _ ->
+            """
+            def #{String.downcase(name)}, do: #{value}
+            defguard is_#{String.downcase(name)}(value) when value == #{value}
+            """
         end
     end)
   end
