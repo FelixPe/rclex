@@ -39,6 +39,9 @@ defmodule Rclex do
           optional(atom()) => any()
         }
 
+  @typedoc "ROS2 message type to communicate a parameter's descriptor"
+  @type parameter_descriptor_struct :: %{}
+
   @doc """
   Start a ROS node. The name of the node must not be `nil` and cannot coincide with another node of the same name.
   Node names must follow these rules:
@@ -989,6 +992,269 @@ defmodule Rclex do
       when is_binary(timer_name) and is_binary(node_name) and is_list(opts) do
     namespace = Keyword.get(opts, :namespace, "/")
     Rclex.Node.stop_timer(timer_name, node_name, namespace)
+  end
+
+  @doc """
+  Declare a parameter on a node.
+
+  Parameters must be declared before they can be set or retrieved.
+  Optionally, a default value and descriptor can be provided.
+
+  ### opts
+
+  - #{@namespace_doc}
+
+  ### Examples
+
+      iex> Rclex.declare_parameter("node", "my_param", default_value: 42, namespace: "/example")
+      :ok
+      iex> Rclex.declare_parameter("node", "my_string", default_value: "hello", namespace: "/example")
+      :ok
+  """
+  @doc section: :parameter
+  @spec declare_parameter(
+          node_name :: String.t(),
+          parameter_name :: String.t(),
+          opts :: [
+            namespace: String.t(),
+            type: atom(),
+            default_value: any(),
+            read_only: boolean(),
+            dynamic_typing: boolean(),
+            description: String.t(),
+            additional_constraints: String.t(),
+            floating_point_range: [number()],
+            integer_range: [integer()]
+          ]
+        ) :: :ok | {:error, :already_declared}
+  def declare_parameter(node_name, parameter_name, opts \\ [])
+      when is_binary(node_name) and is_binary(parameter_name) and is_list(opts) do
+    namespace = Keyword.get(opts, :namespace, "/")
+    Rclex.ParameterServer.declare_parameter(node_name, namespace, parameter_name, opts)
+  end
+
+  @doc """
+  Get the value of a parameter.
+
+  Returns the current value of the parameter if it exists and has been declared.
+
+  ### opts
+
+  - #{@namespace_doc}
+
+  ### Examples
+
+      iex> Rclex.get_parameter("node", "my_param", namespace: "/example")
+      {:ok, 42}
+      iex> Rclex.get_parameter("node", "nonexistent", namespace: "/example")
+      {:error, :not_declared}
+  """
+  @doc section: :parameter
+  @spec get_parameter(
+          node_name :: String.t(),
+          parameter_name :: String.t(),
+          opts :: [namespace: String.t()]
+        ) :: {:ok, any()} | {:error, :not_declared}
+  def get_parameter(node_name, parameter_name, opts \\ [])
+      when is_binary(node_name) and is_binary(parameter_name) and is_list(opts) do
+    namespace = Keyword.get(opts, :namespace, "/")
+    Rclex.ParameterServer.get_parameter(node_name, namespace, parameter_name)
+  end
+
+  @doc """
+  Set the value of a parameter.
+
+  The parameter must be declared first using `declare_parameter/3`.
+
+  ### opts
+
+  - #{@namespace_doc}
+
+  ### Examples
+
+      iex> Rclex.set_parameter("node", "my_param", 100, namespace: "/example")
+      :ok
+      iex> Rclex.set_parameter("node", "undeclared", 50, namespace: "/example")
+      {:error, :not_declared}
+  """
+  @doc section: :parameter
+  @spec set_parameter(
+          node_name :: String.t(),
+          parameter_name :: String.t(),
+          value :: any(),
+          opts :: [namespace: String.t()]
+        ) :: :ok | {:error, :not_declared}
+  def set_parameter(node_name, parameter_name, value, opts \\ [])
+      when is_binary(node_name) and is_binary(parameter_name) and is_list(opts) do
+    namespace = Keyword.get(opts, :namespace, "/")
+    value = Rclex.ParameterHelpers.gen_parameter_value_struct(value)
+    Rclex.ParameterServer.set_parameter(node_name, namespace, parameter_name, value)
+  end
+
+  @doc """
+  Set multiple parameters atomically.
+
+  All parameters will be set if all are valid, otherwise none will be set.
+  Parameters must be provided as a list of {name, value} tuples.
+
+  ### opts
+
+  - #{@namespace_doc}
+
+  ### Examples
+
+      iex> Rclex.set_parameters("node", [{"param1", 10}, {"param2", "hello"}], namespace: "/example")
+      :ok
+      iex> Rclex.set_parameters("node", [{"param1", 10}, {"undeclared", 20}], namespace: "/example")
+      {:error, {:undeclared_parameters, ["undeclared"]}}
+  """
+  @doc section: :parameter
+  @spec set_parameters(
+          node_name :: String.t(),
+          parameters :: [{String.t(), any()}],
+          opts :: [namespace: String.t()]
+        ) :: :ok | {:error, {:undeclared_parameters, [String.t()]}}
+  def set_parameters(node_name, parameters, opts \\ [])
+      when is_binary(node_name) and is_list(parameters) and is_list(opts) do
+    namespace = Keyword.get(opts, :namespace, "/")
+
+    parameters =
+      Enum.map(parameters, fn {name, value} ->
+        {name, Rclex.ParameterHelpers.gen_parameter_value_struct(value)}
+      end)
+
+    Rclex.ParameterServer.set_parameters(node_name, namespace, parameters, true)
+  end
+
+  @doc """
+  List all declared parameters on a node.
+
+  Returns a list of parameter names that have been declared on the node.
+
+  ### opts
+
+  - #{@namespace_doc}
+
+  ### Examples
+
+      iex> Rclex.list_parameters("node", namespace: "/example")
+      ["my_param", "my_string"]
+  """
+  @doc section: :parameter
+  @spec list_parameters(
+          node_name :: String.t(),
+          opts :: [namespace: String.t()]
+        ) :: [String.t()]
+  def list_parameters(node_name, opts \\ [])
+      when is_binary(node_name) and is_list(opts) do
+    namespace = Keyword.get(opts, :namespace, "/")
+    Rclex.ParameterServer.list_parameters(node_name, namespace)
+  end
+
+  @doc """
+  Get parameter descriptors for the specified parameters.
+
+  If no parameter names are provided, returns descriptors for all declared parameters.
+
+  ### opts
+
+  - #{@namespace_doc}
+
+  ### Examples
+
+      iex> Rclex.describe_parameters("node", ["my_param"], namespace: "/example")
+      [%Rclex.Pkgs.RclInterfaces.Msg.ParameterDescriptor{name: "my_param", ...}]
+      iex> Rclex.describe_parameters("node", namespace: "/example")
+      [%Rclex.Pkgs.RclInterfaces.Msg.ParameterDescriptor{...}, ...]
+  """
+  @doc section: :parameter
+  @spec describe_parameters(
+          node_name :: String.t(),
+          parameter_names :: [String.t()],
+          opts :: [namespace: String.t()]
+        ) :: [parameter_descriptor_struct]
+  def describe_parameters(node_name, parameter_names \\ [], opts \\ [])
+      when is_binary(node_name) and is_list(parameter_names) and is_list(opts) do
+    namespace = Keyword.get(opts, :namespace, "/")
+    Rclex.ParameterServer.describe_parameters(node_name, namespace, parameter_names)
+  end
+
+  @doc """
+  Get parameter types for the specified parameters.
+
+  Returns a list of parameter types corresponding to the parameter names.
+
+  ### opts
+
+  - #{@namespace_doc}
+
+  ### Examples
+
+      iex> Rclex.get_parameter_types("node", ["my_param", "my_string"], namespace: "/example")
+      [:integer, :string]
+  """
+  @doc section: :parameter
+  @spec get_parameter_types(
+          node_name :: String.t(),
+          parameter_names :: [String.t()],
+          opts :: [namespace: String.t()]
+        ) :: [atom()]
+  def get_parameter_types(node_name, parameter_names, opts \\ [])
+      when is_binary(node_name) and is_list(parameter_names) and is_list(opts) do
+    namespace = Keyword.get(opts, :namespace, "/")
+    Rclex.ParameterServer.get_parameter_types(node_name, namespace, parameter_names)
+  end
+
+  @doc """
+  Add a parameter change callback to a node.
+
+  The callback function will be invoked whenever any parameter on the node changes.
+  The callback receives the parameter name, new value, and old value as arguments.
+
+  ### opts
+
+  - #{@namespace_doc}
+
+  ### Examples
+
+      iex> callback = fn name, new_val, old_val -> IO.puts("#\{name\} changed from #\{old_val\} to #\{new_val\}") end
+      iex> Rclex.add_parameters_set_callback("node", callback, namespace: "/example")
+      :ok
+  """
+  @doc section: :parameter
+  @spec add_parameters_set_callback(
+          node_name :: String.t(),
+          callback :: (String.t(), any(), any() -> any()),
+          opts :: [namespace: String.t()]
+        ) :: :ok
+  def add_parameters_set_callback(node_name, callback, opts \\ [])
+      when is_binary(node_name) and is_function(callback, 3) and is_list(opts) do
+    namespace = Keyword.get(opts, :namespace, "/")
+    Rclex.ParameterServer.add_parameters_set_callback(node_name, namespace, callback)
+  end
+
+  @doc """
+  Remove a parameter change callback from a node.
+
+  ### opts
+
+  - #{@namespace_doc}
+
+  ### Examples
+
+      iex> Rclex.remove_parameters_set_callback("node", callback, namespace: "/example")
+      :ok
+  """
+  @doc section: :parameter
+  @spec remove_parameters_set_callback(
+          node_name :: String.t(),
+          callback :: (String.t(), any(), any() -> any()),
+          opts :: [namespace: String.t()]
+        ) :: :ok
+  def remove_parameters_set_callback(node_name, callback, opts \\ [])
+      when is_binary(node_name) and is_function(callback, 3) and is_list(opts) do
+    namespace = Keyword.get(opts, :namespace, "/")
+    Rclex.ParameterServer.remove_parameters_set_callback(node_name, namespace, callback)
   end
 
   @doc """

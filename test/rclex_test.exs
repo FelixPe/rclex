@@ -46,14 +46,14 @@ defmodule RclexTest do
       :ok = Rclex.start_node("name")
       :ok = Rclex.start_publisher(StdMsgs.Msg.String, "/chatter", "name")
       :ok = Rclex.start_subscription(fn _msg -> nil end, StdMsgs.Msg.String, "/chatter", "name")
-      :ok = Rclex.start_timer(10, fn -> nil end, "timer", "name")
+      :ok = Rclex.start_timer(1000, fn -> nil end, "timer", "name")
 
       logs =
         capture_log(fn -> :ok = Rclex.stop_node("name") end)
         |> String.split("\n")
         |> Enum.filter(&String.contains?(&1, ":shutdown"))
 
-      assert Enum.count(logs) == 4
+      assert Enum.count(logs) == 10
       assert List.last(logs) =~ "Node: :shutdown"
     end
 
@@ -72,7 +72,7 @@ defmodule RclexTest do
         )
 
       assert_receive :graph_changed
-      :ok = Rclex.start_timer(10, fn -> nil end, "timer", "name", namespace: "/")
+      :ok = Rclex.start_timer(1000, fn -> nil end, "timer", "name", namespace: "/")
 
       logs =
         capture_log(fn ->
@@ -83,7 +83,7 @@ defmodule RclexTest do
         |> String.split("\n")
         |> Enum.filter(&String.contains?(&1, ":shutdown"))
 
-      assert Enum.count(logs) == 4
+      assert Enum.count(logs) == 10
       assert List.last(logs) =~ "Node: :shutdown"
     end
   end
@@ -1060,7 +1060,7 @@ defmodule RclexTest do
     end
 
     test "stop_timer/3", %{callback: callback} do
-      :ok = Rclex.start_timer(10, callback, "timer", "name")
+      :ok = Rclex.start_timer(100, callback, "timer", "name")
 
       assert capture_log(fn -> :ok = Rclex.stop_timer("timer", "name") end) =~ "Timer: :shutdown"
       assert {:error, :not_found} = Rclex.stop_timer("timer", "name")
@@ -1250,6 +1250,623 @@ defmodule RclexTest do
 
       {:error, :not_found} =
         Rclex.service_server_available?(service_type, "/does_not_exist", name)
+    end
+  end
+
+  describe "parameters" do
+    setup do
+      node_name = "param_test_node"
+      namespace = "/test_namespace"
+      :ok = Rclex.start_node(node_name)
+      :ok = Rclex.start_node(node_name, namespace: namespace)
+
+      on_exit(fn ->
+        capture_log(fn ->
+          Rclex.stop_node(node_name) && Rclex.stop_node(node_name, namespace: namespace)
+        end)
+      end)
+
+      %{node_name: node_name, namespace: namespace}
+    end
+
+    test "declare_parameter/3 creates new parameter", %{node_name: node_name} do
+      assert :ok = Rclex.declare_parameter(node_name, "test_param", default_value: 42)
+      assert :ok = Rclex.declare_parameter(node_name, "string_param", default_value: "hello")
+      assert :ok = Rclex.declare_parameter(node_name, "bool_param", default_value: true)
+    end
+
+    test "declare_parameter/3 with type specification", %{node_name: node_name} do
+      assert :ok =
+               Rclex.declare_parameter(node_name, "typed_int", type: :integer, default_value: 100)
+
+      assert :ok =
+               Rclex.declare_parameter(node_name, "typed_float",
+                 type: :float,
+                 default_value: 3.14
+               )
+
+      assert :ok =
+               Rclex.declare_parameter(node_name, "typed_string",
+                 type: :string,
+                 default_value: "test"
+               )
+
+      assert :ok =
+               Rclex.declare_parameter(node_name, "typed_bool",
+                 type: :boolean,
+                 default_value: false
+               )
+    end
+
+    test "declare_parameter/3 with namespace", %{node_name: node_name, namespace: namespace} do
+      assert :ok =
+               Rclex.declare_parameter(node_name, "ns_param",
+                 default_value: 42,
+                 namespace: namespace
+               )
+    end
+
+    test "declare_parameter/3 with descriptor options", %{node_name: node_name} do
+      assert :ok =
+               Rclex.declare_parameter(node_name, "described_param",
+                 default_value: 50,
+                 description: "A test parameter",
+                 additional_constraints: "Must be positive",
+                 read_only: false
+               )
+    end
+
+    test "declare_parameter/3 fails when already declared", %{node_name: node_name} do
+      assert :ok = Rclex.declare_parameter(node_name, "duplicate_param", default_value: 1)
+
+      assert {:error, :already_declared} =
+               Rclex.declare_parameter(node_name, "duplicate_param", default_value: 2)
+    end
+
+    test "declare_parameter/3 with array types", %{node_name: node_name} do
+      assert :ok =
+               Rclex.declare_parameter(node_name, "int_array",
+                 type: :integer_array,
+                 default_value: [1, 2, 3]
+               )
+
+      assert :ok =
+               Rclex.declare_parameter(node_name, "float_array",
+                 type: :float_array,
+                 default_value: [1.1, 2.2]
+               )
+
+      assert :ok =
+               Rclex.declare_parameter(node_name, "string_array",
+                 type: :string_array,
+                 default_value: ["a", "b"]
+               )
+
+      assert :ok =
+               Rclex.declare_parameter(node_name, "bool_array",
+                 type: :boolean_array,
+                 default_value: [true, false]
+               )
+
+      assert :ok =
+               Rclex.declare_parameter(node_name, "byte_array",
+                 type: :byte_array,
+                 default_value: [1, 2, 255]
+               )
+    end
+
+    test "get_parameter/3 retrieves declared parameter", %{node_name: node_name} do
+      assert :ok = Rclex.declare_parameter(node_name, "get_test", default_value: 42)
+      assert {:ok, param_value} = Rclex.get_parameter(node_name, "get_test")
+      assert param_value.integer_value == 42
+    end
+
+    test "get_parameter/3 with different types", %{node_name: node_name} do
+      assert :ok = Rclex.declare_parameter(node_name, "int_param", default_value: 123)
+      assert :ok = Rclex.declare_parameter(node_name, "str_param", default_value: "hello")
+      assert :ok = Rclex.declare_parameter(node_name, "bool_param", default_value: true)
+      assert :ok = Rclex.declare_parameter(node_name, "float_param", default_value: 3.14)
+
+      assert {:ok, int_val} = Rclex.get_parameter(node_name, "int_param")
+      assert int_val.integer_value == 123
+
+      assert {:ok, str_val} = Rclex.get_parameter(node_name, "str_param")
+      assert str_val.string_value == "hello"
+
+      assert {:ok, bool_val} = Rclex.get_parameter(node_name, "bool_param")
+      assert bool_val.bool_value == true
+
+      assert {:ok, float_val} = Rclex.get_parameter(node_name, "float_param")
+      assert float_val.double_value == 3.14
+    end
+
+    test "get_parameter/3 with namespace", %{node_name: node_name, namespace: namespace} do
+      assert :ok =
+               Rclex.declare_parameter(node_name, "ns_param",
+                 default_value: 42,
+                 namespace: namespace
+               )
+
+      assert {:ok, param_value} = Rclex.get_parameter(node_name, "ns_param", namespace: namespace)
+      assert param_value.integer_value == 42
+    end
+
+    test "get_parameter/3 fails for undeclared parameter", %{node_name: node_name} do
+      assert {:error, :not_declared} = Rclex.get_parameter(node_name, "undeclared_param")
+    end
+
+    test "set_parameter/4 updates existing parameter", %{node_name: node_name} do
+      assert :ok = Rclex.declare_parameter(node_name, "update_param", default_value: "initial")
+      assert :ok = Rclex.set_parameter(node_name, "update_param", "updated")
+
+      assert {:ok, param_value} = Rclex.get_parameter(node_name, "update_param")
+      assert param_value.string_value == "updated"
+    end
+
+    test "set_parameter/4 with different types", %{node_name: node_name} do
+      assert :ok = Rclex.declare_parameter(node_name, "int_param", default_value: 1)
+      assert :ok = Rclex.declare_parameter(node_name, "str_param", default_value: "old")
+      assert :ok = Rclex.declare_parameter(node_name, "bool_param", default_value: false)
+
+      assert :ok = Rclex.set_parameter(node_name, "int_param", 100)
+      assert :ok = Rclex.set_parameter(node_name, "str_param", "new")
+      assert :ok = Rclex.set_parameter(node_name, "bool_param", true)
+
+      assert {:ok, int_val} = Rclex.get_parameter(node_name, "int_param")
+      assert int_val.integer_value == 100
+
+      assert {:ok, str_val} = Rclex.get_parameter(node_name, "str_param")
+      assert str_val.string_value == "new"
+
+      assert {:ok, bool_val} = Rclex.get_parameter(node_name, "bool_param")
+      assert bool_val.bool_value == true
+    end
+
+    test "set_parameter/4 with namespace", %{node_name: node_name, namespace: namespace} do
+      assert :ok =
+               Rclex.declare_parameter(node_name, "ns_param",
+                 default_value: 1,
+                 namespace: namespace
+               )
+
+      assert :ok = Rclex.set_parameter(node_name, "ns_param", 100, namespace: namespace)
+
+      assert {:ok, param_value} = Rclex.get_parameter(node_name, "ns_param", namespace: namespace)
+      assert param_value.integer_value == 100
+    end
+
+    test "set_parameter/4 fails for undeclared parameter", %{node_name: node_name} do
+      assert {:error, :not_declared} = Rclex.set_parameter(node_name, "undeclared", 42)
+    end
+
+    test "set_parameters/3 updates multiple parameters atomically", %{node_name: node_name} do
+      assert :ok = Rclex.declare_parameter(node_name, "param1", default_value: 1)
+      assert :ok = Rclex.declare_parameter(node_name, "param2", default_value: "old")
+
+      assert :ok = Rclex.set_parameters(node_name, [{"param1", 10}, {"param2", "new"}])
+
+      assert {:ok, param1_val} = Rclex.get_parameter(node_name, "param1")
+      assert param1_val.integer_value == 10
+
+      assert {:ok, param2_val} = Rclex.get_parameter(node_name, "param2")
+      assert param2_val.string_value == "new"
+    end
+
+    test "set_parameters/3 with namespace", %{node_name: node_name, namespace: namespace} do
+      assert :ok =
+               Rclex.declare_parameter(node_name, "param1",
+                 default_value: 1,
+                 namespace: namespace
+               )
+
+      assert :ok =
+               Rclex.declare_parameter(node_name, "param2",
+                 default_value: 2,
+                 namespace: namespace
+               )
+
+      assert :ok =
+               Rclex.set_parameters(node_name, [{"param1", 10}, {"param2", 20}],
+                 namespace: namespace
+               )
+
+      assert {:ok, param1_val} = Rclex.get_parameter(node_name, "param1", namespace: namespace)
+      assert param1_val.integer_value == 10
+    end
+
+    test "set_parameters/3 fails when any parameter is undeclared", %{node_name: node_name} do
+      assert :ok = Rclex.declare_parameter(node_name, "param1", default_value: 1)
+
+      assert {:error, {:undeclared_parameters, ["undeclared"]}} =
+               Rclex.set_parameters(node_name, [{"param1", 10}, {"undeclared", 20}])
+
+      # Verify first parameter was not changed due to atomic operation
+      assert {:ok, param1_val} = Rclex.get_parameter(node_name, "param1")
+      assert param1_val.integer_value == 1
+    end
+
+    test "list_parameters/2 returns all declared parameter names", %{node_name: node_name} do
+      # Initially empty
+      assert [] = Rclex.list_parameters(node_name)
+
+      # Declare some parameters
+      assert :ok = Rclex.declare_parameter(node_name, "param1", default_value: 1)
+      assert :ok = Rclex.declare_parameter(node_name, "param2", default_value: "hello")
+      assert :ok = Rclex.declare_parameter(node_name, "param3", default_value: true)
+
+      param_names = Rclex.list_parameters(node_name)
+      assert length(param_names) == 3
+      assert "param1" in param_names
+      assert "param2" in param_names
+      assert "param3" in param_names
+    end
+
+    test "list_parameters/2 with namespace", %{node_name: node_name, namespace: namespace} do
+      assert :ok = Rclex.declare_parameter(node_name, "global_param", default_value: 1)
+
+      assert :ok =
+               Rclex.declare_parameter(node_name, "ns_param",
+                 default_value: 2,
+                 namespace: namespace
+               )
+
+      global_params = Rclex.list_parameters(node_name)
+      assert "global_param" in global_params
+      refute "ns_param" in global_params
+
+      ns_params = Rclex.list_parameters(node_name, namespace: namespace)
+      assert "ns_param" in ns_params
+      refute "global_param" in ns_params
+    end
+
+    test "describe_parameters/3 returns parameter descriptors", %{node_name: node_name} do
+      assert :ok =
+               Rclex.declare_parameter(node_name, "int_param",
+                 type: :integer,
+                 default_value: 42,
+                 description: "Integer parameter"
+               )
+
+      assert :ok =
+               Rclex.declare_parameter(node_name, "str_param",
+                 type: :string,
+                 default_value: "hello",
+                 description: "String parameter"
+               )
+
+      descriptors = Rclex.describe_parameters(node_name, ["int_param", "str_param"])
+      assert length(descriptors) == 2
+
+      int_desc = Enum.find(descriptors, &(&1.name == "int_param"))
+      str_desc = Enum.find(descriptors, &(&1.name == "str_param"))
+
+      assert int_desc != nil
+      assert str_desc != nil
+      assert int_desc.description == "Integer parameter"
+      assert str_desc.description == "String parameter"
+    end
+
+    test "describe_parameters/3 returns all descriptors when no names specified", %{
+      node_name: node_name
+    } do
+      assert :ok = Rclex.declare_parameter(node_name, "param1", default_value: 1)
+      assert :ok = Rclex.declare_parameter(node_name, "param2", default_value: 2.5)
+
+      descriptors = Rclex.describe_parameters(node_name)
+      assert length(descriptors) == 2
+
+      param_names = Enum.map(descriptors, & &1.name)
+      assert "param1" in param_names
+      assert "param2" in param_names
+    end
+
+    test "describe_parameters/3 with namespace", %{node_name: node_name, namespace: namespace} do
+      assert :ok =
+               Rclex.declare_parameter(node_name, "ns_param",
+                 default_value: 42,
+                 namespace: namespace,
+                 description: "Namespaced parameter"
+               )
+
+      descriptors = Rclex.describe_parameters(node_name, ["ns_param"], namespace: namespace)
+      assert length(descriptors) == 1
+
+      [desc] = descriptors
+      assert desc.name == "ns_param"
+      assert desc.description == "Namespaced parameter"
+    end
+
+    test "get_parameter_types/3 returns correct parameter types", %{node_name: node_name} do
+      assert :ok =
+               Rclex.declare_parameter(node_name, "bool_param",
+                 type: :boolean,
+                 default_value: true
+               )
+
+      assert :ok =
+               Rclex.declare_parameter(node_name, "int_param", type: :integer, default_value: 42)
+
+      assert :ok =
+               Rclex.declare_parameter(node_name, "float_param",
+                 type: :float,
+                 default_value: 3.14
+               )
+
+      assert :ok =
+               Rclex.declare_parameter(node_name, "string_param",
+                 type: :string,
+                 default_value: "hello"
+               )
+
+      assert :ok =
+               Rclex.declare_parameter(node_name, "byte_array_param",
+                 type: :byte_array,
+                 default_value: [1, 2, 3]
+               )
+
+      assert :ok =
+               Rclex.declare_parameter(node_name, "int_array_param",
+                 type: :integer_array,
+                 default_value: [100, 200]
+               )
+
+      types =
+        Rclex.get_parameter_types(node_name, [
+          "bool_param",
+          "int_param",
+          "float_param",
+          "string_param",
+          "byte_array_param",
+          "int_array_param",
+          "undeclared"
+        ])
+
+      assert types == [
+               :boolean,
+               :integer,
+               :float,
+               :string,
+               :byte_array,
+               :integer_array,
+               :not_declared
+             ]
+    end
+
+    test "get_parameter_types/3 with namespace", %{node_name: node_name, namespace: namespace} do
+      assert :ok =
+               Rclex.declare_parameter(node_name, "ns_int",
+                 type: :integer,
+                 default_value: 42,
+                 namespace: namespace
+               )
+
+      assert :ok =
+               Rclex.declare_parameter(node_name, "ns_str",
+                 type: :string,
+                 default_value: "hello",
+                 namespace: namespace
+               )
+
+      types = Rclex.get_parameter_types(node_name, ["ns_int", "ns_str"], namespace: namespace)
+      assert types == [:integer, :string]
+    end
+
+    test "add_parameters_set_callback/3 registers callback for parameter changes", %{
+      node_name: node_name
+    } do
+      test_pid = self()
+
+      callback = fn name, new_value, old_value ->
+        send(test_pid, {:param_changed, name, new_value, old_value})
+      end
+
+      assert :ok = Rclex.add_parameters_set_callback(node_name, callback)
+
+      # Declare and set parameter to trigger callback
+      assert :ok = Rclex.declare_parameter(node_name, "watched_param", default_value: "initial")
+      assert :ok = Rclex.set_parameter(node_name, "watched_param", "updated")
+
+      # Should receive callback notification for declaration
+      assert_receive {:param_changed, "watched_param", _new_value, nil}, 1000
+      # Should receive callback notification for update
+      assert_receive {:param_changed, "watched_param", _new_value, _old_value}, 1000
+    end
+
+    test "add_parameters_set_callback/3 with namespace", %{
+      node_name: node_name,
+      namespace: namespace
+    } do
+      test_pid = self()
+
+      callback = fn name, _new_value, _old_value ->
+        send(test_pid, {:param_changed, name})
+      end
+
+      assert :ok = Rclex.add_parameters_set_callback(node_name, callback, namespace: namespace)
+
+      # Parameter changes in the namespace should trigger callback
+      assert :ok =
+               Rclex.declare_parameter(node_name, "ns_param",
+                 default_value: 1,
+                 namespace: namespace
+               )
+
+      assert :ok = Rclex.set_parameter(node_name, "ns_param", 2, namespace: namespace)
+
+      assert_receive {:param_changed, "ns_param"}, 1000
+      assert_receive {:param_changed, "ns_param"}, 1000
+    end
+
+    test "remove_parameters_set_callback/3 stops parameter change notifications", %{
+      node_name: node_name
+    } do
+      test_pid = self()
+
+      callback = fn name, _new_value, _old_value ->
+        send(test_pid, {:param_changed, name})
+      end
+
+      # Add and then remove callback
+      assert :ok = Rclex.add_parameters_set_callback(node_name, callback)
+      assert :ok = Rclex.remove_parameters_set_callback(node_name, callback)
+
+      # Parameter changes should not trigger callback
+      assert :ok = Rclex.declare_parameter(node_name, "unwatched_param", default_value: "initial")
+      assert :ok = Rclex.set_parameter(node_name, "unwatched_param", "updated")
+
+      # Should not receive callback notifications
+      refute_receive {:param_changed, "unwatched_param"}, 100
+    end
+
+    test "parameter workflow integration test", %{node_name: node_name} do
+      # Declare parameters of different types
+      assert :ok =
+               Rclex.declare_parameter(node_name, "robot_speed",
+                 type: :float,
+                 default_value: 1.0,
+                 description: "Robot movement speed"
+               )
+
+      assert :ok =
+               Rclex.declare_parameter(node_name, "robot_name",
+                 type: :string,
+                 default_value: "R2D2",
+                 description: "Robot identifier"
+               )
+
+      assert :ok =
+               Rclex.declare_parameter(node_name, "sensor_enabled",
+                 type: :boolean,
+                 default_value: true,
+                 description: "Enable sensors"
+               )
+
+      assert :ok =
+               Rclex.declare_parameter(node_name, "waypoints",
+                 type: :integer_array,
+                 default_value: [0, 0, 0],
+                 description: "Navigation waypoints"
+               )
+
+      # List all parameters
+      param_names = Rclex.list_parameters(node_name)
+      assert length(param_names) == 4
+      assert "robot_speed" in param_names
+      assert "robot_name" in param_names
+      assert "sensor_enabled" in param_names
+      assert "waypoints" in param_names
+
+      # Get parameter types
+      types = Rclex.get_parameter_types(node_name, param_names)
+      assert :float in types
+      assert :string in types
+      assert :boolean in types
+      assert :integer_array in types
+
+      # Get parameter descriptors
+      descriptors = Rclex.describe_parameters(node_name, param_names)
+      assert length(descriptors) == 4
+
+      speed_desc = Enum.find(descriptors, &(&1.name == "robot_speed"))
+      assert speed_desc.description == "Robot movement speed"
+
+      # Update parameters individually
+      assert :ok = Rclex.set_parameter(node_name, "robot_speed", 2.5)
+      assert :ok = Rclex.set_parameter(node_name, "robot_name", "C3PO")
+
+      # Update parameters atomically
+      assert :ok =
+               Rclex.set_parameters(node_name, [
+                 {"sensor_enabled", false},
+                 {"waypoints", [10, 20, 30]}
+               ])
+
+      # Verify all updates
+      assert {:ok, speed_val} = Rclex.get_parameter(node_name, "robot_speed")
+      assert speed_val.double_value == 2.5
+
+      assert {:ok, name_val} = Rclex.get_parameter(node_name, "robot_name")
+      assert name_val.string_value == "C3PO"
+
+      assert {:ok, sensor_val} = Rclex.get_parameter(node_name, "sensor_enabled")
+      assert sensor_val.bool_value == false
+
+      assert {:ok, waypoints_val} = Rclex.get_parameter(node_name, "waypoints")
+      assert waypoints_val.byte_array_value == [10, 20, 30]
+    end
+
+    test "parameter edge cases and error handling", %{node_name: node_name} do
+      # Test empty parameter name (should be handled gracefully)
+      # Note: This might be implementation specific - some ROS2 implementations reject empty names
+
+      # Test parameter name validation
+      assert :ok = Rclex.declare_parameter(node_name, "valid_param_123", default_value: 1)
+      assert :ok = Rclex.declare_parameter(node_name, "param.with.dots", default_value: 2)
+      assert :ok = Rclex.declare_parameter(node_name, "param_with_underscores", default_value: 3)
+
+      # Test large parameter values
+      large_string = String.duplicate("a", 1000)
+      assert :ok = Rclex.declare_parameter(node_name, "large_string", default_value: large_string)
+
+      large_array = Enum.to_list(1..1000)
+
+      assert :ok =
+               Rclex.declare_parameter(node_name, "large_array",
+                 type: :integer_array,
+                 default_value: large_array
+               )
+
+      # Verify large values can be retrieved
+      assert {:ok, large_str_val} = Rclex.get_parameter(node_name, "large_string")
+      assert String.length(large_str_val.string_value) == 1000
+
+      assert {:ok, large_arr_val} = Rclex.get_parameter(node_name, "large_array")
+      assert length(large_arr_val.integer_array_value) == 1000
+    end
+
+    test "parameter type consistency and conversion", %{node_name: node_name} do
+      # Test that parameters maintain their types correctly
+      assert :ok =
+               Rclex.declare_parameter(node_name, "zero_int", type: :integer, default_value: 0)
+
+      assert :ok =
+               Rclex.declare_parameter(node_name, "zero_float", type: :float, default_value: 0.0)
+
+      assert :ok =
+               Rclex.declare_parameter(node_name, "false_bool",
+                 type: :boolean,
+                 default_value: false
+               )
+
+      assert :ok =
+               Rclex.declare_parameter(node_name, "empty_string",
+                 type: :string,
+                 default_value: ""
+               )
+
+      # Verify types are preserved
+      types =
+        Rclex.get_parameter_types(node_name, [
+          "zero_int",
+          "zero_float",
+          "false_bool",
+          "empty_string"
+        ])
+
+      assert types == [:integer, :float, :boolean, :string]
+
+      # Verify values are preserved correctly
+      assert {:ok, int_val} = Rclex.get_parameter(node_name, "zero_int")
+      assert int_val.integer_value == 0
+
+      assert {:ok, float_val} = Rclex.get_parameter(node_name, "zero_float")
+      assert float_val.double_value == 0.0
+
+      assert {:ok, bool_val} = Rclex.get_parameter(node_name, "false_bool")
+      assert bool_val.bool_value == false
+
+      assert {:ok, str_val} = Rclex.get_parameter(node_name, "empty_string")
+      assert str_val.string_value == ""
     end
   end
 end

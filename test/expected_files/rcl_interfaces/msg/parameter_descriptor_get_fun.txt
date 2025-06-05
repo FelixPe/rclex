@@ -1,6 +1,32 @@
-  return enif_make_tuple(env, 4,
+  ERL_NIF_TERM floating_point_range[message_p->floating_point_range.size];
+
+  for (size_t floating_point_range_i = 0; floating_point_range_i < message_p->floating_point_range.size; ++floating_point_range_i)
+  {
+    floating_point_range[floating_point_range_i] = enif_make_tuple(env, 3,
+      enif_make_double(env, message_p->floating_point_range.data[floating_point_range_i].from_value),
+      enif_make_double(env, message_p->floating_point_range.data[floating_point_range_i].to_value),
+      enif_make_double(env, message_p->floating_point_range.data[floating_point_range_i].step)
+    );
+  }
+
+  ERL_NIF_TERM integer_range[message_p->integer_range.size];
+
+  for (size_t integer_range_i = 0; integer_range_i < message_p->integer_range.size; ++integer_range_i)
+  {
+    integer_range[integer_range_i] = enif_make_tuple(env, 3,
+      enif_make_int64(env, message_p->integer_range.data[integer_range_i].from_value),
+      enif_make_int64(env, message_p->integer_range.data[integer_range_i].to_value),
+      enif_make_uint64(env, message_p->integer_range.data[integer_range_i].step)
+    );
+  }
+
+  return enif_make_tuple(env, 8,
     enif_make_binary_wrapper(env, message_p->name.data, message_p->name.size),
     enif_make_uint(env, message_p->type),
     enif_make_binary_wrapper(env, message_p->description.data, message_p->description.size),
-    enif_make_binary_wrapper(env, message_p->additional_constraints.data, message_p->additional_constraints.size)
+    enif_make_binary_wrapper(env, message_p->additional_constraints.data, message_p->additional_constraints.size),
+    enif_make_atom(env, message_p->read_only ? "true" : "false"),
+    enif_make_atom(env, message_p->dynamic_typing ? "true" : "false"),
+    enif_make_list_from_array(env, floating_point_range, message_p->floating_point_range.size),
+    enif_make_list_from_array(env, integer_range, message_p->integer_range.size)
   );

@@ -5,6 +5,7 @@ defmodule Rclex.NodeSupervisor do
 
   alias Rclex.Node
   alias Rclex.EntitiesSupervisor
+  alias Rclex.ParameterServer
 
   def start_link(args) do
     name = Keyword.fetch!(args, :name)
@@ -22,7 +23,8 @@ defmodule Rclex.NodeSupervisor do
   def init(args) do
     children = [
       {Node, args},
-      {EntitiesSupervisor, args}
+      {EntitiesSupervisor, args},
+      {ParameterServer, args}
     ]
 
     Supervisor.init(children, strategy: :one_for_all)

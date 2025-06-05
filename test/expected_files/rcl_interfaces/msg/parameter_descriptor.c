@@ -12,6 +12,12 @@
 #include <rosidl_runtime_c/string.h>
 #include <rosidl_runtime_c/string_functions.h>
 
+#include <rcl_interfaces/msg/detail/floating_point_range__functions.h>
+#include <rcl_interfaces/msg/detail/floating_point_range__struct.h>
+
+#include <rcl_interfaces/msg/detail/integer_range__functions.h>
+#include <rcl_interfaces/msg/detail/integer_range__struct.h>
+
 #include <rcl_interfaces/msg/detail/parameter_descriptor__functions.h>
 #include <rcl_interfaces/msg/detail/parameter_descriptor__struct.h>
 #include <rcl_interfaces/msg/detail/parameter_descriptor__type_support.h>
@@ -102,6 +108,98 @@ ERL_NIF_TERM nif_rcl_interfaces_msg_parameter_descriptor_set(ErlNifEnv *env, int
   if (!rosidl_runtime_c__String__assignn(&(message_p->additional_constraints), (const char *)additional_constraints_binary.data, additional_constraints_binary.size))
     return raise(env, __FILE__, __LINE__);
 
+  unsigned int read_only_length;
+  if (!enif_get_atom_length(env, tuple[4], &read_only_length, ERL_NIF_LATIN1))
+    return enif_make_badarg(env);
+
+  char read_only[read_only_length + 1];
+  if (enif_get_atom(env, tuple[4], read_only, read_only_length + 1, ERL_NIF_LATIN1) <= 0)
+    return enif_make_badarg(env);
+
+  message_p->read_only = (strncmp(read_only, "true", 4) == 0);
+
+  unsigned int dynamic_typing_length;
+  if (!enif_get_atom_length(env, tuple[5], &dynamic_typing_length, ERL_NIF_LATIN1))
+    return enif_make_badarg(env);
+
+  char dynamic_typing[dynamic_typing_length + 1];
+  if (enif_get_atom(env, tuple[5], dynamic_typing, dynamic_typing_length + 1, ERL_NIF_LATIN1) <= 0)
+    return enif_make_badarg(env);
+
+  message_p->dynamic_typing = (strncmp(dynamic_typing, "true", 4) == 0);
+
+  unsigned int floating_point_range_length;
+  if (!enif_get_list_length(env, tuple[6], &floating_point_range_length))
+    return enif_make_badarg(env);
+
+  rcl_interfaces__msg__FloatingPointRange__Sequence *floating_point_range = rcl_interfaces__msg__FloatingPointRange__Sequence__create(floating_point_range_length);
+  if (floating_point_range == NULL) return raise(env, __FILE__, __LINE__);
+  message_p->floating_point_range = *floating_point_range;
+
+  unsigned int floating_point_range_i;
+  ERL_NIF_TERM floating_point_range_left, floating_point_range_head, floating_point_range_tail;
+  for (floating_point_range_i = 0, floating_point_range_left = tuple[6]; floating_point_range_i < floating_point_range_length; ++floating_point_range_i, floating_point_range_left = floating_point_range_tail)
+  {
+    if (!enif_get_list_cell(env, floating_point_range_left, &floating_point_range_head, &floating_point_range_tail))
+      return enif_make_badarg(env);
+
+    int floating_point_range_i_arity;
+    const ERL_NIF_TERM *floating_point_range_i_tuple;
+    if (!enif_get_tuple(env, floating_point_range_head, &floating_point_range_i_arity, &floating_point_range_i_tuple))
+      return enif_make_badarg(env);
+
+    double floating_point_range_i_from_value;
+    if (!enif_get_double(env, floating_point_range_i_tuple[0], &floating_point_range_i_from_value))
+      return enif_make_badarg(env);
+    message_p->floating_point_range.data[floating_point_range_i].from_value = floating_point_range_i_from_value;
+
+    double floating_point_range_i_to_value;
+    if (!enif_get_double(env, floating_point_range_i_tuple[1], &floating_point_range_i_to_value))
+      return enif_make_badarg(env);
+    message_p->floating_point_range.data[floating_point_range_i].to_value = floating_point_range_i_to_value;
+
+    double floating_point_range_i_step;
+    if (!enif_get_double(env, floating_point_range_i_tuple[2], &floating_point_range_i_step))
+      return enif_make_badarg(env);
+    message_p->floating_point_range.data[floating_point_range_i].step = floating_point_range_i_step;
+  }
+
+  unsigned int integer_range_length;
+  if (!enif_get_list_length(env, tuple[7], &integer_range_length))
+    return enif_make_badarg(env);
+
+  rcl_interfaces__msg__IntegerRange__Sequence *integer_range = rcl_interfaces__msg__IntegerRange__Sequence__create(integer_range_length);
+  if (integer_range == NULL) return raise(env, __FILE__, __LINE__);
+  message_p->integer_range = *integer_range;
+
+  unsigned int integer_range_i;
+  ERL_NIF_TERM integer_range_left, integer_range_head, integer_range_tail;
+  for (integer_range_i = 0, integer_range_left = tuple[7]; integer_range_i < integer_range_length; ++integer_range_i, integer_range_left = integer_range_tail)
+  {
+    if (!enif_get_list_cell(env, integer_range_left, &integer_range_head, &integer_range_tail))
+      return enif_make_badarg(env);
+
+    int integer_range_i_arity;
+    const ERL_NIF_TERM *integer_range_i_tuple;
+    if (!enif_get_tuple(env, integer_range_head, &integer_range_i_arity, &integer_range_i_tuple))
+      return enif_make_badarg(env);
+
+    int64_t integer_range_i_from_value;
+    if (!enif_get_int64(env, integer_range_i_tuple[0], &integer_range_i_from_value))
+      return enif_make_badarg(env);
+    message_p->integer_range.data[integer_range_i].from_value = integer_range_i_from_value;
+
+    int64_t integer_range_i_to_value;
+    if (!enif_get_int64(env, integer_range_i_tuple[1], &integer_range_i_to_value))
+      return enif_make_badarg(env);
+    message_p->integer_range.data[integer_range_i].to_value = integer_range_i_to_value;
+
+    uint64_t integer_range_i_step;
+    if (!enif_get_uint64(env, integer_range_i_tuple[2], &integer_range_i_step))
+      return enif_make_badarg(env);
+    message_p->integer_range.data[integer_range_i].step = integer_range_i_step;
+  }
+
   return atom_ok;
 }
 
@@ -114,11 +212,37 @@ ERL_NIF_TERM nif_rcl_interfaces_msg_parameter_descriptor_get(ErlNifEnv *env, int
 
   rcl_interfaces__msg__ParameterDescriptor *message_p = (rcl_interfaces__msg__ParameterDescriptor *)*ros_message_pp;
 
-  return enif_make_tuple(env, 4,
+  ERL_NIF_TERM floating_point_range[message_p->floating_point_range.size];
+
+  for (size_t floating_point_range_i = 0; floating_point_range_i < message_p->floating_point_range.size; ++floating_point_range_i)
+  {
+    floating_point_range[floating_point_range_i] = enif_make_tuple(env, 3,
+      enif_make_double(env, message_p->floating_point_range.data[floating_point_range_i].from_value),
+      enif_make_double(env, message_p->floating_point_range.data[floating_point_range_i].to_value),
+      enif_make_double(env, message_p->floating_point_range.data[floating_point_range_i].step)
+    );
+  }
+
+  ERL_NIF_TERM integer_range[message_p->integer_range.size];
+
+  for (size_t integer_range_i = 0; integer_range_i < message_p->integer_range.size; ++integer_range_i)
+  {
+    integer_range[integer_range_i] = enif_make_tuple(env, 3,
+      enif_make_int64(env, message_p->integer_range.data[integer_range_i].from_value),
+      enif_make_int64(env, message_p->integer_range.data[integer_range_i].to_value),
+      enif_make_uint64(env, message_p->integer_range.data[integer_range_i].step)
+    );
+  }
+
+  return enif_make_tuple(env, 8,
     enif_make_binary_wrapper(env, message_p->name.data, message_p->name.size),
     enif_make_uint(env, message_p->type),
     enif_make_binary_wrapper(env, message_p->description.data, message_p->description.size),
-    enif_make_binary_wrapper(env, message_p->additional_constraints.data, message_p->additional_constraints.size)
+    enif_make_binary_wrapper(env, message_p->additional_constraints.data, message_p->additional_constraints.size),
+    enif_make_atom(env, message_p->read_only ? "true" : "false"),
+    enif_make_atom(env, message_p->dynamic_typing ? "true" : "false"),
+    enif_make_list_from_array(env, floating_point_range, message_p->floating_point_range.size),
+    enif_make_list_from_array(env, integer_range, message_p->integer_range.size)
   );
 }
 // clang-format on

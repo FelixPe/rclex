@@ -302,6 +302,7 @@ defmodule Rclex.Node do
         Nif.node_start_waitset_thread!(context, graph_guard_condition)
       end
 
+    # Initialize the node state
     {:ok,
      %{
        context: context,
@@ -313,14 +314,18 @@ defmodule Rclex.Node do
      }}
   end
 
-  def terminate(reason, state) do
-    if state.wait_thread do
-      Nif.node_stop_waitset_thread!(state.wait_thread)
+  def terminate(
+        reason,
+        %{name: name, namespace: namespace, wait_thread: wait_thread, node: node} = _state
+      ) do
+    # Stop the node's waitset thread if it exists
+    if wait_thread do
+      Nif.node_stop_waitset_thread!(wait_thread)
     end
 
-    Nif.rcl_node_fini!(state.node)
+    Nif.rcl_node_fini!(node)
 
-    Logger.debug("#{__MODULE__}: #{inspect(reason)} #{Path.join(state.namespace, state.name)}")
+    Logger.debug("#{__MODULE__}: #{inspect(reason)} #{Path.join(namespace, name)}")
   end
 
   def handle_call({:start_publisher, message_type, topic_name, qos}, _from, state) do

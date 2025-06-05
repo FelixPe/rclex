@@ -98,6 +98,7 @@ defmodule Rclex.Parsers.Helpers do
   defp field_default_value(combinator \\ empty()) do
     combinator
     |> choice([
+      value_boolean(),
       value_float(),
       value_integer(),
       value_string(),
@@ -176,6 +177,14 @@ defmodule Rclex.Parsers.Helpers do
     |> string("[<=")
     |> integer(min: 1)
     |> string("]")
+  end
+
+  defp value_boolean(combinator \\ empty()) do
+    combinator
+    |> choice([
+      string("true"),
+      string("false")
+    ])
   end
 
   defp value_integer(combinator \\ empty()) do
