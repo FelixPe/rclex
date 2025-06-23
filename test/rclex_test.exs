@@ -53,7 +53,7 @@ defmodule RclexTest do
         |> String.split("\n")
         |> Enum.filter(&String.contains?(&1, ":shutdown"))
 
-      assert Enum.count(logs) == 10
+      assert Enum.count(logs) == 12
       assert List.last(logs) =~ "Node: :shutdown"
     end
 
@@ -83,7 +83,7 @@ defmodule RclexTest do
         |> String.split("\n")
         |> Enum.filter(&String.contains?(&1, ":shutdown"))
 
-      assert Enum.count(logs) == 10
+      assert Enum.count(logs) == 12
       assert List.last(logs) =~ "Node: :shutdown"
     end
   end

@@ -69,6 +69,10 @@ defmodule Rclex.Generators.MsgEx do
     "#{name}: #{inspect(1.0 * default)}"
   end
 
+  defp defstruct_builtin_type_field("bool", name, default) do
+    "#{name}: #{default}"
+  end
+
   defp defstruct_builtin_type_field(_type, name, default) do
     "#{name}: #{inspect(default)}"
   end

@@ -6,8 +6,8 @@ defmodule Rclex.Pkgs.RclInterfaces.Msg.ParameterDescriptor do
             type: 0,
             description: "",
             additional_constraints: "",
-            read_only: "false",
-            dynamic_typing: "false",
+            read_only: false,
+            dynamic_typing: false,
             floating_point_range: [],
             integer_range: []
 

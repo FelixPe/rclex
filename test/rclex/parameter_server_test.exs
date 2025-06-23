@@ -3,9 +3,6 @@ defmodule Rclex.ParameterServerTest do
 
   import ExUnit.CaptureLog
 
-  import Rclex.ParameterHelpers,
-    only: [gen_parameter_value_struct: 1, gen_parameter_value_struct: 2]
-
   alias Rclex.ParameterServer
   alias Rclex.ParameterHelpers
 
@@ -144,7 +141,7 @@ defmodule Rclex.ParameterServerTest do
                  node_name,
                  namespace,
                  "update_param",
-                 gen_parameter_value_struct("updated")
+                 "updated"
                )
 
       # Verify update
@@ -197,6 +194,7 @@ defmodule Rclex.ParameterServerTest do
                    {"param1", Rclex.ParameterHelpers.gen_parameter_value_struct(10, :integer)},
                    {"param2", Rclex.ParameterHelpers.gen_parameter_value_struct(20, :integer)}
                  ],
+                 false,
                  true
                )
 
@@ -454,7 +452,7 @@ defmodule Rclex.ParameterServerTest do
                  node_name,
                  namespace,
                  "watched_param",
-                 gen_parameter_value_struct("updated")
+                 "updated"
                )
 
       # Wait for callback notification
@@ -490,44 +488,11 @@ defmodule Rclex.ParameterServerTest do
                  node_name,
                  namespace,
                  "unwatched_param",
-                 gen_parameter_value_struct("updated")
+                 "updated"
                )
 
       # Should not receive callback
       refute_receive {:param_changed, "unwatched_param"}, 100
-    end
-  end
-
-  describe "parameter event publishing" do
-    test "enable parameter event publishing starts publisher", %{
-      node_name: node_name,
-      namespace: namespace
-    } do
-      capture_log(fn ->
-        assert :ok = ParameterServer.enable_parameter_event_publishing(node_name, namespace)
-
-        # Enabling again should fail
-        assert {:error, :already_enabled} =
-                 ParameterServer.enable_parameter_event_publishing(node_name, namespace)
-      end)
-    end
-
-    test "disable parameter event publishing stops publisher", %{
-      node_name: node_name,
-      namespace: namespace
-    } do
-      # Initially not enabled
-      capture_log(fn ->
-        assert {:error, :not_enabled} =
-                 ParameterServer.disable_parameter_event_publishing(node_name, namespace)
-
-        # Enable then disable
-        assert :ok = ParameterServer.enable_parameter_event_publishing(node_name, namespace)
-        assert :ok = ParameterServer.disable_parameter_event_publishing(node_name, namespace)
-
-        # Should be able to enable again
-        assert :ok = ParameterServer.enable_parameter_event_publishing(node_name, namespace)
-      end)
     end
   end
 
@@ -558,7 +523,7 @@ defmodule Rclex.ParameterServerTest do
                  node_name,
                  namespace,
                  "bool_param",
-                 gen_parameter_value_struct(false)
+                 false
                )
 
       assert {:ok,
@@ -602,7 +567,8 @@ defmodule Rclex.ParameterServerTest do
                  node_name,
                  namespace,
                  "int_param",
-                 gen_parameter_value_struct(-100, :integer)
+                 -100,
+                 type: :integer
                )
 
       assert {:ok,
@@ -646,7 +612,7 @@ defmodule Rclex.ParameterServerTest do
                  node_name,
                  namespace,
                  "double_param",
-                 gen_parameter_value_struct(-2.718)
+                 -2.718
                )
 
       assert {:ok,
@@ -690,7 +656,7 @@ defmodule Rclex.ParameterServerTest do
                  node_name,
                  namespace,
                  "string_param",
-                 gen_parameter_value_struct("world")
+                 "world"
                )
 
       assert {:ok,
@@ -741,7 +707,8 @@ defmodule Rclex.ParameterServerTest do
                  node_name,
                  namespace,
                  "byte_array_param",
-                 gen_parameter_value_struct(new_bytes, :byte_array)
+                 new_bytes,
+                 type: :byte_array
                )
 
       assert {:ok,
@@ -1260,7 +1227,7 @@ defmodule Rclex.ParameterServerTest do
                    node_name,
                    namespace,
                    "test_param",
-                   gen_parameter_value_struct("updated")
+                   "updated"
                  )
       end)
 
@@ -1371,7 +1338,8 @@ defmodule Rclex.ParameterServerTest do
       assert state.parameters == %{}
       assert state.parameter_descriptors == %{}
       assert state.parameters_set_callbacks == []
-      assert state.parameter_event_publisher == nil
+      assert state.parameter_event_publisher != nil
+      assert state.parameter_event_descriptors_publisher != nil
     end
   end
 
@@ -1420,7 +1388,7 @@ defmodule Rclex.ParameterServerTest do
               node_name,
               namespace,
               "concurrent_param",
-              gen_parameter_value_struct(i)
+              i
             )
           end)
         end

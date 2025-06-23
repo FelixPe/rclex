@@ -29,7 +29,7 @@ defmodule Rclex.ApplicationTest do
 
     for name <- node_names do
       node_logs = Enum.filter(logs, &String.contains?(&1, name))
-      assert Enum.count(node_logs) == 10
+      assert Enum.count(node_logs) == 12
       assert List.last(node_logs) =~ "Node: :shutdown"
     end
 

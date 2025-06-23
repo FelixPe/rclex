@@ -1082,13 +1082,12 @@ defmodule Rclex do
           node_name :: String.t(),
           parameter_name :: String.t(),
           value :: any(),
-          opts :: [namespace: String.t()]
+          opts :: [namespace: String.t(), type: atom()]
         ) :: :ok | {:error, :not_declared}
   def set_parameter(node_name, parameter_name, value, opts \\ [])
       when is_binary(node_name) and is_binary(parameter_name) and is_list(opts) do
     namespace = Keyword.get(opts, :namespace, "/")
-    value = Rclex.ParameterHelpers.gen_parameter_value_struct(value)
-    Rclex.ParameterServer.set_parameter(node_name, namespace, parameter_name, value)
+    Rclex.ParameterServer.set_parameter(node_name, namespace, parameter_name, value, opts)
   end
 
   @doc """
@@ -1118,12 +1117,7 @@ defmodule Rclex do
       when is_binary(node_name) and is_list(parameters) and is_list(opts) do
     namespace = Keyword.get(opts, :namespace, "/")
 
-    parameters =
-      Enum.map(parameters, fn {name, value} ->
-        {name, Rclex.ParameterHelpers.gen_parameter_value_struct(value)}
-      end)
-
-    Rclex.ParameterServer.set_parameters(node_name, namespace, parameters, true)
+    Rclex.ParameterServer.set_parameters(node_name, namespace, parameters, true, true)
   end
 
   @doc """

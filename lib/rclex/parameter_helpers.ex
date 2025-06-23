@@ -259,6 +259,24 @@ defmodule Rclex.ParameterHelpers do
   end
 
   @doc """
+  Generate a ParameterEventDescriptors struct for parameter changes.
+  """
+  def gen_parameter_event_descriptors_struct(
+        new_parameters,
+        changed_parameters,
+        deleted_parameters
+      ) do
+    event_descriptors = struct(Rclex.Pkgs.RclInterfaces.Msg.ParameterEventDescriptors)
+
+    %{
+      event_descriptors
+      | new_parameters: new_parameters,
+        changed_parameters: changed_parameters,
+        deleted_parameters: deleted_parameters
+    }
+  end
+
+  @doc """
   Generate a SetParametersResult struct.
   """
   def gen_set_parameters_result_struct(successful, reason \\ "") do

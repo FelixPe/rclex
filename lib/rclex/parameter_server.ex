@@ -63,8 +63,10 @@ defmodule Rclex.ParameterServer do
 
   Returns :ok if the parameter was set successfully, {:error, reason} otherwise.
   """
-  def set_parameter(name, namespace, parameter_name, parameter_value) do
+  def set_parameter(name, namespace, parameter_name, value, opts \\ []) do
     server = name(name, namespace)
+    parameter_type = Keyword.get(opts, :type, :undefined)
+    parameter_value = Rclex.ParameterHelpers.gen_parameter_value_struct(value, parameter_type)
     GenServer.call(server, {:set_parameter, parameter_name, parameter_value})
   end
 
@@ -73,9 +75,19 @@ defmodule Rclex.ParameterServer do
 
   Returns :ok if all parameters were set successfully, {:error, reason} otherwise.
   """
-  def set_parameters(name, namespace, parameters, atomically) do
+  def set_parameters(name, namespace, parameters, convert \\ false, atomically \\ true) do
     server = name(name, namespace)
-    GenServer.call(server, {:set_parameters, parameters, atomically})
+
+    param_pairs =
+      if convert do
+        Enum.map(parameters, fn {name, value} ->
+          {name, Rclex.ParameterHelpers.gen_parameter_value_struct(value)}
+        end)
+      else
+        parameters
+      end
+
+    GenServer.call(server, {:set_parameters, param_pairs, atomically})
   end
 
   @doc """
@@ -126,24 +138,6 @@ defmodule Rclex.ParameterServer do
   def remove_parameters_set_callback(name, namespace, callback) do
     server = name(name, namespace)
     GenServer.call(server, {:remove_parameters_set_callback, callback})
-  end
-
-  @doc """
-  Enable parameter event publishing for the node.
-
-  This starts a publisher for parameter events on the ~/parameter_events topic.
-  """
-  def enable_parameter_event_publishing(name, namespace) do
-    server = name(name, namespace)
-    GenServer.call(server, {:enable_parameter_event_publishing})
-  end
-
-  @doc """
-  Disable parameter event publishing for the node.
-  """
-  def disable_parameter_event_publishing(name, namespace) do
-    server = name(name, namespace)
-    GenServer.call(server, {:disable_parameter_event_publishing})
   end
 
   defp start_services(node_name, node_namespace) do
@@ -214,6 +208,72 @@ defmodule Rclex.ParameterServer do
       )
   end
 
+  defp start_parameter_event_publisher(node_name, node_namespace) do
+    case Rclex.Node.start_publisher(
+           Rclex.Pkgs.RclInterfaces.Msg.ParameterEvent,
+           "#{node_namespace}#{node_name}/parameter_events",
+           node_name,
+           node_namespace,
+           Rclex.QoS.profile_parameter_events()
+         ) do
+      {:ok, publisher} ->
+        {:ok, publisher}
+
+      error ->
+        Logger.error("Failed to start parameter event publisher: #{inspect(error)}")
+        {:error, error}
+    end
+  end
+
+  defp start_parameter_event_descriptors_publisher(node_name, node_namespace) do
+    case Rclex.Node.start_publisher(
+           Rclex.Pkgs.RclInterfaces.Msg.ParameterEventDescriptors,
+           "#{node_namespace}#{node_name}/parameter_event_descriptors",
+           node_name,
+           node_namespace,
+           Rclex.QoS.profile_parameter_events()
+         ) do
+      {:ok, publisher} ->
+        {:ok, publisher}
+
+      error ->
+        Logger.error("Failed to start parameter event descriptors publisher: #{inspect(error)}")
+        {:error, error}
+    end
+  end
+
+  defp stop_parameter_event_publisher(node_name, node_namespace) do
+    case Rclex.Node.stop_publisher(
+           Rclex.Pkgs.RclInterfaces.Msg.ParameterEvent,
+           "#{node_namespace}#{node_name}/parameter_events",
+           node_name,
+           node_namespace
+         ) do
+      :ok ->
+        :ok
+
+      error ->
+        Logger.error("Failed to stop parameter event publisher: #{inspect(error)}")
+        {:error, error}
+    end
+  end
+
+  defp stop_parameter_event_descriptors_publisher(node_name, node_namespace) do
+    case Rclex.Node.stop_publisher(
+           Rclex.Pkgs.RclInterfaces.Msg.ParameterEventDescriptors,
+           "#{node_namespace}#{node_name}/parameter_event_descriptors",
+           node_name,
+           node_namespace
+         ) do
+      :ok ->
+        :ok
+
+      error ->
+        Logger.error("Failed to stop parameter event descriptors publisher: #{inspect(error)}")
+        {:error, error}
+    end
+  end
+
   defp stop_services(node_name, node_namespace) do
     services = [
       {Rclex.Pkgs.RclInterfaces.Srv.GetParameters,
@@ -247,6 +307,11 @@ defmodule Rclex.ParameterServer do
     name = Keyword.fetch!(args, :name)
     namespace = Keyword.fetch!(args, :namespace)
 
+    {:ok, parameter_event_publisher} = start_parameter_event_publisher(name, namespace)
+
+    {:ok, parameter_event_descriptors_publisher} =
+      start_parameter_event_descriptors_publisher(name, namespace)
+
     start_services(name, namespace)
 
     # Initialize the parameter server's state
@@ -257,26 +322,27 @@ defmodule Rclex.ParameterServer do
        parameters: %{},
        parameter_descriptors: %{},
        parameters_set_callbacks: [],
-       parameter_event_publisher: nil
+       parameter_event_publisher: parameter_event_publisher,
+       parameter_event_descriptors_publisher: parameter_event_descriptors_publisher
      }}
   end
 
-  def terminate(_reason, %{
-        name: name,
-        namespace: namespace,
-        parameter_event_publisher: parameter_event_publisher
-      }) do
+  def terminate(
+        _reason,
+        %{
+          name: name,
+          namespace: namespace
+        } = state
+      ) do
     # Stop all parameter services
     stop_services(name, namespace)
 
-    # If we have a parameter event publisher, stop it
-    if parameter_event_publisher do
-      Rclex.Node.stop_publisher(
-        Rclex.Pkgs.RclInterfaces.Msg.ParameterEvent,
-        "#{namespace}#{name}/parameter_events",
-        name,
-        namespace
-      )
+    if state.parameter_event_publisher do
+      stop_parameter_event_publisher(name, namespace)
+    end
+
+    if state.parameter_event_descriptors_publisher do
+      stop_parameter_event_descriptors_publisher(name, namespace)
     end
 
     :ok
@@ -303,7 +369,9 @@ defmodule Rclex.ParameterServer do
         {name, param_value}
       end)
 
-    results = Rclex.ParameterServer.set_parameters(node_name, node_namespace, param_pairs, false)
+    results =
+      Rclex.ParameterServer.set_parameters(node_name, node_namespace, param_pairs, false, false)
+
     gen_set_parameters_response_struct(results)
   end
 
@@ -314,7 +382,7 @@ defmodule Rclex.ParameterServer do
         {name, param_value}
       end)
 
-    case Rclex.ParameterServer.set_parameters(node_name, node_namespace, param_pairs, true) do
+    case Rclex.ParameterServer.set_parameters(node_name, node_namespace, param_pairs, false, true) do
       :ok ->
         gen_set_parameters_atomically_response_struct(true, "")
 
@@ -426,13 +494,15 @@ defmodule Rclex.ParameterServer do
       # Notify callbacks about new parameter
       notify_parameter_callbacks(state.parameters_set_callbacks, parameter_name, param_value, nil)
 
-      publish_parameter_event(
-        state.name,
-        state.namespace,
-        %{parameter_name => param_value},
-        %{},
-        %{}
-      )
+      if state.parameter_event_publisher do
+        publish_parameter_event(
+          state.name,
+          state.namespace,
+          %{parameter_name => param_value},
+          %{},
+          %{}
+        )
+      end
 
       {:reply, :ok, new_state}
     end
@@ -450,8 +520,8 @@ defmodule Rclex.ParameterServer do
 
   def handle_call({:set_parameter, parameter_name, parameter_value}, _from, state) do
     if Map.has_key?(state.parameters, parameter_name) do
-      {_results, changed_parameters, new_state} =
-        set_one_parameter(parameter_name, parameter_value, [], %{}, state)
+      {_results, changed_parameters, _new_descriptors, _changed_descriptors, new_state} =
+        set_one_parameter(parameter_name, parameter_value, [], %{}, [], [], state)
 
       if state.parameter_event_publisher do
         publish_parameter_event(
@@ -470,10 +540,20 @@ defmodule Rclex.ParameterServer do
   end
 
   def handle_call({:set_parameters, parameters, false}, _from, state) do
-    {results, changed_parameters, new_state} =
-      Enum.reduce(parameters, {[], %{}, state}, fn {parameter_name, param_value},
-                                                   {results, changed_parameters, state} ->
-        set_one_parameter(parameter_name, param_value, results, changed_parameters, state)
+    {results, changed_parameters, new_descriptors, changed_descriptors, new_state} =
+      Enum.reduce(parameters, {[], %{}, [], [], state}, fn {parameter_name, param_value},
+                                                           {results, changed_parameters,
+                                                            new_descriptors, changed_descriptors,
+                                                            state} ->
+        set_one_parameter(
+          parameter_name,
+          param_value,
+          results,
+          changed_parameters,
+          new_descriptors,
+          changed_descriptors,
+          state
+        )
       end)
 
     if state.parameter_event_publisher do
@@ -486,15 +566,15 @@ defmodule Rclex.ParameterServer do
       )
     end
 
-    {:reply, results, new_state}
-
-    publish_parameter_event(
-      state.name,
-      state.namespace,
-      %{},
-      changed_parameters,
-      %{}
-    )
+    if state.parameter_event_descriptors_publisher do
+      publish_parameter_event_descriptors(
+        state.name,
+        state.namespace,
+        new_descriptors,
+        changed_descriptors,
+        []
+      )
+    end
 
     {:reply, results, new_state}
   end
@@ -584,48 +664,6 @@ defmodule Rclex.ParameterServer do
     {:reply, :ok, new_state}
   end
 
-  def handle_call({:enable_parameter_event_publishing}, _from, state) do
-    if state.parameter_event_publisher do
-      {:reply, {:error, :already_enabled}, state}
-    else
-      case Rclex.Node.start_publisher(
-             Rclex.Pkgs.RclInterfaces.Msg.ParameterEvent,
-             "#{state.namespace}#{state.name}/parameter_events",
-             state.name,
-             state.namespace,
-             Rclex.QoS.profile_parameter_events()
-           ) do
-        {:ok, publisher} ->
-          Logger.debug("event publisher: #{inspect(publisher)}")
-          new_state = %{state | parameter_event_publisher: publisher}
-          {:reply, :ok, new_state}
-
-        error ->
-          {:reply, error, state}
-      end
-    end
-  end
-
-  def handle_call({:disable_parameter_event_publishing}, _from, state) do
-    if state.parameter_event_publisher do
-      case Rclex.Node.stop_publisher(
-             Rclex.Pkgs.RclInterfaces.Msg.ParameterEvent,
-             "#{state.namespace}#{state.name}/parameter_events",
-             state.name,
-             state.namespace
-           ) do
-        :ok ->
-          new_state = %{state | parameter_event_publisher: nil}
-          {:reply, :ok, new_state}
-
-        error ->
-          {:reply, error, state}
-      end
-    else
-      {:reply, {:error, :not_enabled}, state}
-    end
-  end
-
   # Helper functions
   defp notify_parameter_callbacks(callbacks, parameter_name, new_param_value, old_param_value) do
     new_value = parameter_value_to_elixir(new_param_value)
@@ -643,30 +681,96 @@ defmodule Rclex.ParameterServer do
     end)
   end
 
-  defp set_one_parameter(parameter_name, new_param_value, results, changed_parameters, state) do
+  defp set_one_parameter(
+         parameter_name,
+         new_param_value,
+         results,
+         changed_parameters,
+         new_descriptors,
+         changed_descriptors,
+         state
+       ) do
     case Map.get(state.parameters, parameter_name) do
       nil ->
         new_results = results ++ [gen_set_parameters_result_struct(false, "not declared")]
 
-        {new_results, changed_parameters, state}
+        {new_results, changed_parameters, new_descriptors, changed_descriptors, state}
 
       old_param_value ->
-        updated_parameters = Map.put(state.parameters, parameter_name, new_param_value)
-        new_state = %{state | parameters: updated_parameters}
+        parameter_descriptor = Map.fetch!(state.parameter_descriptors, parameter_name)
 
-        new_changed_parameters = Map.put(changed_parameters, parameter_name, new_param_value)
+        if parameter_descriptor.read_only do
+          # parameter_descriptor.dynamic_typing
+          # parameter_descriptor.type
+          new_results = results ++ [gen_set_parameters_result_struct(false, "read only")]
 
-        # Notify callbacks about parameter change
-        notify_parameter_callbacks(
-          new_state.parameters_set_callbacks,
-          parameter_name,
-          new_param_value,
-          old_param_value
+          {new_results, changed_parameters, new_descriptors, changed_descriptors, state}
+        else
+          updated_parameters = Map.put(state.parameters, parameter_name, new_param_value)
+
+          new_changed_descriptor =
+            Map.put(
+              parameter_descriptor,
+              :type,
+              new_param_value.type
+            )
+
+          new_state = %{
+            state
+            | parameters: updated_parameters,
+              parameter_descriptors:
+                Map.put(
+                  state.parameter_descriptors,
+                  parameter_name,
+                  new_changed_descriptor
+                )
+          }
+
+          new_changed_descriptors = changed_descriptors ++ [new_changed_descriptor]
+          new_changed_parameters = Map.put(changed_parameters, parameter_name, new_param_value)
+
+          # Notify callbacks about parameter change
+          notify_parameter_callbacks(
+            new_state.parameters_set_callbacks,
+            parameter_name,
+            new_param_value,
+            old_param_value
+          )
+
+          new_results = results ++ [gen_set_parameters_result_struct(true, "")]
+
+          {new_results, new_changed_parameters, new_descriptors, new_changed_descriptors,
+           new_state}
+        end
+    end
+  end
+
+  defp publish_parameter_event_descriptors(
+         node_name,
+         node_namespace,
+         new_parameter_structs,
+         changed_parameter_structs,
+         deleted_parameter_structs
+       ) do
+    try do
+      full_node_name = "#{node_namespace}#{node_name}"
+
+      # Create parameter event descriptors
+      event_descriptors =
+        gen_parameter_event_descriptors_struct(
+          new_parameter_structs,
+          changed_parameter_structs,
+          deleted_parameter_structs
         )
 
-        new_results = results ++ [gen_set_parameters_result_struct(true, "")]
-
-        {new_results, new_changed_parameters, new_state}
+      # Publish the event
+      Rclex.publish(event_descriptors, "#{full_node_name}/parameter_event_descriptors", node_name,
+        namespace: node_namespace
+      )
+    rescue
+      error ->
+        require Logger
+        Logger.warning("Failed to publish parameter event descriptors: #{inspect(error)}")
     end
   end
 

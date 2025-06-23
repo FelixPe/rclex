@@ -21,11 +21,21 @@ defmodule Rclex.NodeSupervisor do
   # callbacks
 
   def init(args) do
-    children = [
-      {Node, args},
-      {EntitiesSupervisor, args},
-      {ParameterServer, args}
-    ]
+    start_parameter_server = Keyword.get(args, :start_parameter_server, true)
+
+    children =
+      if start_parameter_server do
+        [
+          {Node, args},
+          {EntitiesSupervisor, args},
+          {ParameterServer, args}
+        ]
+      else
+        [
+          {Node, args},
+          {EntitiesSupervisor, args}
+        ]
+      end
 
     Supervisor.init(children, strategy: :one_for_all)
   end

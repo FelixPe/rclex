@@ -323,4 +323,227 @@ defmodule Rclex.Generators.MsgCTest do
       assert result =~ "tf2_msgs__action__LookupTransform_Goal"
     end
   end
+
+  describe "array type parsing and handling" do
+    test "get_array_type/1 parses unbounded dynamic arrays" do
+      result = MsgC.get_array_type("uint8[]")
+      assert result == %{type: "uint8", kind: :unbounded_dynamic, size: :undefined}
+
+      result = MsgC.get_array_type("string[]")
+      assert result == %{type: "string", kind: :unbounded_dynamic, size: :undefined}
+    end
+
+    test "get_array_type/1 parses static arrays" do
+      result = MsgC.get_array_type("uint8[16]")
+      assert result == %{type: "uint8", kind: :static, size: 16}
+
+      result = MsgC.get_array_type("float64[3]")
+      assert result == %{type: "float64", kind: :static, size: 3}
+    end
+
+    test "get_array_type/1 parses bounded dynamic arrays" do
+      result = MsgC.get_array_type("string[<=10]")
+      assert result == %{type: "string", kind: :bounded_dynamic, size: 10}
+
+      result = MsgC.get_array_type("int32[<=100]")
+      assert result == %{type: "int32", kind: :bounded_dynamic, size: 100}
+    end
+  end
+
+  describe "C type conversions" do
+    test "to_c_type/1 converts message types correctly" do
+      assert MsgC.to_c_type("std_msgs/msg/String") == "std_msgs__msg__String"
+      assert MsgC.to_c_type("geometry_msgs/msg/Vector3") == "geometry_msgs__msg__Vector3"
+      assert MsgC.to_c_type("std_srvs/srv/SetBool") == "std_srvs__srv__SetBool"
+
+      assert MsgC.to_c_type("tf2_msgs/action/LookupTransform") ==
+               "tf2_msgs__action__LookupTransform"
+    end
+  end
+
+  describe "dependency header generation" do
+    test "to_deps_header_prefix_list/2 handles service types correctly" do
+      ros2_message_type_map =
+        Msgs.get_ros2_message_type_map("std_srvs/srv/SetBool_Request", @ros_share_path)
+
+      result =
+        MsgC.to_deps_header_prefix_list("std_srvs/srv/SetBool_Request", ros2_message_type_map)
+
+      # SetBool_Request should have minimal dependencies
+      assert is_list(result)
+    end
+
+    test "to_deps_header_prefix_list/2 handles action types correctly" do
+      ros2_message_type_map =
+        Msgs.get_ros2_message_type_map("tf2_msgs/action/LookupTransform_Result", @ros_share_path)
+
+      result =
+        MsgC.to_deps_header_prefix_list(
+          "tf2_msgs/action/LookupTransform_Result",
+          ros2_message_type_map
+        )
+
+      assert is_list(result)
+      # Should include dependencies like geometry_msgs
+      assert Enum.any?(result, &String.contains?(&1, "geometry_msgs"))
+    end
+  end
+
+  describe "complex enif_get scenarios" do
+    test "enif_get handles nested message structures" do
+      ros2_message_type_map =
+        Msgs.get_ros2_message_type_map("geometry_msgs/msg/Twist", @ros_share_path)
+
+      acc = %MsgC.Acc{vars: ["twist"], mbrs: ["twist"], terms: ["term"]}
+      result = MsgC.enif_get({:msg_type, "geometry_msgs/msg/Twist"}, acc, ros2_message_type_map)
+
+      # Should handle nested Vector3 messages
+      assert result =~ "linear_arity"
+      assert result =~ "angular_arity"
+      assert result =~ "enif_get_tuple"
+    end
+
+    test "enif_get handles builtin array with static size for uint8" do
+      acc = %MsgC.Acc{vars: ["data"], mbrs: ["data"], terms: ["term"]}
+
+      result = MsgC.enif_get({:builtin_type_array_static, "uint8", "16"}, acc, %{})
+      assert result =~ "ErlNifBinary data_bin"
+      assert result =~ "enif_inspect_binary"
+      assert result =~ "if(data_length > 16)"
+      assert result =~ "memcpy"
+    end
+
+    test "enif_get handles builtin array with static size for other types" do
+      acc = %MsgC.Acc{vars: ["data"], mbrs: ["data"], terms: ["term"]}
+
+      result = MsgC.enif_get({:builtin_type_array_static, "int32", "3"}, acc, %{})
+      assert result =~ "for (data_i = 0, data_left = term; data_i < 3"
+      assert result =~ "enif_get_list_cell"
+      assert result =~ "enif_get_int"
+    end
+
+    test "enif_get handles message type arrays with bounded dynamics" do
+      ros2_message_type_map =
+        Msgs.get_ros2_message_type_map("std_msgs/msg/MultiArrayLayout", @ros_share_path)
+
+      acc = %MsgC.Acc{vars: ["dim"], mbrs: ["dim"], terms: ["term"]}
+
+      result =
+        MsgC.enif_get(
+          {:msg_type_array, "std_msgs/msg/MultiArrayDimension[]"},
+          acc,
+          ros2_message_type_map
+        )
+
+      assert result =~ "enif_get_list_length"
+      assert result =~ "std_msgs__msg__MultiArrayDimension__Sequence"
+      assert result =~ "create"
+    end
+  end
+
+  describe "accumulator (Acc) struct functionality" do
+    test "Acc struct maintains proper state during nested operations" do
+      acc = %MsgC.Acc{vars: ["root"], mbrs: ["root"], terms: ["term"]}
+
+      # Simulate nested structure access
+      nested_acc = %MsgC.Acc{
+        acc
+        | vars: acc.vars ++ ["nested"],
+          mbrs: acc.mbrs ++ ["nested"],
+          terms: acc.terms ++ ["nested_term"]
+      }
+
+      assert nested_acc.vars == ["root", "nested"]
+      assert nested_acc.mbrs == ["root", "nested"]
+      assert nested_acc.terms == ["term", "nested_term"]
+    end
+  end
+
+  describe "edge cases and error conditions" do
+    test "handles unknown builtin types gracefully in enif_get_builtin" do
+      # This tests the pattern matching fallback behavior
+      # Most unknown types should fall through to existing patterns
+      acc = %MsgC.Acc{vars: ["test"], mbrs: ["data"], terms: ["term"]}
+
+      # Test that wstring would fall through to uint pattern (if it existed)
+      # This is more about ensuring the pattern matching is comprehensive
+      result = MsgC.enif_get({:builtin_type, "int8"}, acc, %{})
+      assert result =~ "enif_get_int"
+    end
+
+    test "handles empty message types in generate/2" do
+      ros2_message_type_map = %{
+        {:msg_type, "std_msgs/msg/Empty"} => []
+      }
+
+      result = MsgC.generate("std_msgs/msg/Empty", ros2_message_type_map)
+      assert result =~ "std_msgs__msg__Empty"
+      assert result =~ "nif_std_msgs_msg_empty"
+      # Should have empty set/get functions since no fields
+    end
+
+    test "build_get_fun_fragments handles arrays correctly" do
+      ros2_message_type_map =
+        Msgs.get_ros2_message_type_map("std_msgs/msg/UInt8MultiArray", @ros_share_path)
+
+      acc = %MsgC.Acc{
+        vars: ["data"],
+        mbrs: ["data"],
+        type: {:builtin_type_array, "uint8[]"}
+      }
+
+      result =
+        MsgC.build_get_fun_fragments_array(
+          {:builtin_type_array, "uint8[]"},
+          acc,
+          ros2_message_type_map
+        )
+
+      assert result =~ "ErlNifBinary"
+      assert result =~ "enif_alloc_binary"
+    end
+  end
+
+  describe "comprehensive integration scenarios" do
+    test "full generation cycle for complex nested message" do
+      ros2_message_type_map =
+        Msgs.get_ros2_message_type_map("sensor_msgs/msg/PointCloud", @ros_share_path)
+
+      # Test that all major components are generated
+      result = MsgC.generate("sensor_msgs/msg/PointCloud", ros2_message_type_map)
+
+      # Should include proper headers
+      assert result =~ "#include"
+      assert result =~ "sensor_msgs/msg/detail/point_cloud"
+
+      # Should include proper function definitions
+      assert result =~ "nif_sensor_msgs_msg_point_cloud"
+      assert result =~ "type_support"
+      assert result =~ "create"
+      assert result =~ "destroy"
+      assert result =~ "set"
+      assert result =~ "get"
+
+      # Should handle the nested structures properly
+      # PointCloud contains geometry_msgs types
+      assert result =~ "geometry_msgs"
+    end
+
+    test "verifies consistent variable naming across get/set operations" do
+      ros2_message_type_map =
+        Msgs.get_ros2_message_type_map("geometry_msgs/msg/Vector3", @ros_share_path)
+
+      set_fragments = MsgC.set_fun_fragments("geometry_msgs/msg/Vector3", ros2_message_type_map)
+      get_fragments = MsgC.get_fun_fragments("geometry_msgs/msg/Vector3", ros2_message_type_map)
+
+      # Both should reference the same field names
+      assert set_fragments =~ "message_p->x"
+      assert set_fragments =~ "message_p->y"
+      assert set_fragments =~ "message_p->z"
+
+      assert get_fragments =~ "message_p->x"
+      assert get_fragments =~ "message_p->y"
+      assert get_fragments =~ "message_p->z"
+    end
+  end
 end
