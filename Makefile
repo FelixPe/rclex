@@ -22,8 +22,12 @@ NIF_SO = $(PRIV_DIR)/rclex.so
 CFLAGS  += -O2 -Wall -Wextra -pedantic -fPIC -I$(SRC_DIR)
 LDFLAGS += -shared
 
-ERL_CFLAGS  ?= -I$(ERTS_INCLUDE_DIR) -I$(ERL_EI_INCLUDE_DIR)
-ERL_LDFLAGS ?= -L$(ERL_EI_LIBDIR) -lei
+$(info    ERTS_INCLUDE_DIR is $(ERTS_INCLUDE_DIR))
+$(info    ROS_DIR is $(ROS_DIR))
+$(info    CFLAGS is $(CFLAGS))
+
+ERL_CFLAGS  ?= -I$(ERTS_INCLUDE_DIR)
+ERL_LDFLAGS ?=
 
 ifeq ($(ROS_DISTRO), humble)
 ROS_INCS    ?= rcl rcutils rmw rcl_yaml_param_parser type_description_interfaces rosidl_runtime_c service_msgs builtin_interfaces rosidl_typesupport_interface rosidl_dynamic_typesupport rcl_action action_msgs unique_identifier_msgs

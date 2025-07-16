@@ -241,6 +241,50 @@ $ mix test.watch
 $ docker compose run --rm -w /root/rclex rclex_docker mix test.watch
 ```
 
+### Debugging
+
+
+### Address Sanitization
+
+Address sanitizing is a helpful technique to detect memory access errors in the NIF part of the rclex.
+
+
+1. Build OTP from source and emulator with asan support
+```
+git clone https://github.com/erlang/otp otp_src_28.0.1
+cd otp_src_28.0.1
+export ERL_TOP=`pwd`    # Assuming bash/sh
+./configure --prefix=/usr/local
+make
+sudo make install
+export TYPE=asan
+(cd $ERL_TOP/erts/emulator && make $TYPE)
+```
+
+2. Set asan options
+
+```
+export ASAN_OPTIONS="log_path=~/asan/log"
+export LSAN_OPTIONS="suppressions=$ERL_TOP/erts/emulator/asan/suppress"
+```
+
+3. The ERTS_INCLUDE_DIR might be need to set manually in the Makefile, as this variable is set by mix and might point to the wrong OTP installation.
+4. To build with asan support beside debugging support two parameters need to be given to the compiler in the CFLAGS variable.
+
+```
+export CFLAGS="-fsanitize=address -static-libasan -g"
+mix compile
+```
+
+5. Elixir need to be told to use the emulator with asan support by using the erl parameter.
+
+```
+elixir --erl "-emu_type asan" -v
+# or by setting the ERL_AFLAGS accordingly
+ERL_AFLAGS="-emu_type asan" mix -v
+```
+
+
 ### Confirmation of communication operation
 
 To check the operation, especially for communication features of this library, we prepare [rclex/rclex_connection_tests](https://github.com/rclex/rclex_connection_tests) to test the communication with the nodes implemented with Rclcpp.
