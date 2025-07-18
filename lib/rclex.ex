@@ -393,7 +393,7 @@ defmodule Rclex do
       :ok
       iex> Rclex.start_client(callback, StdSrvs.Srv.SetBool, "/set_test_bool", "name")
       {:error, :already_started}
-      iex> Rclex.call_async(%StdSrvs.Srv.SetBoolRequest{data: true}, "/set_bool", "node", namespace: "/example")
+      iex> Rclex.call_async(%StdSrvs.Srv.SetBool.Request{data: true}, "/set_bool", "node", namespace: "/example")
       :ok
   """
   @doc section: :client
