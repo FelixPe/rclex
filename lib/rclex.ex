@@ -301,9 +301,9 @@ defmodule Rclex do
   ### Examples
 
       iex> alias Rclex.Pkgs.StdSrvs
-      iex> Rclex.start_service(fn _ -> %StdSrvs.Srv.SetBoolResponse{success: true} end, StdMsgs.Srv.SetBool, "/set_bool", "node", namespace: "/example")
+      iex> Rclex.start_service(fn _ -> %StdSrvs.Srv.SetBool.Response{success: true} end, StdSrvs.Srv.SetBool, "/set_bool", "node", namespace: "/example")
       :ok
-      iex> Rclex.start_service(fn _ -> %StdSrvs.Srv.SetBoolResponse{success: true} end, StdMsgs.Srv.SetBool, "/set_bool", "node", namespace: "/example")
+      iex> Rclex.start_service(fn _ -> %StdSrvs.Srv.SetBool.Response{success: true} end, StdSrvs.Srv.SetBool, "/set_bool", "node", namespace: "/example")
       {:error, :already_started}
   """
   @doc section: :service
