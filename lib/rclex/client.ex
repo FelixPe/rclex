@@ -138,24 +138,31 @@ defmodule Rclex.Client do
         response_message = apply(response_type, :create!, [])
 
         try do
-          {:ok, response_sequence_number} =
-            Nif.rcl_take_response_with_info!(client, response_message)
+          case Nif.rcl_take_response_with_info!(client, response_message) do
+            {:ok, response_sequence_number} ->
+              response_struct = apply(response_type, :get!, [response_message])
 
-          response_struct = apply(response_type, :get!, [response_message])
+              {request_struct, requests} = Map.pop(requests, response_sequence_number)
 
-          {request_struct, requests} = Map.pop(requests, response_sequence_number)
+              if request_struct do
+                {:ok, _pid} =
+                  Task.Supervisor.start_child(
+                    {:via, PartitionSupervisor, {Rclex.TaskSupervisors, self()}},
+                    fn ->
+                      callback.(request_struct, response_struct)
+                    end
+                  )
+              end
 
-          if request_struct do
-            {:ok, _pid} =
-              Task.Supervisor.start_child(
-                {:via, PartitionSupervisor, {Rclex.TaskSupervisors, self()}},
-                fn ->
-                  callback.(request_struct, response_struct)
-                end
+              requests
+
+            :error ->
+              Logger.error(
+                "Client on node #{state.namespace}#{state.name} failed to take response from service #{state.service_name}."
               )
-          end
 
-          requests
+              requests
+          end
         after
           :ok = apply(response_type, :destroy!, [response_message])
         end
