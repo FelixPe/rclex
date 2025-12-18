@@ -38,10 +38,10 @@ The basic and recommended environment is where the host (development) and the ta
 
 Currently, we use the following environment as the main development target:
 
-- Ubuntu 22.04 LTS (Jammy Jellyfish)
-- ROS 2 Humble Hawksbill
-- Elixir 1.18.4-otp-27
-- Erlang/OTP 27.3.4.3
+- Ubuntu 24.04 LTS (Noble Numbat)
+- ROS 2 Jazzy Jalisco
+- Elixir v1.19.0
+- Erlang/OTP 28.1
 
 We highly recommend using [Humble Hawksbill](https://docs.ros.org/en/rolling/Releases/Release-Humble-Hawksbill.html) for ROS 2 LTS distribution.
 We also confirmed the operation of this library with [Jazzy Jalisco](https://docs.ros.org/en/rolling/Releases/Release-Jazzy-Jalisco.html). See details in [PR#361](https://github.com/rclex/rclex/pull/361).
@@ -74,10 +74,20 @@ Currently, the Rclex API allows for the following:
 2. Create large numbers of each combination of publishers, topics, and subscribers.
 3. Create service servers and service clients
 4. Create action servers and action clients
+5. Basic Parameters support on nodes
 
 You can find the API documentation at [https://hexdocs.pm/rclex](https://hexdocs.pm/rclex).
 
 Please refer [rclex/rclex_examples](https://github.com/rclex/rclex_examples) for the examples of usage along with the sample code.
+
+## Todos
+
+- Check for an integration with [BEAM Bots](https://github.com/beam-bots/bb)
+- Parameter client
+- Lifecycle node & Lifecycle client
+- Livebook support (ROS2 type generation needs to be considered)
+- eVision integration
+- TF2 support
 
 ## How to use
 
