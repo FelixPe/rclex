@@ -183,7 +183,7 @@ defmodule Rclex.ActionServer do
         goal_info_struct.goal_id.uuid
       end)
 
-    if length(expired_uuids) > 0 do
+    if not Enum.empty?(expired_uuids) do
       Logger.debug(
         "#{__MODULE__}: expire goals #{inspect(Enum.map(expired_uuids, fn uuid -> uuid_pretty(uuid) end))}"
       )
