@@ -229,7 +229,9 @@ defmodule Rclex.ActionClient do
     )
 
     timer =
-      Process.send_after(self(), {:expire_request, :goal, sequence_number},
+      Process.send_after(
+        self(),
+        {:expire_request, :goal, sequence_number},
         trunc(state.request_timeout * 1000)
       )
 

@@ -53,14 +53,21 @@ defmodule Rclex.Client do
       String.to_existing_atom(String.trim_trailing(to_string(request.__struct__), ".Request"))
 
     case GenServer.whereis(name(service_type, service_name, node_name, namespace)) do
-      nil -> {:error, :not_found}
-      {_atom, _node} -> raise("should not happen")
+      nil ->
+        {:error, :not_found}
+
+      {_atom, _node} ->
+        raise("should not happen")
+
       pid ->
         ref = make_ref()
+
         case GenServer.call(pid, {:call, request, {self(), ref}}) do
           {:ok, sequence} ->
             wait_for_response(pid, sequence, ref, timeout_sec)
-          other -> other
+
+          other ->
+            other
         end
     end
   end
@@ -223,7 +230,10 @@ defmodule Rclex.Client do
               case entry do
                 {_req_struct, {caller, ref}} when is_pid(caller) ->
                   # synchronous caller waiting for reply
-                  send(caller, {:service_response, response_sequence_number, ref, response_struct})
+                  send(
+                    caller,
+                    {:service_response, response_sequence_number, ref, response_struct}
+                  )
 
                 request_struct when is_map(request_struct) and not is_tuple(request_struct) ->
                   # legacy asynchronous callback style

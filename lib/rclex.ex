@@ -469,7 +469,17 @@ defmodule Rclex do
   If `timeout_sec` is `nil`, the call will wait indefinitely.  The `timeout_sec`
   argument is a float number of seconds.
 
-  See `Rclex.call_async/4` for the meaning of the other arguments.
+  - #{@service_name_doc}
+
+  ### opts
+
+  - #{@namespace_doc}
+
+  ### Examples
+
+      iex> alias Rclex.Pkgs.StdSrvs
+      iex> Rclex.call_timeout(%StdSrvs.Srv.SetBool.Request{data: true}, "/set_bool", "node", 1.0, namespace: "/example")
+      {:ok, %StdSrvs.Srv.SetBool.Response{data: false}}
   """
   @doc section: :client
   @spec call_timeout(

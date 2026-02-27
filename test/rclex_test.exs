@@ -367,6 +367,7 @@ defmodule RclexTest do
 
       # create slow service to trigger timeout
       slow_name = service_name <> "_slow"
+
       slow_callback = fn _req ->
         Process.sleep(200)
         %RclInterfaces.Srv.GetParameterTypes.Response{types: ""}
