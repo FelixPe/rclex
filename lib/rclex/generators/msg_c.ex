@@ -207,7 +207,11 @@ defmodule Rclex.Generators.MsgC do
     end
   end
 
-  def enif_get({:builtin_type_array_unbounded, _type = "uint8"}, %Acc{} = acc, _ros2_message_type_map) do
+  def enif_get(
+        {:builtin_type_array_unbounded, _type = "uint8"},
+        %Acc{} = acc,
+        _ros2_message_type_map
+      ) do
     var = Enum.join(acc.vars, "_")
     mbr = Enum.join(acc.mbrs, ".")
     term = Enum.join(acc.terms, "_")
@@ -268,7 +272,11 @@ defmodule Rclex.Generators.MsgC do
     """
   end
 
-  def enif_get({:builtin_type_array_static, "uint8" = _type, size}, %Acc{} = acc, _ros2_message_type_map) do
+  def enif_get(
+        {:builtin_type_array_static, "uint8" = _type, size},
+        %Acc{} = acc,
+        _ros2_message_type_map
+      ) do
     var = Enum.join(acc.vars, "_")
     mbr = Enum.join(acc.mbrs, ".")
     term = Enum.join(acc.terms, "_")
@@ -441,7 +449,11 @@ defmodule Rclex.Generators.MsgC do
     end
   end
 
-  def build_get_fun_fragments_array({:builtin_type_array, type}, %Acc{} = acc, ros2_message_type_map) do
+  def build_get_fun_fragments_array(
+        {:builtin_type_array, type},
+        %Acc{} = acc,
+        ros2_message_type_map
+      ) do
     case get_array_type(type) do
       %{type: type, kind: :unbounded_dynamic} ->
         array_for(
