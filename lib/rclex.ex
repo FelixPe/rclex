@@ -462,6 +462,38 @@ defmodule Rclex do
   end
 
   @doc """
+  Perform a blocking service call with a timeout measured in seconds.
+
+  The function returns `{:ok, response}` if the response is received within
+  the specified interval or `{:error, :timeout}` if the timeout elapses first.
+  If `timeout_sec` is `nil`, the call will wait indefinitely.  The `timeout_sec`
+  argument is a float number of seconds.
+
+  See `Rclex.call_async/4` for the meaning of the other arguments.
+  """
+  @doc section: :client
+  @spec call_timeout(
+          request :: struct(),
+          service_name :: service_name(),
+          node_name :: String.t(),
+          timeout_sec :: float() | nil,
+          opts :: [namespace: String.t()]
+        ) ::
+          {:ok, struct()} | {:error, :timeout} | {:error, :not_found} | {:error, term()}
+  def call_timeout(request, service_name, node_name, timeout_sec, opts \\ [])
+      when is_binary(service_name) and is_binary(node_name) and is_list(opts) do
+    namespace = Keyword.get(opts, :namespace, "/")
+
+    Rclex.Client.call_timeout(
+      request,
+      service_name,
+      node_name,
+      namespace,
+      timeout_sec
+    )
+  end
+
+  @doc """
   Stop ROS client. After calling this function, calls `call_async/4` will with `{:error, :not_found}` when using this client. However, the given node is still valid.
 
   - #{@service_name_doc}

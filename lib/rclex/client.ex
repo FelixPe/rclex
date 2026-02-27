@@ -31,6 +31,59 @@ defmodule Rclex.Client do
     end
   end
 
+  @doc """
+  Make a synchronous service call with a timeout in seconds. If the
+  response is received within `timeout_sec` the tuple `{:ok, response}` is
+  returned. If the timeout expires before a response arrives the pending
+  request is removed and `{:error, :timeout}` is returned. The timeout value
+  is a float number of seconds (can be `nil` for infinite wait).
+  """
+  @spec call_timeout(
+          request :: struct(),
+          service_name :: String.t(),
+          node_name :: String.t(),
+          namespace :: String.t(),
+          timeout_sec :: float() | nil
+        ) :: {:ok, struct()} | {:error, :timeout} | {:error, :not_found} | {:error, term()}
+  def call_timeout(request, service_name, node_name, namespace \\ "/", timeout_sec \\ nil)
+      when is_binary(service_name) and is_binary(node_name) do
+    namespace = namespace || "/"
+
+    service_type =
+      String.to_existing_atom(String.trim_trailing(to_string(request.__struct__), ".Request"))
+
+    case GenServer.whereis(name(service_type, service_name, node_name, namespace)) do
+      nil -> {:error, :not_found}
+      {_atom, _node} -> raise("should not happen")
+      pid ->
+        ref = make_ref()
+        case GenServer.call(pid, {:call, request, {self(), ref}}) do
+          {:ok, sequence} ->
+            wait_for_response(pid, sequence, ref, timeout_sec)
+          other -> other
+        end
+    end
+  end
+
+  defp wait_for_response(_pid, sequence, ref, nil) do
+    receive do
+      {:service_response, ^sequence, ^ref, response} -> {:ok, response}
+    end
+  end
+
+  defp wait_for_response(pid, sequence, ref, timeout_sec) when is_number(timeout_sec) do
+    timeout_ms = trunc(timeout_sec * 1000)
+
+    receive do
+      {:service_response, ^sequence, ^ref, response} -> {:ok, response}
+    after
+      timeout_ms ->
+        # remove pending so memory does not leak
+        GenServer.cast(pid, {:remove_pending, sequence})
+        {:error, :timeout}
+    end
+  end
+
   def service_server_available?(service_type, service_name, name, namespace \\ "/") do
     case GenServer.whereis(name(service_type, service_name, name, namespace)) do
       nil -> {:error, :not_found}
@@ -112,6 +165,29 @@ defmodule Rclex.Client do
   end
 
   def handle_call(
+        {:call, request_struct, {caller, ref}},
+        _from,
+        %{
+          client: client,
+          request_type: request_type,
+          requests: requests
+        } = state
+      ) do
+    request_message = apply(request_type, :create!, [])
+
+    {:ok, sequence_number} =
+      try do
+        :ok = apply(request_type, :set!, [request_message, request_struct])
+        Nif.rcl_send_request!(client, request_message)
+      after
+        :ok = apply(request_type, :destroy!, [request_message])
+      end
+
+    requests = Map.put_new(requests, sequence_number, {request_struct, {caller, ref}})
+    {:reply, {:ok, sequence_number}, Map.put(state, :requests, requests)}
+  end
+
+  def handle_call(
         {:service_server_available},
         _from,
         %{
@@ -142,16 +218,25 @@ defmodule Rclex.Client do
             {:ok, response_sequence_number} ->
               response_struct = apply(response_type, :get!, [response_message])
 
-              {request_struct, requests} = Map.pop(requests, response_sequence_number)
+              {entry, requests} = Map.pop(requests, response_sequence_number)
 
-              if request_struct do
-                {:ok, _pid} =
-                  Task.Supervisor.start_child(
-                    {:via, PartitionSupervisor, {Rclex.TaskSupervisors, self()}},
-                    fn ->
-                      callback.(request_struct, response_struct)
-                    end
-                  )
+              case entry do
+                {_req_struct, {caller, ref}} when is_pid(caller) ->
+                  # synchronous caller waiting for reply
+                  send(caller, {:service_response, response_sequence_number, ref, response_struct})
+
+                request_struct when is_map(request_struct) and not is_tuple(request_struct) ->
+                  # legacy asynchronous callback style
+                  {:ok, _pid} =
+                    Task.Supervisor.start_child(
+                      {:via, PartitionSupervisor, {Rclex.TaskSupervisors, self()}},
+                      fn ->
+                        callback.(request_struct, response_struct)
+                      end
+                    )
+
+                _ ->
+                  :ok
               end
 
               requests
@@ -169,5 +254,9 @@ defmodule Rclex.Client do
       end)
 
     {:noreply, Map.put(state, :requests, requests)}
+  end
+
+  def handle_cast({:remove_pending, sequence}, %{requests: requests} = state) do
+    {:noreply, %{state | requests: Map.delete(requests, sequence)}}
   end
 end

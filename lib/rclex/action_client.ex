@@ -229,7 +229,9 @@ defmodule Rclex.ActionClient do
     )
 
     timer =
-      Process.send_after(self(), {:expire_request, :goal, sequence_number}, state.request_timeout)
+      Process.send_after(self(), {:expire_request, :goal, sequence_number},
+        trunc(state.request_timeout * 1000)
+      )
 
     requests =
       Map.put_new(requests, sequence_number, %{
@@ -270,7 +272,7 @@ defmodule Rclex.ActionClient do
       Process.send_after(
         self(),
         {:expire_request, :cancel, sequence_number},
-        state.request_timeout
+        trunc(state.request_timeout * 1000)
       )
 
     requests =
@@ -312,7 +314,7 @@ defmodule Rclex.ActionClient do
       Process.send_after(
         self(),
         {:expire_request, :result, sequence_number},
-        state.request_timeout
+        trunc(state.request_timeout * 1000)
       )
 
     requests =

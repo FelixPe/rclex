@@ -351,6 +351,54 @@ defmodule RclexTest do
         assert_receive ^response
       end
     end
+
+    test "call_timeout/5", %{service_name: service_name, name: name} do
+      request = struct(RclInterfaces.Srv.GetParameterTypes.Request, %{names: ["test"]})
+      # not found returns error tuple
+      assert Rclex.call_timeout(request, "does_not_exist", name, 0.1) == {:error, :not_found}
+
+      # success within timeout
+      response =
+        struct(RclInterfaces.Srv.GetParameterTypes.Response, %{
+          types: Enum.map_join(["test"], fn n -> String.length(to_string(n)) end)
+        })
+
+      assert Rclex.call_timeout(request, service_name, name, 1.0) == {:ok, response}
+
+      # create slow service to trigger timeout
+      slow_name = service_name <> "_slow"
+      slow_callback = fn _req ->
+        Process.sleep(200)
+        %RclInterfaces.Srv.GetParameterTypes.Response{types: ""}
+      end
+
+      :ok =
+        Rclex.start_service(
+          slow_callback,
+          RclInterfaces.Srv.GetParameterTypes,
+          slow_name,
+          name
+        )
+
+      receive_callback = fn _req, resp -> send(self(), resp) end
+
+      :ok =
+        Rclex.start_client(
+          receive_callback,
+          RclInterfaces.Srv.GetParameterTypes,
+          slow_name,
+          name
+        )
+
+      on_exit(fn ->
+        capture_log(fn ->
+          Rclex.stop_service(RclInterfaces.Srv.GetParameterTypes, slow_name, name)
+          Rclex.stop_client(RclInterfaces.Srv.GetParameterTypes, slow_name, name)
+        end)
+      end)
+
+      assert Rclex.call_timeout(request, slow_name, name, 0.1) == {:error, :timeout}
+    end
   end
 
   describe "action server" do

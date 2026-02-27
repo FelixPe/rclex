@@ -71,7 +71,7 @@ defmodule Rclex.ActionClientTest do
         action_name: "/lookup_transform",
         name: name,
         namespace: namespace,
-        options: %{Rclex.ActionClientOptions.default() | request_timeout: 10}
+        options: %{Rclex.ActionClientOptions.default() | request_timeout: 0.01}
       ]
 
       {:ok, pid} = ActionClient.start_link(opts)
