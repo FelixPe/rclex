@@ -11,7 +11,7 @@ defmodule Rclex.Pkgs.StdMsgs.Msg.MultiArrayDimension do
   alias Rclex.Nif
 
   def type_support!() do
-    Nif.std_msgs_msg_multi_array_dimension_type_support!()
+    apply(Nif, :std_msgs_msg_multi_array_dimension_type_support!, [])
   end
 
   def create!() do

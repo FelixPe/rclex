@@ -25,7 +25,7 @@ defmodule Rclex.Pkgs.RclInterfaces.Msg.ParameterDescriptor do
   alias Rclex.Nif
 
   def type_support!() do
-    Nif.rcl_interfaces_msg_parameter_descriptor_type_support!()
+    apply(Nif, :rcl_interfaces_msg_parameter_descriptor_type_support!, [])
   end
 
   def create!() do

@@ -11,7 +11,7 @@ defmodule Rclex.Pkgs.GeometryMsgs.Msg.Vector3 do
   alias Rclex.Nif
 
   def type_support!() do
-    Nif.geometry_msgs_msg_vector3_type_support!()
+    apply(Nif, :geometry_msgs_msg_vector3_type_support!, [])
   end
 
   def create!() do

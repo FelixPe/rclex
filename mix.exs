@@ -20,6 +20,7 @@ defmodule Rclex.MixProject do
       make_env: make_env(),
       compilers: [:elixir_make] ++ Mix.compilers(),
       aliases: [format: [&format_c/1, "format"], iwyu: [&iwyu/1]],
+      test_ignore_filters: [&String.starts_with?(&1, "test/expected_files/")],
       test_coverage: test_coverage(),
       dialyzer: dialyzer(),
       # for hex

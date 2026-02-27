@@ -13,7 +13,7 @@ defmodule Rclex.Pkgs.Tf2Msgs.Action.LookupTransform.SendGoal.Request do
   alias Rclex.Nif
 
   def type_support!() do
-    Nif.tf2_msgs_action_lookup_transform__send_goal__request_type_support!()
+    apply(Nif, :tf2_msgs_action_lookup_transform__send_goal__request_type_support!, [])
   end
 
   def create!() do

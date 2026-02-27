@@ -9,7 +9,7 @@ defmodule Rclex.Pkgs.StdMsgs.Msg.String do
   alias Rclex.Nif
 
   def type_support!() do
-    Nif.std_msgs_msg_string_type_support!()
+    apply(Nif, :std_msgs_msg_string_type_support!, [])
   end
 
   def create!() do

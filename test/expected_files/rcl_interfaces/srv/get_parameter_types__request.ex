@@ -9,7 +9,7 @@ defmodule Rclex.Pkgs.RclInterfaces.Srv.GetParameterTypes.Request do
   alias Rclex.Nif
 
   def type_support!() do
-    Nif.rcl_interfaces_srv_get_parameter_types__request_type_support!()
+    apply(Nif, :rcl_interfaces_srv_get_parameter_types__request_type_support!, [])
   end
 
   def create!() do

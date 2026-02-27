@@ -10,7 +10,7 @@ defmodule Rclex.Pkgs.StdSrvs.Srv.SetBool.Response do
   alias Rclex.Nif
 
   def type_support!() do
-    Nif.std_srvs_srv_set_bool__response_type_support!()
+    apply(Nif, :std_srvs_srv_set_bool__response_type_support!, [])
   end
 
   def create!() do

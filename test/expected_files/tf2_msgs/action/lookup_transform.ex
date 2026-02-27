@@ -5,7 +5,7 @@ defmodule Rclex.Pkgs.Tf2Msgs.Action.LookupTransform do
   alias Rclex.Nif
 
   def type_support!() do
-    Nif.tf2_msgs_action_lookup_transform_type_support!()
+    apply(Nif, :tf2_msgs_action_lookup_transform_type_support!, [])
   end
 
   def feedback_message_type() do

@@ -13,7 +13,7 @@ defmodule Rclex.Pkgs.StdMsgs.Msg.MultiArrayLayout do
   alias Rclex.Nif
 
   def type_support!() do
-    Nif.std_msgs_msg_multi_array_layout_type_support!()
+    apply(Nif, :std_msgs_msg_multi_array_layout_type_support!, [])
   end
 
   def create!() do

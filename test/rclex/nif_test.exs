@@ -55,7 +55,7 @@ defmodule Rclex.NifTest do
         ex ->
           %ErlangError{original: charlist, reason: nil} = ex
 
-          assert "#{charlist}" =~
+          assert List.to_string(charlist) =~
                    "node name must not contain characters other than alphanumerics or '_'"
       end
     end
@@ -67,7 +67,7 @@ defmodule Rclex.NifTest do
         ex ->
           %ErlangError{original: charlist, reason: nil} = ex
 
-          assert "#{charlist}" =~ "namespace must be absolute, it must lead with a '/'"
+          assert List.to_string(charlist) =~ "namespace must be absolute, it must lead with a '/'"
       end
     end
 

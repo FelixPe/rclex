@@ -13,7 +13,7 @@ defmodule Rclex.Pkgs.StdMsgs.Msg.UInt32MultiArray do
   alias Rclex.Nif
 
   def type_support!() do
-    Nif.std_msgs_msg_u_int32_multi_array_type_support!()
+    apply(Nif, :std_msgs_msg_u_int32_multi_array_type_support!, [])
   end
 
   def create!() do

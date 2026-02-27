@@ -15,7 +15,7 @@ defmodule Rclex.Pkgs.SensorMsgs.Msg.PointCloud do
   alias Rclex.Nif
 
   def type_support!() do
-    Nif.sensor_msgs_msg_point_cloud_type_support!()
+    apply(Nif, :sensor_msgs_msg_point_cloud_type_support!, [])
   end
 
   def create!() do

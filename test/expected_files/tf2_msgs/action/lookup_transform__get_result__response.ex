@@ -13,7 +13,7 @@ defmodule Rclex.Pkgs.Tf2Msgs.Action.LookupTransform.GetResult.Response do
   alias Rclex.Nif
 
   def type_support!() do
-    Nif.tf2_msgs_action_lookup_transform__get_result__response_type_support!()
+    apply(Nif, :tf2_msgs_action_lookup_transform__get_result__response_type_support!, [])
   end
 
   def create!() do
