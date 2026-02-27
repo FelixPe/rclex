@@ -16,13 +16,17 @@ defmodule Rclex.ActionClientOptions do
   @typedoc """
   - Quality of service is defined by using rclex.QoS structs.
   - `deadline`, `lifespan`, `liveliness_lease_duration` should be specified by float seconds.
+  - `request_timeout` is how long (in milliseconds) to keep an outstanding
+    goal/cancel/result request in the client before it is automatically
+    dropped.  Default is 30 000 (30 s).
   """
   @type t() :: %__MODULE__{
           goal_service_qos: QoS.t(),
           result_service_qos: QoS.t(),
           cancel_service_qos: QoS.t(),
           feedback_topic_qos: QoS.t(),
-          status_topic_qos: QoS.t()
+          status_topic_qos: QoS.t(),
+          request_timeout: non_neg_integer()
         }
 
   defstruct [
@@ -30,7 +34,8 @@ defmodule Rclex.ActionClientOptions do
     :result_service_qos,
     :cancel_service_qos,
     :feedback_topic_qos,
-    :status_topic_qos
+    :status_topic_qos,
+    :request_timeout
   ]
 
   def default(),
@@ -39,6 +44,7 @@ defmodule Rclex.ActionClientOptions do
       result_service_qos: QoS.profile_services_default(),
       cancel_service_qos: QoS.profile_services_default(),
       feedback_topic_qos: QoS.profile_default(),
-      status_topic_qos: QoS.profile_status_default()
+      status_topic_qos: QoS.profile_status_default(),
+      request_timeout: 30_000
     }
 end

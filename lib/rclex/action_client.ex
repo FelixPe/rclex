@@ -118,6 +118,7 @@ defmodule Rclex.ActionClient do
     cancel_service_qos = options.cancel_service_qos
     feedback_topic_qos = options.feedback_topic_qos
     status_topic_qos = options.status_topic_qos
+    request_timeout = options.request_timeout
 
     type_support = apply(action_type, :type_support!, [])
 
@@ -139,6 +140,7 @@ defmodule Rclex.ActionClient do
        action_name: action_name,
        name: name,
        namespace: namespace,
+       request_timeout: request_timeout,
        # request_type: apply(service_type, :request_type, []),
        # response_type: apply(service_type, :response_type, []),
        cancel_client_callback_resource: nil,
@@ -226,11 +228,15 @@ defmodule Rclex.ActionClient do
       "#{__MODULE__}: [uuid: #{Base.encode16(uuid)}] send_goal_async(#{inspect(goal_struct)}) -> [seq: #{sequence_number}]"
     )
 
+    timer =
+      Process.send_after(self(), {:expire_request, :goal, sequence_number}, state.request_timeout)
+
     requests =
       Map.put_new(requests, sequence_number, %{
         request_struct: request_struct,
         feedback_callback: feedback_callback,
-        accepted_callback: accepted_callback
+        accepted_callback: accepted_callback,
+        timer: timer
       })
 
     {:reply, {:ok, uuid}, Map.put(state, :goal_requests, requests)}
@@ -260,10 +266,18 @@ defmodule Rclex.ActionClient do
       "#{__MODULE__}: [uuid: #{Base.encode16(uuid)}] cancel goal -> [seq: #{sequence_number}]"
     )
 
+    timer =
+      Process.send_after(
+        self(),
+        {:expire_request, :cancel, sequence_number},
+        state.request_timeout
+      )
+
     requests =
       Map.put_new(requests, sequence_number, %{
         uuid: uuid,
-        cancel_callback: cancel_callback
+        cancel_callback: cancel_callback,
+        timer: timer
       })
 
     {:reply, :ok, Map.put(state, :cancel_requests, requests)}
@@ -294,10 +308,18 @@ defmodule Rclex.ActionClient do
       "#{__MODULE__}: [uuid: #{Base.encode16(uuid)}] get_result_async -> [seq: #{sequence_number}]"
     )
 
+    timer =
+      Process.send_after(
+        self(),
+        {:expire_request, :result, sequence_number},
+        state.request_timeout
+      )
+
     requests =
       Map.put_new(requests, sequence_number, %{
         uuid: uuid,
-        result_callback: result_callback
+        result_callback: result_callback,
+        timer: timer
       })
 
     {:reply, :ok, Map.put(state, :result_requests, requests)}
@@ -340,13 +362,17 @@ defmodule Rclex.ActionClient do
           {%{
              request_struct: request_struct,
              feedback_callback: feedback_callback,
-             accepted_callback: accepted_callback
+             accepted_callback: accepted_callback,
+             timer: timer
            }, requests} =
             Map.pop(requests, response_sequence_number, %{
               request_struct: nil,
               feedback_callback: nil,
-              accepted_callback: nil
+              accepted_callback: nil,
+              timer: nil
             })
+
+          if timer, do: Process.cancel_timer(timer)
 
           uuid = request_struct.goal_id.uuid
 
@@ -411,11 +437,14 @@ defmodule Rclex.ActionClient do
 
           response_struct = apply(response_type, :get!, [response_message])
 
-          {%{uuid: uuid, result_callback: result_callback}, requests} =
+          {%{uuid: uuid, result_callback: result_callback, timer: timer}, requests} =
             Map.pop(requests, response_sequence_number, %{
               uuid: nil,
-              result_callback: nil
+              result_callback: nil,
+              timer: nil
             })
+
+          if timer, do: Process.cancel_timer(timer)
 
           if uuid do
             Logger.debug(
@@ -458,11 +487,14 @@ defmodule Rclex.ActionClient do
 
           response_struct = apply(response_type, :get!, [response_message])
 
-          {%{uuid: uuid, cancel_callback: cancel_callback}, requests} =
+          {%{uuid: uuid, cancel_callback: cancel_callback, timer: timer}, requests} =
             Map.pop(requests, response_sequence_number, %{
               uuid: nil,
-              cancel_callback: nil
+              cancel_callback: nil,
+              timer: nil
             })
+
+          if timer, do: Process.cancel_timer(timer)
 
           if uuid do
             Logger.debug(
@@ -555,5 +587,84 @@ defmodule Rclex.ActionClient do
       end
 
     {:noreply, state}
+  end
+
+  # expiration handling -----------------------------------------------------
+
+  def handle_info({:expire_request, kind, sequence}, state) do
+    new_state =
+      case kind do
+        :goal -> expire_goal(sequence, state)
+        :result -> expire_result(sequence, state)
+        :cancel -> expire_cancel(sequence, state)
+        _ -> state
+      end
+
+    {:noreply, new_state}
+  end
+
+  defp expire_goal(sequence, state) do
+    {entry, new} = Map.pop(state.goal_requests, sequence)
+
+    if entry do
+      Logger.warning("#{__MODULE__}: goal request #{sequence} expired, dropping")
+      if entry.timer, do: Process.cancel_timer(entry.timer)
+      send_expire_goal_callback(entry)
+    end
+
+    %{state | goal_requests: new}
+  end
+
+  defp expire_result(sequence, state) do
+    {entry, new} = Map.pop(state.result_requests, sequence)
+
+    if entry do
+      Logger.warning("#{__MODULE__}: result request #{sequence} expired, dropping")
+      if entry.timer, do: Process.cancel_timer(entry.timer)
+      send_expire_result_callback(entry)
+    end
+
+    %{state | result_requests: new}
+  end
+
+  defp expire_cancel(sequence, state) do
+    {entry, new} = Map.pop(state.cancel_requests, sequence)
+
+    if entry do
+      Logger.warning("#{__MODULE__}: cancel request #{sequence} expired, dropping")
+      if entry.timer, do: Process.cancel_timer(entry.timer)
+      send_expire_cancel_callback(entry)
+    end
+
+    %{state | cancel_requests: new}
+  end
+
+  defp send_expire_goal_callback(%{request_struct: request, accepted_callback: cb}) do
+    # emulate a rejection when the server never responds
+    uuid = request.goal_id.uuid
+
+    try do
+      cb.(uuid, false, nil)
+    rescue
+      _ -> :ok
+    end
+  end
+
+  defp send_expire_result_callback(%{result_callback: cb}) do
+    try do
+      # status -1 indicates timeout, result nil
+      cb.(-1, nil)
+    rescue
+      _ -> :ok
+    end
+  end
+
+  defp send_expire_cancel_callback(%{cancel_callback: cb}) do
+    try do
+      # return_code -1 indicates timeout, empty list
+      cb.(-1, [])
+    rescue
+      _ -> :ok
+    end
   end
 end
