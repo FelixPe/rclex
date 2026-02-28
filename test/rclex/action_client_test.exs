@@ -78,7 +78,7 @@ defmodule Rclex.ActionClientTest do
 
       on_exit(fn ->
         # stop client before tearing down node/context; silence shutdown logs
-        _ = capture_log(fn -> GenServer.stop(pid, :shutdown, 5_000) end)
+        _ = capture_log(fn -> Process.exit(pid, :shutdown) end)
       end)
 
       %{pid: pid}
