@@ -368,7 +368,8 @@ defmodule Rclex.ActionClient do
              feedback_callback: feedback_callback,
              accepted_callback: accepted_callback,
              timer: timer
-           }, requests} =
+           },
+           requests} =
             Map.pop(requests, response_sequence_number, %{
               request_struct: nil,
               feedback_callback: nil,

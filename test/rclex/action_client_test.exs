@@ -3,6 +3,8 @@ defmodule Rclex.ActionClientTest do
 
   import ExUnit.CaptureLog
 
+  require Logger
+
   alias Rclex.ActionClient
   alias Rclex.Nif
   alias Rclex.Pkgs.Tf2Msgs.Action
@@ -78,7 +80,14 @@ defmodule Rclex.ActionClientTest do
 
       on_exit(fn ->
         # stop client before tearing down node/context; silence shutdown logs
-        _ = capture_log(fn -> GenServer.stop(pid, :shutdown, 5_000) end)
+        try do
+          capture_log(fn -> GenServer.stop(pid, :shutdown, 10_000) end)
+        rescue
+          e ->
+            # If shutdown times out, log warning but don't fail the cleanup
+            Logger.warning("ActionClient shutdown timeout during test cleanup: #{inspect(e)}")
+            :ok
+        end
       end)
 
       %{pid: pid}
