@@ -7,6 +7,20 @@ defmodule Rclex.ActionClientTest do
   alias Rclex.Nif
   alias Rclex.Pkgs.Tf2Msgs.Action
 
+  defp stop_pid_safely(pid, timeout \\ 5_000) when is_pid(pid) do
+    if Process.alive?(pid) do
+      Process.unlink(pid)
+
+      try do
+        GenServer.stop(pid, :shutdown, timeout)
+      catch
+        :exit, _ -> :ok
+      end
+    else
+      :ok
+    end
+  end
+
   setup do
     capture_log(fn -> Application.stop(:rclex) end)
     Process.flag(:trap_exit, true)
@@ -78,7 +92,7 @@ defmodule Rclex.ActionClientTest do
 
       on_exit(fn ->
         # stop client before tearing down node/context; silence shutdown logs
-        _ = capture_log(fn -> Process.exit(pid, :shutdown) end)
+        _ = capture_log(fn -> stop_pid_safely(pid) end)
       end)
 
       %{pid: pid}
