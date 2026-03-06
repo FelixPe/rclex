@@ -7,6 +7,7 @@ config :rclex,
     "std_msgs/msg/UInt8MultiArray",
     "std_msgs/msg/UInt32MultiArray",
     "geometry_msgs/msg/Twist",
+    "tf2_msgs/msg/TFMessage",
     "sensor_msgs/msg/PointCloud",
     "diagnostic_msgs/msg/DiagnosticStatus",
     "action_msgs/msg/GoalInfo"
