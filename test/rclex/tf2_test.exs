@@ -1,6 +1,8 @@
 defmodule Rclex.Tf2Test do
   use ExUnit.Case, async: false
 
+  import ExUnit.CaptureLog
+
   alias Rclex.Pkgs.BuiltinInterfaces.Msg.Time
   alias Rclex.Pkgs.GeometryMsgs.Msg.{Quaternion, Transform, TransformStamped, Vector3}
   alias Rclex.Pkgs.StdMsgs.Msg.Header
@@ -300,10 +302,13 @@ defmodule Rclex.Tf2Test do
       assert :ok = Rclex.tf2_buffer_new("main", name, namespace: namespace)
 
       on_exit(fn ->
-        _ = Rclex.tf2_stop_listener("main", name, namespace: namespace)
-        _ = Rclex.tf2_stop_broadcaster(name, namespace: namespace)
-        _ = Rclex.tf2_buffer_destroy("main", name, namespace: namespace)
-        _ = Rclex.stop_node(name, namespace: namespace)
+        _ =
+          capture_log(fn ->
+            _ = Rclex.tf2_stop_listener("main", name, namespace: namespace)
+            _ = Rclex.tf2_stop_broadcaster(name, namespace: namespace)
+            _ = Rclex.tf2_buffer_destroy("main", name, namespace: namespace)
+            _ = Rclex.stop_node(name, namespace: namespace)
+          end)
       end)
 
       %{name: name, namespace: namespace}
