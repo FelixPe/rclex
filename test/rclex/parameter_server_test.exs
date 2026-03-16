@@ -15,7 +15,11 @@ defmodule Rclex.ParameterServerTest do
   alias Rclex.Pkgs.RclInterfaces.Srv.GetParameterTypes
 
   # Message types
-  alias Rclex.Pkgs.RclInterfaces.Msg.{ParameterType}
+  alias Rclex.Pkgs.RclInterfaces.Msg.{
+    ParameterType,
+    ParameterEvent,
+    ParameterEventDescriptors
+  }
 
   setup do
     # Initialize the ROS 2 context and node supervisor
@@ -228,6 +232,163 @@ defmodule Rclex.ParameterServerTest do
               }} = ParameterServer.get_parameter(node_name, namespace, "param2")
     end
 
+    test "set_parameters atomically publishes only touched parameters in changed event", %{
+      node_name: node_name,
+      namespace: namespace
+    } do
+      assert :ok =
+               ParameterServer.declare_parameter(node_name, namespace, "param1",
+                 type: :integer,
+                 default_value: 1
+               )
+
+      assert :ok =
+               ParameterServer.declare_parameter(node_name, namespace, "param2",
+                 type: :integer,
+                 default_value: 2
+               )
+
+      me = self()
+      topic = "/parameter_events"
+
+      assert :ok =
+               Rclex.start_subscription(&send(me, &1), ParameterEvent, topic, node_name,
+                 namespace: namespace
+               )
+
+      on_exit(fn ->
+        capture_log(fn ->
+          _ = Rclex.stop_subscription(ParameterEvent, topic, node_name, namespace: namespace)
+        end)
+      end)
+
+      assert :ok =
+               ParameterServer.set_parameters(
+                 node_name,
+                 namespace,
+                 [{"param1", Rclex.ParameterHelpers.gen_parameter_value_struct(10, :integer)}],
+                 false,
+                 true
+               )
+
+      assert_receive %ParameterEvent{} = event, 2_000
+
+      changed_names = Enum.map(event.changed_parameters, & &1.name)
+      new_names = Enum.map(event.new_parameters, & &1.name)
+      deleted_names = Enum.map(event.deleted_parameters, & &1.name)
+
+      assert changed_names == ["param1"]
+      assert new_names == []
+      assert deleted_names == []
+    end
+
+    test "set_parameters non-atomically publishes only touched parameters in changed event", %{
+      node_name: node_name,
+      namespace: namespace
+    } do
+      assert :ok =
+               ParameterServer.declare_parameter(node_name, namespace, "param1",
+                 type: :integer,
+                 default_value: 1
+               )
+
+      assert :ok =
+               ParameterServer.declare_parameter(node_name, namespace, "param2",
+                 type: :integer,
+                 default_value: 2
+               )
+
+      me = self()
+      topic = "/parameter_events"
+
+      assert :ok =
+               Rclex.start_subscription(&send(me, &1), ParameterEvent, topic, node_name,
+                 namespace: namespace
+               )
+
+      on_exit(fn ->
+        capture_log(fn ->
+          _ = Rclex.stop_subscription(ParameterEvent, topic, node_name, namespace: namespace)
+        end)
+      end)
+
+      assert [result] =
+               ParameterServer.set_parameters(
+                 node_name,
+                 namespace,
+                 [{"param1", Rclex.ParameterHelpers.gen_parameter_value_struct(10, :integer)}],
+                 false,
+                 false
+               )
+
+      assert result.successful
+      assert_receive %ParameterEvent{} = event, 2_000
+
+      changed_names = Enum.map(event.changed_parameters, & &1.name)
+      new_names = Enum.map(event.new_parameters, & &1.name)
+      deleted_names = Enum.map(event.deleted_parameters, & &1.name)
+
+      assert changed_names == ["param1"]
+      assert new_names == []
+      assert deleted_names == []
+    end
+
+    test "set_parameters non-atomically publishes descriptors on /parameter_event_descriptors", %{
+      node_name: node_name,
+      namespace: namespace
+    } do
+      assert :ok =
+               ParameterServer.declare_parameter(node_name, namespace, "param1",
+                 type: :integer,
+                 default_value: 1
+               )
+
+      assert :ok =
+               ParameterServer.declare_parameter(node_name, namespace, "param2",
+                 type: :integer,
+                 default_value: 2
+               )
+
+      me = self()
+      topic = "/parameter_event_descriptors"
+
+      assert :ok =
+               Rclex.start_subscription(
+                 &send(me, &1),
+                 ParameterEventDescriptors,
+                 topic,
+                 node_name, namespace: namespace)
+
+      on_exit(fn ->
+        capture_log(fn ->
+          _ =
+            Rclex.stop_subscription(ParameterEventDescriptors, topic, node_name,
+              namespace: namespace
+            )
+        end)
+      end)
+
+      assert [result] =
+               ParameterServer.set_parameters(
+                 node_name,
+                 namespace,
+                 [{"param1", Rclex.ParameterHelpers.gen_parameter_value_struct(10, :integer)}],
+                 false,
+                 false
+               )
+
+      assert result.successful
+      assert_receive %ParameterEventDescriptors{} = event, 2_000
+
+      changed_names = Enum.map(event.changed_parameters, & &1.name)
+      new_names = Enum.map(event.new_parameters, & &1.name)
+      deleted_names = Enum.map(event.deleted_parameters, & &1.name)
+
+      assert changed_names == ["param1"]
+      assert new_names == []
+      assert deleted_names == []
+    end
+
     test "set_parameters fails when any parameter is undeclared", %{
       node_name: node_name,
       namespace: namespace
@@ -438,7 +599,8 @@ defmodule Rclex.ParameterServerTest do
         send(test_pid, {:param_changed, name, new_value, old_value})
       end
 
-      assert :ok = ParameterServer.add_parameters_set_callback(node_name, namespace, callback)
+      assert :ok =
+               ParameterServer.add_post_set_parameters_callback(node_name, namespace, callback)
 
       # Declare and set parameter
       assert :ok =
@@ -463,7 +625,7 @@ defmodule Rclex.ParameterServerTest do
       assert old_value == "initial"
     end
 
-    test "remove_parameters_set_callback stops notifications", %{
+    test "remove_post_set_parameters_callback stops notifications", %{
       node_name: node_name,
       namespace: namespace
     } do
@@ -474,8 +636,11 @@ defmodule Rclex.ParameterServerTest do
       end
 
       # Add and then remove callback
-      assert :ok = ParameterServer.add_parameters_set_callback(node_name, namespace, callback)
-      assert :ok = ParameterServer.remove_parameters_set_callback(node_name, namespace, callback)
+      assert :ok =
+               ParameterServer.add_post_set_parameters_callback(node_name, namespace, callback)
+
+      assert :ok =
+               ParameterServer.remove_post_set_parameters_callback(node_name, namespace, callback)
 
       # Declare and set parameter
       assert :ok =
@@ -493,6 +658,155 @@ defmodule Rclex.ParameterServerTest do
 
       # Should not receive callback
       refute_receive {:param_changed, "unwatched_param"}, 100
+    end
+
+    test "pre-set callback can rewrite parameter values before apply", %{
+      node_name: node_name,
+      namespace: namespace
+    } do
+      assert :ok =
+               ParameterServer.declare_parameter(node_name, namespace, "pre_param",
+                 type: :integer,
+                 default_value: 1
+               )
+
+      pre_callback = fn parameters ->
+        Enum.map(parameters, fn
+          {"pre_param", _value} ->
+            {"pre_param", Rclex.ParameterHelpers.gen_parameter_value_struct(99, :integer)}
+
+          other ->
+            other
+        end)
+      end
+
+      assert :ok =
+               ParameterServer.add_pre_set_parameters_callback(node_name, namespace, pre_callback)
+
+      assert :ok =
+               ParameterServer.set_parameter(
+                 node_name,
+                 namespace,
+                 "pre_param",
+                 10
+               )
+
+      assert {:ok,
+              %Rclex.Pkgs.RclInterfaces.Msg.ParameterValue{
+                integer_value: 99
+              }} = ParameterServer.get_parameter(node_name, namespace, "pre_param")
+    end
+
+    test "on-set callback can reject updates", %{node_name: node_name, namespace: namespace} do
+      assert :ok =
+               ParameterServer.declare_parameter(node_name, namespace, "guarded_param",
+                 type: :integer,
+                 default_value: 5
+               )
+
+      on_callback = fn _parameters -> {:error, "blocked by on-set callback"} end
+
+      assert :ok =
+               ParameterServer.add_on_set_parameters_callback(node_name, namespace, on_callback)
+
+      assert {:error, "blocked by on-set callback"} =
+               ParameterServer.set_parameter(
+                 node_name,
+                 namespace,
+                 "guarded_param",
+                 50
+               )
+
+      assert {:ok,
+              %Rclex.Pkgs.RclInterfaces.Msg.ParameterValue{
+                integer_value: 5
+              }} = ParameterServer.get_parameter(node_name, namespace, "guarded_param")
+    end
+
+    test "pre, on, and post callbacks execute in phase order", %{
+      node_name: node_name,
+      namespace: namespace
+    } do
+      test_pid = self()
+
+      assert :ok =
+               ParameterServer.declare_parameter(node_name, namespace, "ordered_param",
+                 type: :integer,
+                 default_value: 1
+               )
+
+      pre_callback = fn parameters ->
+        send(test_pid, :pre_phase)
+        parameters
+      end
+
+      on_callback = fn _parameters ->
+        send(test_pid, :on_phase)
+        :ok
+      end
+
+      post_callback = fn name, _new_value, _old_value ->
+        send(test_pid, {:post_phase, name})
+      end
+
+      assert :ok =
+               ParameterServer.add_pre_set_parameters_callback(node_name, namespace, pre_callback)
+
+      assert :ok =
+               ParameterServer.add_on_set_parameters_callback(node_name, namespace, on_callback)
+
+      assert :ok =
+               ParameterServer.add_post_set_parameters_callback(
+                 node_name,
+                 namespace,
+                 post_callback
+               )
+
+      assert :ok = ParameterServer.set_parameter(node_name, namespace, "ordered_param", 2)
+
+      assert_receive :pre_phase, 1_000
+      assert_receive :on_phase, 1_000
+      assert_receive {:post_phase, "ordered_param"}, 1_000
+    end
+
+    test "post-set callbacks execute in registration order (FIFO)", %{
+      node_name: node_name,
+      namespace: namespace
+    } do
+      test_pid = self()
+
+      assert :ok =
+               ParameterServer.declare_parameter(node_name, namespace, "fifo_param",
+                 type: :integer,
+                 default_value: 1
+               )
+
+      first_callback = fn _name, _new_value, _old_value ->
+        send(test_pid, :first)
+      end
+
+      second_callback = fn _name, _new_value, _old_value ->
+        send(test_pid, :second)
+      end
+
+      assert :ok =
+               ParameterServer.add_post_set_parameters_callback(
+                 node_name,
+                 namespace,
+                 first_callback
+               )
+
+      assert :ok =
+               ParameterServer.add_post_set_parameters_callback(
+                 node_name,
+                 namespace,
+                 second_callback
+               )
+
+      assert :ok = ParameterServer.set_parameter(node_name, namespace, "fifo_param", 2)
+
+      assert_receive :first, 1_000
+      assert_receive :second, 1_000
     end
   end
 
@@ -672,6 +986,100 @@ defmodule Rclex.ParameterServerTest do
                 double_array_value: [],
                 string_array_value: []
               }} = ParameterServer.get_parameter(node_name, namespace, "string_param")
+    end
+
+    test "rejects type changes when dynamic_typing is false", %{
+      node_name: node_name,
+      namespace: namespace
+    } do
+      assert :ok =
+               ParameterServer.declare_parameter(node_name, namespace, "strict_param",
+                 type: :integer,
+                 default_value: 10,
+                 dynamic_typing: false
+               )
+
+      assert {:error, "wrong parameter type"} =
+               ParameterServer.set_parameter(node_name, namespace, "strict_param", "nope")
+
+      assert {:ok,
+              %Rclex.Pkgs.RclInterfaces.Msg.ParameterValue{
+                type: 2,
+                integer_value: 10
+              }} = ParameterServer.get_parameter(node_name, namespace, "strict_param")
+    end
+
+    test "allows type changes when dynamic_typing is true", %{
+      node_name: node_name,
+      namespace: namespace
+    } do
+      assert :ok =
+               ParameterServer.declare_parameter(node_name, namespace, "dynamic_param",
+                 type: :integer,
+                 default_value: 10,
+                 dynamic_typing: true
+               )
+
+      assert :ok = ParameterServer.set_parameter(node_name, namespace, "dynamic_param", "updated")
+
+      assert {:ok,
+              %Rclex.Pkgs.RclInterfaces.Msg.ParameterValue{
+                type: 4,
+                string_value: "updated"
+              }} = ParameterServer.get_parameter(node_name, namespace, "dynamic_param")
+    end
+
+    test "atomically rejects type changes when dynamic_typing is false", %{
+      node_name: node_name,
+      namespace: namespace
+    } do
+      assert :ok =
+               ParameterServer.declare_parameter(node_name, namespace, "strict_param",
+                 type: :integer,
+                 default_value: 10,
+                 dynamic_typing: false
+               )
+
+      assert {:error, {:invalid_parameters, [{"strict_param", "wrong parameter type"}]}} =
+               ParameterServer.set_parameters(
+                 node_name,
+                 namespace,
+                 [{"strict_param", Rclex.ParameterHelpers.gen_parameter_value_struct("nope")}],
+                 false,
+                 true
+               )
+
+      assert {:ok,
+              %Rclex.Pkgs.RclInterfaces.Msg.ParameterValue{
+                type: 2,
+                integer_value: 10
+              }} = ParameterServer.get_parameter(node_name, namespace, "strict_param")
+    end
+
+    test "set_parameters convert=true preserves declared parameter type", %{
+      node_name: node_name,
+      namespace: namespace
+    } do
+      assert :ok =
+               ParameterServer.declare_parameter(node_name, namespace, "waypoints",
+                 type: :integer_array,
+                 default_value: [0, 0, 0]
+               )
+
+      assert :ok =
+               ParameterServer.set_parameters(
+                 node_name,
+                 namespace,
+                 [{"waypoints", [10, 20, 30]}],
+                 true,
+                 true
+               )
+
+      assert {:ok,
+              %Rclex.Pkgs.RclInterfaces.Msg.ParameterValue{
+                type: 7,
+                integer_array_value: [10, 20, 30]
+              }} = ParameterServer.get_parameter(node_name, namespace, "waypoints")
     end
 
     test "supports byte array parameters", %{node_name: node_name, namespace: namespace} do
@@ -1089,6 +1497,12 @@ defmodule Rclex.ParameterServerTest do
                  default_value: 10
                )
 
+      assert :ok =
+               ParameterServer.declare_parameter(node_name, namespace, "robotics.speed",
+                 type: :float,
+                 default_value: 2.0
+               )
+
       # Simulate service call - filter by robot prefix
       request = %ListParameters.Request{prefixes: ["robot"], depth: 0}
       response = ParameterServer.handle_list_parameters(request, node_name, namespace)
@@ -1098,6 +1512,8 @@ defmodule Rclex.ParameterServerTest do
       assert "robot.speed" in result.names
       assert "robot.name" in result.names
       refute "sensor.frequency" in result.names
+      refute "robotics.speed" in result.names
+      assert result.prefixes == ["robot"]
     end
 
     test "describe_parameters service returns descriptors", %{
@@ -1211,7 +1627,12 @@ defmodule Rclex.ParameterServerTest do
         raise "Callback error"
       end
 
-      assert :ok = ParameterServer.add_parameters_set_callback(node_name, namespace, bad_callback)
+      assert :ok =
+               ParameterServer.add_post_set_parameters_callback(
+                 node_name,
+                 namespace,
+                 bad_callback
+               )
 
       # This should not crash the parameter server
       capture_log(fn ->
@@ -1337,7 +1758,9 @@ defmodule Rclex.ParameterServerTest do
       assert state.namespace == namespace
       assert state.parameters == %{}
       assert state.parameter_descriptors == %{}
-      assert state.parameters_set_callbacks == []
+      assert state.pre_set_parameters_callbacks == []
+      assert state.on_set_parameters_callbacks == []
+      assert state.post_set_parameters_callbacks == []
       assert state.parameter_event_publisher != nil
       assert state.parameter_event_descriptors_publisher != nil
     end

@@ -32,6 +32,16 @@ ERL_NIF_TERM nif_test_raise_with_message(ErlNifEnv *env, int argc, const ERL_NIF
 ERL_NIF_TERM enif_make_binary_wrapper(ErlNifEnv *env, const char *data, size_t size) {
   ErlNifBinary binary;
   if (!enif_alloc_binary(size, &binary)) return raise(env, __FILE__, __LINE__);
-  memcpy((void *)binary.data, (const void *)data, binary.size);
+
+  // Guard against invalid ROS string metadata (NULL data with non-zero size).
+  if (size > 0 && data == NULL) {
+    enif_release_binary(&binary);
+    return raise_with_message(env, __FILE__, __LINE__, "NULL data with non-zero size");
+  }
+
+  if (size > 0) {
+    memcpy((void *)binary.data, (const void *)data, binary.size);
+  }
+
   return enif_make_binary(env, &binary);
 }

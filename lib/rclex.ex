@@ -1242,7 +1242,114 @@ defmodule Rclex do
   end
 
   @doc """
-  Add a parameter change callback to a node.
+  Add an on-set parameter callback to a node.
+
+  The callback receives a list of `{parameter_name, parameter_value_struct}` tuples and
+  may return `:ok`, `true`, `false`, `{:error, reason}` or a `%SetParametersResult{}`-like
+  struct (`%{successful: boolean(), reason: String.t()}`).
+
+  This callback is executed before updates are committed.
+
+  ### opts
+
+  - #{@namespace_doc}
+
+  ### Examples
+
+      iex> callback = fn _params -> :ok end
+      iex> Rclex.add_on_set_parameters_callback("node", callback, namespace: "/example")
+      :ok
+  """
+  @doc section: :parameter
+  @spec add_on_set_parameters_callback(
+          node_name :: String.t(),
+          callback :: ([{String.t(), struct()}] -> any()),
+          opts :: [namespace: String.t()]
+        ) :: :ok
+  def add_on_set_parameters_callback(node_name, callback, opts \\ [])
+      when is_binary(node_name) and is_function(callback, 1) and is_list(opts) do
+    namespace = Keyword.get(opts, :namespace, "/")
+    Rclex.ParameterServer.add_on_set_parameters_callback(node_name, namespace, callback)
+  end
+
+  @doc """
+  Remove an on-set parameter callback from a node.
+
+  ### opts
+
+  - #{@namespace_doc}
+
+  ### Examples
+
+      iex> Rclex.remove_on_set_parameters_callback("node", callback, namespace: "/example")
+      :ok
+  """
+  @doc section: :parameter
+  @spec remove_on_set_parameters_callback(
+          node_name :: String.t(),
+          callback :: ([{String.t(), struct()}] -> any()),
+          opts :: [namespace: String.t()]
+        ) :: :ok
+  def remove_on_set_parameters_callback(node_name, callback, opts \\ [])
+      when is_binary(node_name) and is_function(callback, 1) and is_list(opts) do
+    namespace = Keyword.get(opts, :namespace, "/")
+    Rclex.ParameterServer.remove_on_set_parameters_callback(node_name, namespace, callback)
+  end
+
+  @doc """
+  Add a pre-set parameter callback to a node.
+
+  The callback receives a list of `{parameter_name, parameter_value_struct}` tuples and may
+  return a modified list.
+
+  ### opts
+
+  - #{@namespace_doc}
+
+  ### Examples
+
+      iex> callback = fn parameters -> parameters end
+      iex> Rclex.add_pre_set_parameters_callback("node", callback, namespace: "/example")
+      :ok
+  """
+  @doc section: :parameter
+  @spec add_pre_set_parameters_callback(
+          node_name :: String.t(),
+          callback :: ([{String.t(), struct()}] -> [{String.t(), struct()}]),
+          opts :: [namespace: String.t()]
+        ) :: :ok
+  def add_pre_set_parameters_callback(node_name, callback, opts \\ [])
+      when is_binary(node_name) and is_function(callback, 1) and is_list(opts) do
+    namespace = Keyword.get(opts, :namespace, "/")
+    Rclex.ParameterServer.add_pre_set_parameters_callback(node_name, namespace, callback)
+  end
+
+  @doc """
+  Remove a pre-set parameter callback from a node.
+
+  ### opts
+
+  - #{@namespace_doc}
+
+  ### Examples
+
+      iex> Rclex.remove_pre_set_parameters_callback("node", callback, namespace: "/example")
+      :ok
+  """
+  @doc section: :parameter
+  @spec remove_pre_set_parameters_callback(
+          node_name :: String.t(),
+          callback :: ([{String.t(), struct()}] -> [{String.t(), struct()}]),
+          opts :: [namespace: String.t()]
+        ) :: :ok
+  def remove_pre_set_parameters_callback(node_name, callback, opts \\ [])
+      when is_binary(node_name) and is_function(callback, 1) and is_list(opts) do
+    namespace = Keyword.get(opts, :namespace, "/")
+    Rclex.ParameterServer.remove_pre_set_parameters_callback(node_name, namespace, callback)
+  end
+
+  @doc """
+  Add a post-set parameter callback to a node.
 
   The callback function will be invoked whenever any parameter on the node changes.
   The callback receives the parameter name, new value, and old value as arguments.
@@ -1254,23 +1361,23 @@ defmodule Rclex do
   ### Examples
 
       iex> callback = fn name, new_val, old_val -> IO.puts("#\{name\} changed from #\{old_val\} to #\{new_val\}") end
-      iex> Rclex.add_parameters_set_callback("node", callback, namespace: "/example")
+      iex> Rclex.add_post_set_parameters_callback("node", callback, namespace: "/example")
       :ok
   """
   @doc section: :parameter
-  @spec add_parameters_set_callback(
+  @spec add_post_set_parameters_callback(
           node_name :: String.t(),
           callback :: (String.t(), any(), any() -> any()),
           opts :: [namespace: String.t()]
         ) :: :ok
-  def add_parameters_set_callback(node_name, callback, opts \\ [])
+  def add_post_set_parameters_callback(node_name, callback, opts \\ [])
       when is_binary(node_name) and is_function(callback, 3) and is_list(opts) do
     namespace = Keyword.get(opts, :namespace, "/")
-    Rclex.ParameterServer.add_parameters_set_callback(node_name, namespace, callback)
+    Rclex.ParameterServer.add_post_set_parameters_callback(node_name, namespace, callback)
   end
 
   @doc """
-  Remove a parameter change callback from a node.
+  Remove a post-set parameter callback from a node.
 
   ### opts
 
@@ -1278,19 +1385,19 @@ defmodule Rclex do
 
   ### Examples
 
-      iex> Rclex.remove_parameters_set_callback("node", callback, namespace: "/example")
+      iex> Rclex.remove_post_set_parameters_callback("node", callback, namespace: "/example")
       :ok
   """
   @doc section: :parameter
-  @spec remove_parameters_set_callback(
+  @spec remove_post_set_parameters_callback(
           node_name :: String.t(),
           callback :: (String.t(), any(), any() -> any()),
           opts :: [namespace: String.t()]
         ) :: :ok
-  def remove_parameters_set_callback(node_name, callback, opts \\ [])
+  def remove_post_set_parameters_callback(node_name, callback, opts \\ [])
       when is_binary(node_name) and is_function(callback, 3) and is_list(opts) do
     namespace = Keyword.get(opts, :namespace, "/")
-    Rclex.ParameterServer.remove_parameters_set_callback(node_name, namespace, callback)
+    Rclex.ParameterServer.remove_post_set_parameters_callback(node_name, namespace, callback)
   end
 
   @doc """

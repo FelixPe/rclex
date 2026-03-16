@@ -14,6 +14,9 @@ defmodule Rclex.ParameterServer do
   use GenServer, restart: :temporary
   require Logger
 
+  @parameter_events_topic "/parameter_events"
+  @parameter_event_descriptors_topic "/parameter_event_descriptors"
+
   import Rclex.ParameterHelpers
   import Rclex.ActionHelpers, only: [gen_time_struct: 1]
 
@@ -78,16 +81,7 @@ defmodule Rclex.ParameterServer do
   def set_parameters(name, namespace, parameters, convert \\ false, atomically \\ true) do
     server = name(name, namespace)
 
-    param_pairs =
-      if convert do
-        Enum.map(parameters, fn {name, value} ->
-          {name, Rclex.ParameterHelpers.gen_parameter_value_struct(value)}
-        end)
-      else
-        parameters
-      end
-
-    GenServer.call(server, {:set_parameters, param_pairs, atomically})
+    GenServer.call(server, {:set_parameters, parameters, atomically, convert})
   end
 
   @doc """
@@ -123,21 +117,59 @@ defmodule Rclex.ParameterServer do
   end
 
   @doc """
-  Add a parameter change callback.
+  Add a pre-set callback for parameter updates.
 
-  The callback will be invoked when any parameter changes.
+  The callback receives a list of `{name, parameter_value}` tuples and may
+  return a modified list.
   """
-  def add_parameters_set_callback(name, namespace, callback) do
+  def add_pre_set_parameters_callback(name, namespace, callback) do
     server = name(name, namespace)
-    GenServer.call(server, {:add_parameters_set_callback, callback})
+    GenServer.call(server, {:add_pre_set_parameters_callback, callback})
   end
 
   @doc """
-  Remove a parameter change callback.
+  Remove a pre-set callback.
   """
-  def remove_parameters_set_callback(name, namespace, callback) do
+  def remove_pre_set_parameters_callback(name, namespace, callback) do
     server = name(name, namespace)
-    GenServer.call(server, {:remove_parameters_set_callback, callback})
+    GenServer.call(server, {:remove_pre_set_parameters_callback, callback})
+  end
+
+  @doc """
+  Add an on-set callback for parameter updates.
+
+  The callback receives a list of `{name, parameter_value}` tuples and may
+  approve or reject the update.
+  """
+  def add_on_set_parameters_callback(name, namespace, callback) do
+    server = name(name, namespace)
+    GenServer.call(server, {:add_on_set_parameters_callback, callback})
+  end
+
+  @doc """
+  Remove an on-set callback.
+  """
+  def remove_on_set_parameters_callback(name, namespace, callback) do
+    server = name(name, namespace)
+    GenServer.call(server, {:remove_on_set_parameters_callback, callback})
+  end
+
+  @doc """
+  Add a post-set callback for parameter updates.
+
+  The callback is invoked with `(parameter_name, new_value, old_value)`.
+  """
+  def add_post_set_parameters_callback(name, namespace, callback) do
+    server = name(name, namespace)
+    GenServer.call(server, {:add_post_set_parameters_callback, callback})
+  end
+
+  @doc """
+  Remove a post-set callback.
+  """
+  def remove_post_set_parameters_callback(name, namespace, callback) do
+    server = name(name, namespace)
+    GenServer.call(server, {:remove_post_set_parameters_callback, callback})
   end
 
   defp start_services(node_name, node_namespace) do
@@ -211,7 +243,7 @@ defmodule Rclex.ParameterServer do
   defp start_parameter_event_publisher(node_name, node_namespace) do
     case Rclex.Node.start_publisher(
            Rclex.Pkgs.RclInterfaces.Msg.ParameterEvent,
-           "#{node_namespace}#{node_name}/parameter_events",
+           @parameter_events_topic,
            node_name,
            node_namespace,
            Rclex.QoS.profile_parameter_events()
@@ -228,7 +260,7 @@ defmodule Rclex.ParameterServer do
   defp start_parameter_event_descriptors_publisher(node_name, node_namespace) do
     case Rclex.Node.start_publisher(
            Rclex.Pkgs.RclInterfaces.Msg.ParameterEventDescriptors,
-           "#{node_namespace}#{node_name}/parameter_event_descriptors",
+           @parameter_event_descriptors_topic,
            node_name,
            node_namespace,
            Rclex.QoS.profile_parameter_events()
@@ -245,7 +277,7 @@ defmodule Rclex.ParameterServer do
   defp stop_parameter_event_publisher(node_name, node_namespace) do
     case Rclex.Node.stop_publisher(
            Rclex.Pkgs.RclInterfaces.Msg.ParameterEvent,
-           "#{node_namespace}#{node_name}/parameter_events",
+           @parameter_events_topic,
            node_name,
            node_namespace
          ) do
@@ -261,7 +293,7 @@ defmodule Rclex.ParameterServer do
   defp stop_parameter_event_descriptors_publisher(node_name, node_namespace) do
     case Rclex.Node.stop_publisher(
            Rclex.Pkgs.RclInterfaces.Msg.ParameterEventDescriptors,
-           "#{node_namespace}#{node_name}/parameter_event_descriptors",
+           @parameter_event_descriptors_topic,
            node_name,
            node_namespace
          ) do
@@ -321,7 +353,9 @@ defmodule Rclex.ParameterServer do
        namespace: namespace,
        parameters: %{},
        parameter_descriptors: %{},
-       parameters_set_callbacks: [],
+       pre_set_parameters_callbacks: [],
+       on_set_parameters_callbacks: [],
+       post_set_parameters_callbacks: [],
        parameter_event_publisher: parameter_event_publisher,
        parameter_event_descriptors_publisher: parameter_event_descriptors_publisher
      }}
@@ -391,8 +425,12 @@ defmodule Rclex.ParameterServer do
     end
   end
 
+  defp matches_prefix?(param_name, prefix) do
+    param_name == prefix or String.starts_with?(param_name, "#{prefix}.")
+  end
+
   defp starts_with_any_prefix?(param_name, prefixes) do
-    Enum.any?(prefixes, fn prefix -> String.starts_with?(param_name, prefix) end)
+    Enum.any?(prefixes, fn prefix -> matches_prefix?(param_name, prefix) end)
   end
 
   defp filter_parameters_by_prefixes(all_params, []) do
@@ -400,13 +438,14 @@ defmodule Rclex.ParameterServer do
   end
 
   defp filter_parameters_by_prefixes(all_params, prefixes) do
-    Enum.reduce(all_params, {[], []}, fn param_name, {filtered_params, filtered_prefixes} ->
-      if starts_with_any_prefix?(param_name, prefixes) do
-        {filtered_params ++ [param_name], filtered_prefixes ++ [prefixes]}
-      else
-        {filtered_params, filtered_prefixes}
-      end
-    end)
+    filtered_params = Enum.filter(all_params, &starts_with_any_prefix?(&1, prefixes))
+
+    matched_prefixes =
+      Enum.filter(prefixes, fn prefix ->
+        Enum.any?(filtered_params, &matches_prefix?(&1, prefix))
+      end)
+
+    {filtered_params, matched_prefixes}
   end
 
   def handle_list_parameters(%{prefixes: prefixes, depth: depth}, node_name, node_namespace) do
@@ -492,7 +531,12 @@ defmodule Rclex.ParameterServer do
       new_state = %{state | parameters: new_parameters, parameter_descriptors: new_descriptors}
 
       # Notify callbacks about new parameter
-      notify_parameter_callbacks(state.parameters_set_callbacks, parameter_name, param_value, nil)
+      notify_parameter_callbacks(
+        state.post_set_parameters_callbacks,
+        parameter_name,
+        param_value,
+        nil
+      )
 
       if state.parameter_event_publisher do
         publish_parameter_event(
@@ -519,102 +563,196 @@ defmodule Rclex.ParameterServer do
   end
 
   def handle_call({:set_parameter, parameter_name, parameter_value}, _from, state) do
-    if Map.has_key?(state.parameters, parameter_name) do
-      {_results, changed_parameters, _new_descriptors, _changed_descriptors, new_state} =
-        set_one_parameter(parameter_name, parameter_value, [], %{}, [], [], state)
+    parameters =
+      apply_pre_set_parameter_callbacks(state.pre_set_parameters_callbacks, [
+        {parameter_name, parameter_value}
+      ])
 
-      if state.parameter_event_publisher do
-        publish_parameter_event(
-          state.name,
-          state.namespace,
-          %{},
-          changed_parameters,
-          %{}
-        )
-      end
+    case run_on_set_parameter_callbacks(state.on_set_parameters_callbacks, parameters) do
+      :ok ->
+        case parameters do
+          [{resolved_name, resolved_value}] ->
+            if Map.has_key?(state.parameters, resolved_name) do
+              {results, changed_parameters, _new_descriptors, _changed_descriptors, new_state} =
+                set_one_parameter(resolved_name, resolved_value, [], %{}, [], [], state)
 
-      {:reply, :ok, new_state}
-    else
-      {:reply, {:error, :not_declared}, state}
+              case results do
+                [%{successful: true}] ->
+                  if state.parameter_event_publisher do
+                    publish_parameter_event(
+                      state.name,
+                      state.namespace,
+                      %{},
+                      changed_parameters,
+                      %{}
+                    )
+                  end
+
+                  {:reply, :ok, new_state}
+
+                [%{successful: false, reason: reason}] ->
+                  {:reply, {:error, reason}, state}
+
+                _ ->
+                  {:reply, {:error, :set_failed}, state}
+              end
+            else
+              {:reply, {:error, :not_declared}, state}
+            end
+
+          _ ->
+            {:reply, {:error, :invalid_pre_set_callback_output}, state}
+        end
+
+      {:error, reason} ->
+        {:reply, {:error, reason}, state}
     end
   end
 
-  def handle_call({:set_parameters, parameters, false}, _from, state) do
-    {results, changed_parameters, new_descriptors, changed_descriptors, new_state} =
-      Enum.reduce(parameters, {[], %{}, [], [], state}, fn {parameter_name, param_value},
-                                                           {results, changed_parameters,
-                                                            new_descriptors, changed_descriptors,
-                                                            state} ->
-        set_one_parameter(
-          parameter_name,
-          param_value,
-          results,
-          changed_parameters,
-          new_descriptors,
-          changed_descriptors,
-          state
-        )
-      end)
-
-    if state.parameter_event_publisher do
-      publish_parameter_event(
-        state.name,
-        state.namespace,
-        %{},
-        changed_parameters,
-        %{}
-      )
-    end
-
-    if state.parameter_event_descriptors_publisher do
-      publish_parameter_event_descriptors(
-        state.name,
-        state.namespace,
-        new_descriptors,
-        changed_descriptors,
-        []
-      )
-    end
-
-    {:reply, results, new_state}
+  def handle_call({:set_parameters, parameters, false}, from, state) do
+    handle_call({:set_parameters, parameters, false, false}, from, state)
   end
 
-  def handle_call({:set_parameters, parameters, true}, _from, state) do
-    # Validate all parameters exist first
-    undeclared =
-      Enum.filter(parameters, fn {name, _value} ->
-        not Map.has_key?(state.parameters, name)
-      end)
+  def handle_call({:set_parameters, parameters, true}, from, state) do
+    handle_call({:set_parameters, parameters, true, false}, from, state)
+  end
 
-    if Enum.empty?(undeclared) do
-      # Set all parameters
-      {changed_parameters, changes} =
-        Enum.reduce(parameters, {state.parameters, []}, fn {name, new_value}, {params, changes} ->
-          old_value = Map.get(state.parameters, name)
-          {Map.put(params, name, new_value), [{name, new_value, old_value} | changes]}
-        end)
+  def handle_call({:set_parameters, parameters, false, convert}, _from, state) do
+    converted_parameters = convert_parameters_for_set(parameters, convert, state)
 
-      new_state = %{state | parameters: changed_parameters}
+    processed_parameters =
+      apply_pre_set_parameter_callbacks(state.pre_set_parameters_callbacks, converted_parameters)
 
-      # Notify callbacks about all changes
-      Enum.each(changes, fn {name, new_value, old_value} ->
-        notify_parameter_callbacks(state.parameters_set_callbacks, name, new_value, old_value)
-      end)
+    case run_on_set_parameter_callbacks(state.on_set_parameters_callbacks, processed_parameters) do
+      {:error, reason} ->
+        results =
+          Enum.map(processed_parameters, fn _ ->
+            gen_set_parameters_result_struct(false, to_string(reason))
+          end)
 
-      if state.parameter_event_publisher do
-        publish_parameter_event(
-          state.name,
-          state.namespace,
-          %{},
-          changed_parameters,
-          %{}
-        )
-      end
+        {:reply, results, state}
 
-      {:reply, :ok, new_state}
-    else
-      undeclared_names = Enum.map(undeclared, &elem(&1, 0))
-      {:reply, {:error, {:undeclared_parameters, undeclared_names}}, state}
+      :ok ->
+        {results, changed_parameters, new_descriptors, changed_descriptors, new_state} =
+          Enum.reduce(processed_parameters, {[], %{}, [], [], state}, fn {parameter_name,
+                                                                          param_value},
+                                                                         {results,
+                                                                          changed_parameters,
+                                                                          new_descriptors,
+                                                                          changed_descriptors,
+                                                                          state} ->
+            set_one_parameter(
+              parameter_name,
+              param_value,
+              results,
+              changed_parameters,
+              new_descriptors,
+              changed_descriptors,
+              state
+            )
+          end)
+
+        if state.parameter_event_publisher do
+          publish_parameter_event(
+            state.name,
+            state.namespace,
+            %{},
+            changed_parameters,
+            %{}
+          )
+        end
+
+        if state.parameter_event_descriptors_publisher do
+          publish_parameter_event_descriptors(
+            state.name,
+            state.namespace,
+            new_descriptors,
+            changed_descriptors,
+            []
+          )
+        end
+
+        {:reply, results, new_state}
+    end
+  end
+
+  def handle_call({:set_parameters, parameters, true, convert}, _from, state) do
+    converted_parameters = convert_parameters_for_set(parameters, convert, state)
+
+    processed_parameters =
+      apply_pre_set_parameter_callbacks(state.pre_set_parameters_callbacks, converted_parameters)
+
+    case run_on_set_parameter_callbacks(state.on_set_parameters_callbacks, processed_parameters) do
+      {:error, reason} ->
+        {:reply, {:error, reason}, state}
+
+      :ok ->
+        # Validate all parameters exist first
+        undeclared =
+          Enum.filter(processed_parameters, fn {name, _value} ->
+            not Map.has_key?(state.parameters, name)
+          end)
+
+        if Enum.empty?(undeclared) do
+          invalid_updates =
+            Enum.filter(processed_parameters, fn {name, new_value} ->
+              case validate_parameter_update(state, name, new_value) do
+                :ok -> false
+                {:error, _reason} -> true
+              end
+            end)
+
+          if Enum.empty?(invalid_updates) do
+            # Set all parameters
+            {updated_parameters, changed_parameters, changes} =
+              Enum.reduce(processed_parameters, {state.parameters, %{}, []}, fn {name, new_value},
+                                                                                {params, changed,
+                                                                                 changes} ->
+                old_value = Map.get(state.parameters, name)
+
+                {
+                  Map.put(params, name, new_value),
+                  Map.put(changed, name, new_value),
+                  [{name, new_value, old_value} | changes]
+                }
+              end)
+
+            new_state = %{state | parameters: updated_parameters}
+
+            # Notify callbacks about all changes
+            Enum.each(changes, fn {name, new_value, old_value} ->
+              notify_parameter_callbacks(
+                state.post_set_parameters_callbacks,
+                name,
+                new_value,
+                old_value
+              )
+            end)
+
+            if state.parameter_event_publisher do
+              publish_parameter_event(
+                state.name,
+                state.namespace,
+                %{},
+                changed_parameters,
+                %{}
+              )
+            end
+
+            {:reply, :ok, new_state}
+          else
+            update_errors =
+              Enum.map(invalid_updates, fn {name, new_value} ->
+                {:error, reason} = validate_parameter_update(state, name, new_value)
+                {name, reason}
+              end)
+
+            {:reply, {:error, {:invalid_parameters, update_errors}}, state}
+          end
+        else
+          undeclared_names = Enum.map(undeclared, &elem(&1, 0))
+          {:reply, {:error, {:undeclared_parameters, undeclared_names}}, state}
+        end
     end
   end
 
@@ -652,19 +790,127 @@ defmodule Rclex.ParameterServer do
     {:reply, types, state}
   end
 
-  def handle_call({:add_parameters_set_callback, callback}, _from, state) do
-    new_callbacks = [callback | state.parameters_set_callbacks]
-    new_state = %{state | parameters_set_callbacks: new_callbacks}
+  def handle_call({:add_pre_set_parameters_callback, callback}, _from, state) do
+    new_callbacks = state.pre_set_parameters_callbacks ++ [callback]
+    new_state = %{state | pre_set_parameters_callbacks: new_callbacks}
     {:reply, :ok, new_state}
   end
 
-  def handle_call({:remove_parameters_set_callback, callback}, _from, state) do
-    new_callbacks = List.delete(state.parameters_set_callbacks, callback)
-    new_state = %{state | parameters_set_callbacks: new_callbacks}
+  def handle_call({:remove_pre_set_parameters_callback, callback}, _from, state) do
+    new_callbacks = List.delete(state.pre_set_parameters_callbacks, callback)
+    new_state = %{state | pre_set_parameters_callbacks: new_callbacks}
+    {:reply, :ok, new_state}
+  end
+
+  def handle_call({:add_on_set_parameters_callback, callback}, _from, state) do
+    new_callbacks = state.on_set_parameters_callbacks ++ [callback]
+    new_state = %{state | on_set_parameters_callbacks: new_callbacks}
+    {:reply, :ok, new_state}
+  end
+
+  def handle_call({:remove_on_set_parameters_callback, callback}, _from, state) do
+    new_callbacks = List.delete(state.on_set_parameters_callbacks, callback)
+    new_state = %{state | on_set_parameters_callbacks: new_callbacks}
+    {:reply, :ok, new_state}
+  end
+
+  def handle_call({:add_post_set_parameters_callback, callback}, _from, state) do
+    new_callbacks = state.post_set_parameters_callbacks ++ [callback]
+    new_state = %{state | post_set_parameters_callbacks: new_callbacks}
+    {:reply, :ok, new_state}
+  end
+
+  def handle_call({:remove_post_set_parameters_callback, callback}, _from, state) do
+    new_callbacks = List.delete(state.post_set_parameters_callbacks, callback)
+    new_state = %{state | post_set_parameters_callbacks: new_callbacks}
     {:reply, :ok, new_state}
   end
 
   # Helper functions
+  defp convert_parameters_for_set(parameters, false, _state), do: parameters
+
+  defp convert_parameters_for_set(parameters, true, state) do
+    Enum.map(parameters, fn {parameter_name, value} ->
+      parameter_type =
+        case Map.get(state.parameter_descriptors, parameter_name) do
+          nil ->
+            :undefined
+
+          descriptor ->
+            ros2_to_parameter_type(descriptor.type)
+        end
+
+      parameter_value =
+        if is_map(value) and Map.has_key?(value, :type) do
+          value
+        else
+          gen_parameter_value_struct(value, parameter_type)
+        end
+
+      {parameter_name, parameter_value}
+    end)
+  end
+
+  defp apply_pre_set_parameter_callbacks(callbacks, parameters) do
+    Enum.reduce(callbacks, parameters, fn callback, acc_parameters ->
+      try do
+        case callback.(acc_parameters) do
+          updated when is_list(updated) -> updated
+          _ -> acc_parameters
+        end
+      rescue
+        error ->
+          Logger.error("Pre-set parameter callback failed: #{inspect(error)}")
+          acc_parameters
+      end
+    end)
+  end
+
+  defp run_on_set_parameter_callbacks(callbacks, parameters) do
+    Enum.reduce_while(callbacks, :ok, fn callback, _acc ->
+      callback_result =
+        try do
+          normalize_on_set_callback_result(callback.(parameters))
+        rescue
+          error ->
+            {:error, "on-set callback failed: #{inspect(error)}"}
+        end
+
+      case callback_result do
+        :ok ->
+          {:cont, :ok}
+
+        {:error, reason} ->
+          {:halt, {:error, reason}}
+      end
+    end)
+  end
+
+  defp normalize_on_set_callback_result(result) do
+    cond do
+      result == :ok ->
+        :ok
+
+      result == true ->
+        :ok
+
+      result == false ->
+        {:error, "rejected by on-set callback"}
+
+      match?(%{successful: true}, result) ->
+        :ok
+
+      match?(%{successful: false}, result) ->
+        {:error, Map.get(result, :reason, "rejected by on-set callback")}
+
+      match?({:error, _reason}, result) ->
+        {:error, elem(result, 1)}
+
+      true ->
+        :ok
+    end
+  end
+
   defp notify_parameter_callbacks(callbacks, parameter_name, new_param_value, old_param_value) do
     new_value = parameter_value_to_elixir(new_param_value)
     old_value = parameter_value_to_elixir(old_param_value)
@@ -697,51 +943,69 @@ defmodule Rclex.ParameterServer do
         {new_results, changed_parameters, new_descriptors, changed_descriptors, state}
 
       old_param_value ->
-        parameter_descriptor = Map.fetch!(state.parameter_descriptors, parameter_name)
+        case validate_parameter_update(state, parameter_name, new_param_value) do
+          {:error, reason} ->
+            new_results = results ++ [gen_set_parameters_result_struct(false, reason)]
 
-        if parameter_descriptor.read_only do
-          # parameter_descriptor.dynamic_typing
-          # parameter_descriptor.type
-          new_results = results ++ [gen_set_parameters_result_struct(false, "read only")]
+            {new_results, changed_parameters, new_descriptors, changed_descriptors, state}
 
-          {new_results, changed_parameters, new_descriptors, changed_descriptors, state}
-        else
-          updated_parameters = Map.put(state.parameters, parameter_name, new_param_value)
+          :ok ->
+            parameter_descriptor = Map.fetch!(state.parameter_descriptors, parameter_name)
 
-          new_changed_descriptor =
-            Map.put(
-              parameter_descriptor,
-              :type,
-              new_param_value.type
+            updated_parameters = Map.put(state.parameters, parameter_name, new_param_value)
+
+            new_changed_descriptor =
+              Map.put(
+                parameter_descriptor,
+                :type,
+                new_param_value.type
+              )
+
+            new_state = %{
+              state
+              | parameters: updated_parameters,
+                parameter_descriptors:
+                  Map.put(
+                    state.parameter_descriptors,
+                    parameter_name,
+                    new_changed_descriptor
+                  )
+            }
+
+            new_changed_descriptors = changed_descriptors ++ [new_changed_descriptor]
+            new_changed_parameters = Map.put(changed_parameters, parameter_name, new_param_value)
+
+            # Notify callbacks about parameter change
+            notify_parameter_callbacks(
+              new_state.post_set_parameters_callbacks,
+              parameter_name,
+              new_param_value,
+              old_param_value
             )
 
-          new_state = %{
-            state
-            | parameters: updated_parameters,
-              parameter_descriptors:
-                Map.put(
-                  state.parameter_descriptors,
-                  parameter_name,
-                  new_changed_descriptor
-                )
-          }
+            new_results = results ++ [gen_set_parameters_result_struct(true, "")]
 
-          new_changed_descriptors = changed_descriptors ++ [new_changed_descriptor]
-          new_changed_parameters = Map.put(changed_parameters, parameter_name, new_param_value)
-
-          # Notify callbacks about parameter change
-          notify_parameter_callbacks(
-            new_state.parameters_set_callbacks,
-            parameter_name,
-            new_param_value,
-            old_param_value
-          )
-
-          new_results = results ++ [gen_set_parameters_result_struct(true, "")]
-
-          {new_results, new_changed_parameters, new_descriptors, new_changed_descriptors,
-           new_state}
+            {new_results, new_changed_parameters, new_descriptors, new_changed_descriptors,
+             new_state}
         end
+    end
+  end
+
+  defp validate_parameter_update(state, parameter_name, new_param_value) do
+    parameter_descriptor = Map.fetch!(state.parameter_descriptors, parameter_name)
+
+    cond do
+      parameter_descriptor.read_only ->
+        {:error, "read only"}
+
+      parameter_descriptor.dynamic_typing ->
+        :ok
+
+      parameter_descriptor.type == new_param_value.type ->
+        :ok
+
+      true ->
+        {:error, "wrong parameter type"}
     end
   end
 
@@ -753,8 +1017,6 @@ defmodule Rclex.ParameterServer do
          deleted_parameter_structs
        ) do
     try do
-      full_node_name = "#{node_namespace}#{node_name}"
-
       # Create parameter event descriptors
       event_descriptors =
         gen_parameter_event_descriptors_struct(
@@ -764,7 +1026,7 @@ defmodule Rclex.ParameterServer do
         )
 
       # Publish the event
-      Rclex.publish(event_descriptors, "#{full_node_name}/parameter_event_descriptors", node_name,
+      Rclex.publish(event_descriptors, @parameter_event_descriptors_topic, node_name,
         namespace: node_namespace
       )
     rescue
@@ -809,9 +1071,7 @@ defmodule Rclex.ParameterServer do
         )
 
       # Publish the event
-      Rclex.publish(event, "#{full_node_name}/parameter_events", node_name,
-        namespace: node_namespace
-      )
+      Rclex.publish(event, @parameter_events_topic, node_name, namespace: node_namespace)
     rescue
       error ->
         require Logger

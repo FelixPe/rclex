@@ -1700,7 +1700,7 @@ defmodule RclexTest do
       assert types == [:integer, :string]
     end
 
-    test "add_parameters_set_callback/3 registers callback for parameter changes", %{
+    test "add_post_set_parameters_callback/3 registers callback for parameter changes", %{
       node_name: node_name
     } do
       test_pid = self()
@@ -1709,7 +1709,7 @@ defmodule RclexTest do
         send(test_pid, {:param_changed, name, new_value, old_value})
       end
 
-      assert :ok = Rclex.add_parameters_set_callback(node_name, callback)
+      assert :ok = Rclex.add_post_set_parameters_callback(node_name, callback)
 
       # Declare and set parameter to trigger callback
       assert :ok = Rclex.declare_parameter(node_name, "watched_param", default_value: "initial")
@@ -1721,7 +1721,7 @@ defmodule RclexTest do
       assert_receive {:param_changed, "watched_param", _new_value, _old_value}, 1000
     end
 
-    test "add_parameters_set_callback/3 with namespace", %{
+    test "add_post_set_parameters_callback/3 with namespace", %{
       node_name: node_name,
       namespace: namespace
     } do
@@ -1731,7 +1731,8 @@ defmodule RclexTest do
         send(test_pid, {:param_changed, name})
       end
 
-      assert :ok = Rclex.add_parameters_set_callback(node_name, callback, namespace: namespace)
+      assert :ok =
+               Rclex.add_post_set_parameters_callback(node_name, callback, namespace: namespace)
 
       # Parameter changes in the namespace should trigger callback
       assert :ok =
@@ -1746,7 +1747,7 @@ defmodule RclexTest do
       assert_receive {:param_changed, "ns_param"}, 1000
     end
 
-    test "remove_parameters_set_callback/3 stops parameter change notifications", %{
+    test "remove_post_set_parameters_callback/3 stops parameter change notifications", %{
       node_name: node_name
     } do
       test_pid = self()
@@ -1756,8 +1757,8 @@ defmodule RclexTest do
       end
 
       # Add and then remove callback
-      assert :ok = Rclex.add_parameters_set_callback(node_name, callback)
-      assert :ok = Rclex.remove_parameters_set_callback(node_name, callback)
+      assert :ok = Rclex.add_post_set_parameters_callback(node_name, callback)
+      assert :ok = Rclex.remove_post_set_parameters_callback(node_name, callback)
 
       # Parameter changes should not trigger callback
       assert :ok = Rclex.declare_parameter(node_name, "unwatched_param", default_value: "initial")
@@ -1841,7 +1842,7 @@ defmodule RclexTest do
       assert sensor_val.bool_value == false
 
       assert {:ok, waypoints_val} = Rclex.get_parameter(node_name, "waypoints")
-      assert waypoints_val.byte_array_value == [10, 20, 30]
+      assert waypoints_val.integer_array_value == [10, 20, 30]
     end
 
     test "parameter edge cases and error handling", %{node_name: node_name} do
