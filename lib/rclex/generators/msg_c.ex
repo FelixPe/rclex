@@ -645,6 +645,7 @@ defmodule Rclex.Generators.MsgC do
   defp enif_make_array({:unbounded, _type}, %Acc{} = acc) do
     var = Enum.join(acc.vars, "_")
     mbr = Enum.join(acc.mbrs, ".")
+
     "(message_p->#{mbr}.size == 0 ? enif_make_list(env, 0) : enif_make_list_from_array(env, #{var}, message_p->#{mbr}.size))"
   end
 
