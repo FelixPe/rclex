@@ -105,9 +105,12 @@ ERL_NIF_TERM nif_std_srvs_srv_set_bool__response_get(ErlNifEnv *env, int argc, c
 
   std_srvs__srv__SetBool_Response *message_p = (std_srvs__srv__SetBool_Response *)*ros_message_pp;
 
+  ERL_NIF_TERM message_term = enif_make_binary_wrapper(env, message_p->message.data, message_p->message.size);
+  if (enif_is_exception(env, message_term))
+    return message_term;
   return enif_make_tuple(env, 2,
     enif_make_atom(env, message_p->success ? "true" : "false"),
-    enif_make_binary_wrapper(env, message_p->message.data, message_p->message.size)
+    message_term
   );
 }
 // clang-format on

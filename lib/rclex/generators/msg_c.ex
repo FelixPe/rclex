@@ -416,7 +416,7 @@ defmodule Rclex.Generators.MsgC do
   end
 
   def build_get_fun_fragments(%Acc{} = acc, lhs \\ "return", ros2_message_type_map) do
-    {binary, accs} = enif_make(acc.type, acc, ros2_message_type_map)
+    {setup, binary, accs} = enif_make(acc.type, acc, ros2_message_type_map)
 
     rhs = binary |> String.replace_suffix("\n", "")
 
@@ -428,7 +428,7 @@ defmodule Rclex.Generators.MsgC do
 
     Enum.map_join(array_accs, fn acc ->
       build_get_fun_fragments_array(acc.type, acc, ros2_message_type_map)
-    end) <> "#{lhs} #{rhs};"
+    end) <> setup <> "#{lhs} #{rhs};"
   end
 
   def build_get_fun_fragments_array({:msg_type_array, type}, %Acc{} = acc, ros2_message_type_map) do
@@ -483,6 +483,12 @@ defmodule Rclex.Generators.MsgC do
     mbr = Enum.join(acc.mbrs, ".")
 
     """
+    if (message_p->#{mbr}.size > message_p->#{mbr}.capacity)
+      return raise_with_message(env, __FILE__, __LINE__, "invalid sequence size/capacity");
+
+    if (message_p->#{mbr}.size > 0 && message_p->#{mbr}.data == NULL)
+      return raise_with_message(env, __FILE__, __LINE__, "NULL sequence data with non-zero size");
+
     ErlNifBinary #{var}_bin;
     if(!enif_alloc_binary(message_p->#{mbr}.size, &#{var}_bin))
       return raise(env, __FILE__, __LINE__);
@@ -506,7 +512,14 @@ defmodule Rclex.Generators.MsgC do
       |> format()
 
     """
-    ERL_NIF_TERM #{var}[message_p->#{mbr}.size];
+    if (message_p->#{mbr}.size > message_p->#{mbr}.capacity)
+      return raise_with_message(env, __FILE__, __LINE__, "invalid sequence size/capacity");
+
+    if (message_p->#{mbr}.size > 0 && message_p->#{mbr}.data == NULL)
+      return raise_with_message(env, __FILE__, __LINE__, "NULL sequence data with non-zero size");
+
+
+    ERL_NIF_TERM #{var}[(message_p->#{mbr}.size > 0 ? message_p->#{mbr}.size : 1)];
 
     for (size_t #{var}_i = 0; #{var}_i < message_p->#{mbr}.size; ++#{var}_i)
     {
@@ -543,7 +556,7 @@ defmodule Rclex.Generators.MsgC do
       |> format()
 
     """
-    ERL_NIF_TERM #{var}[#{size}];
+    ERL_NIF_TERM #{var}[(#{size} > 0 ? #{size} : 1)];
 
     for (size_t #{var}_i = 0; #{var}_i < #{size}; ++#{var}_i)
     {
@@ -556,17 +569,25 @@ defmodule Rclex.Generators.MsgC do
   def enif_make({:msg_type, ros2_message_type}, %Acc{} = acc, ros2_message_type_map) do
     fields = get_fields(ros2_message_type, ros2_message_type_map)
 
-    {binaries, accs} =
+    {fragments, accs} =
       Enum.map_reduce(fields, [], fn [_, name | _] = field, accs ->
         acc = %Acc{acc | vars: acc.vars ++ [name], mbrs: acc.mbrs ++ [name], type: hd(field)}
-        {binary, accs_} = enif_make(acc.type, acc, ros2_message_type_map)
-        {binary, accs ++ accs_}
+        {setup, binary, accs_} = enif_make(acc.type, acc, ros2_message_type_map)
+        {{setup, binary}, accs ++ accs_}
       end)
 
-    binary = Enum.join(binaries, ",\n") |> format()
+    setup =
+      fragments
+      |> Enum.map_join(fn {setup, _binary} -> setup end)
 
     binary =
-      case Enum.count(binaries) do
+      fragments
+      |> Enum.map(fn {_setup, binary} -> binary end)
+      |> Enum.join(",\n")
+      |> format()
+
+    binary =
+      case Enum.count(fragments) do
         0 ->
           """
           enif_make_tuple(env, 0)
@@ -574,45 +595,46 @@ defmodule Rclex.Generators.MsgC do
 
         _ ->
           """
-          enif_make_tuple(env, #{Enum.count(binaries)},
+          enif_make_tuple(env, #{Enum.count(fragments)},
           #{binary}
           )
           """
       end
       |> String.replace_suffix("\n", "")
 
-    {binary, accs}
+    {setup, binary, accs}
   end
 
   def enif_make({:msg_type_array, type}, %Acc{} = acc, _ros2_message_type_map) do
     case get_array_type(type) do
       %{type: type, kind: :unbounded_dynamic} ->
-        {enif_make_array({:unbounded, type}, acc), [acc]}
+        {"", enif_make_array({:unbounded, type}, acc), [acc]}
 
       %{type: type, kind: :bounded_dynamic, size: _} ->
-        {enif_make_array({:unbounded, type}, acc), [acc]}
+        {"", enif_make_array({:unbounded, type}, acc), [acc]}
 
       %{type: type, kind: :static, size: size} ->
-        {enif_make_array({:static, type, size}, acc), [acc]}
+        {"", enif_make_array({:static, type, size}, acc), [acc]}
     end
   end
 
   def enif_make({:builtin_type_array, type}, %Acc{} = acc, _ros2_message_type_map) do
     case get_array_type(type) do
       %{type: type, kind: :unbounded_dynamic} ->
-        {enif_make_array({:unbounded, type}, acc), [acc]}
+        {"", enif_make_array({:unbounded, type}, acc), [acc]}
 
       %{type: type, kind: :bounded_dynamic, size: _} ->
-        {enif_make_array({:unbounded, type}, acc), [acc]}
+        {"", enif_make_array({:unbounded, type}, acc), [acc]}
 
       %{type: type, kind: :static, size: size} ->
-        {enif_make_array({:static, type, size}, acc), [acc]}
+        {"", enif_make_array({:static, type, size}, acc), [acc]}
     end
   end
 
   def enif_make({:builtin_type, type}, %Acc{} = acc, _ros2_message_type_map) do
+    var = Enum.join(acc.vars, "_")
     mbr = Enum.join(acc.mbrs, ".")
-    {enif_make_builtin(type, mbr), [acc]}
+    enif_make_builtin(type, var, mbr)
   end
 
   defp enif_make_array({:unbounded, "uint8" = _type}, %Acc{} = acc) do
@@ -623,7 +645,7 @@ defmodule Rclex.Generators.MsgC do
   defp enif_make_array({:unbounded, _type}, %Acc{} = acc) do
     var = Enum.join(acc.vars, "_")
     mbr = Enum.join(acc.mbrs, ".")
-    "enif_make_list_from_array(env, #{var}, message_p->#{mbr}.size)"
+    "(message_p->#{mbr}.size == 0 ? enif_make_list(env, 0) : enif_make_list_from_array(env, #{var}, message_p->#{mbr}.size))"
   end
 
   defp enif_make_array({:static, "uint8" = _type, _size}, %Acc{} = acc) do
@@ -633,39 +655,48 @@ defmodule Rclex.Generators.MsgC do
 
   defp enif_make_array({:static, _type, size}, %Acc{} = acc) do
     var = Enum.join(acc.vars, "_")
-    "enif_make_list_from_array(env, #{var}, #{size})"
+    "(#{size} == 0 ? enif_make_list(env, 0) : enif_make_list_from_array(env, #{var}, #{size}))"
   end
 
-  defp enif_make_builtin("bool", mbr) do
-    "enif_make_atom(env, message_p->#{mbr} ? \"true\" : \"false\")"
+  defp enif_make_builtin("bool", _var, mbr) do
+    {"", "enif_make_atom(env, message_p->#{mbr} ? \"true\" : \"false\")", []}
   end
 
-  defp enif_make_builtin("int64", mbr) do
-    "enif_make_int64(env, message_p->#{mbr})"
+  defp enif_make_builtin("int64", _var, mbr) do
+    {"", "enif_make_int64(env, message_p->#{mbr})", []}
   end
 
-  defp enif_make_builtin("byte", mbr) do
-    "enif_make_uint(env, message_p->#{mbr})"
+  defp enif_make_builtin("byte", _var, mbr) do
+    {"", "enif_make_uint(env, message_p->#{mbr})", []}
   end
 
-  defp enif_make_builtin("int" <> _, mbr) do
-    "enif_make_int(env, message_p->#{mbr})"
+  defp enif_make_builtin("int" <> _, _var, mbr) do
+    {"", "enif_make_int(env, message_p->#{mbr})", []}
   end
 
-  defp enif_make_builtin("uint64", mbr) do
-    "enif_make_uint64(env, message_p->#{mbr})"
+  defp enif_make_builtin("uint64", _var, mbr) do
+    {"", "enif_make_uint64(env, message_p->#{mbr})", []}
   end
 
-  defp enif_make_builtin("uint" <> _, mbr) do
-    "enif_make_uint(env, message_p->#{mbr})"
+  defp enif_make_builtin("uint" <> _, _var, mbr) do
+    {"", "enif_make_uint(env, message_p->#{mbr})", []}
   end
 
-  defp enif_make_builtin("float" <> _, mbr) do
-    "enif_make_double(env, message_p->#{mbr})"
+  defp enif_make_builtin("float" <> _, _var, mbr) do
+    {"", "enif_make_double(env, message_p->#{mbr})", []}
   end
 
-  defp enif_make_builtin("string", mbr) do
-    "enif_make_binary_wrapper(env, message_p->#{mbr}.data, message_p->#{mbr}.size)"
+  defp enif_make_builtin("string", var, mbr) do
+    term_var = "#{var}_term"
+
+    setup =
+      """
+      ERL_NIF_TERM #{term_var} = enif_make_binary_wrapper(env, message_p->#{mbr}.data, message_p->#{mbr}.size);
+      if (enif_is_exception(env, #{term_var}))
+        return #{term_var};
+      """
+
+    {setup, term_var, []}
   end
 
   defp format(binary) do

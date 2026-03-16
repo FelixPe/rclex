@@ -1,3 +1,9 @@
+  if (message_p->types.size > message_p->types.capacity)
+    return raise_with_message(env, __FILE__, __LINE__, "invalid sequence size/capacity");
+
+  if (message_p->types.size > 0 && message_p->types.data == NULL)
+    return raise_with_message(env, __FILE__, __LINE__, "NULL sequence data with non-zero size");
+
   ErlNifBinary types_bin;
   if(!enif_alloc_binary(message_p->types.size, &types_bin))
     return raise(env, __FILE__, __LINE__);

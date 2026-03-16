@@ -10,6 +10,12 @@ defmodule Rclex.GraphTest do
   alias Rclex.Pkgs.Tf2Msgs
   alias Rclex.QoS
 
+  @rmw_implementation System.get_env("RMW_IMPLEMENTATION") || ""
+
+  defp dds_mangled_graph_supported? do
+    @rmw_implementation != "rmw_zenoh_cpp"
+  end
+
   setup do
     capture_log(fn -> Application.stop(:rclex) end)
 
@@ -127,27 +133,34 @@ defmodule Rclex.GraphTest do
              {topic_name, [~c"std_msgs/msg/String"]}
            )
 
-    assert [
-             {~c"rq/lookup_transform/_action/cancel_goalRequest",
-              [~c"action_msgs::srv::dds_::CancelGoal_Request_"]},
-             {~c"rq/lookup_transform/_action/get_resultRequest",
-              [~c"tf2_msgs::action::dds_::LookupTransform_GetResult_Request_"]},
-             {~c"rq/lookup_transform/_action/send_goalRequest",
-              [~c"tf2_msgs::action::dds_::LookupTransform_SendGoal_Request_"]},
-             {~c"rq/set_test_boolRequest", [~c"std_srvs::srv::dds_::SetBool_Request_"]},
-             {~c"rr/lookup_transform/_action/cancel_goalReply",
-              [~c"action_msgs::srv::dds_::CancelGoal_Response_"]},
-             {~c"rr/lookup_transform/_action/get_resultReply",
-              [~c"tf2_msgs::action::dds_::LookupTransform_GetResult_Response_"]},
-             {~c"rr/lookup_transform/_action/send_goalReply",
-              [~c"tf2_msgs::action::dds_::LookupTransform_SendGoal_Response_"]},
-             {~c"rr/set_test_boolReply", [~c"std_srvs::srv::dds_::SetBool_Response_"]},
-             {~c"rt/chatter", [~c"std_msgs::msg::dds_::String_"]},
-             {~c"rt/lookup_transform/_action/feedback",
-              [~c"tf2_msgs::action::dds_::LookupTransform_FeedbackMessage_"]},
-             {~c"rt/lookup_transform/_action/status",
-              [~c"action_msgs::msg::dds_::GoalStatusArray_"]}
-           ] = Graph.get_publisher_names_and_types_by_node(node, name, namespace, true)
+    publishers = Graph.get_publisher_names_and_types_by_node(node, name, namespace, true)
+
+    if dds_mangled_graph_supported?() do
+      assert [
+               {~c"rq/lookup_transform/_action/cancel_goalRequest",
+                [~c"action_msgs::srv::dds_::CancelGoal_Request_"]},
+               {~c"rq/lookup_transform/_action/get_resultRequest",
+                [~c"tf2_msgs::action::dds_::LookupTransform_GetResult_Request_"]},
+               {~c"rq/lookup_transform/_action/send_goalRequest",
+                [~c"tf2_msgs::action::dds_::LookupTransform_SendGoal_Request_"]},
+               {~c"rq/set_test_boolRequest", [~c"std_srvs::srv::dds_::SetBool_Request_"]},
+               {~c"rr/lookup_transform/_action/cancel_goalReply",
+                [~c"action_msgs::srv::dds_::CancelGoal_Response_"]},
+               {~c"rr/lookup_transform/_action/get_resultReply",
+                [~c"tf2_msgs::action::dds_::LookupTransform_GetResult_Response_"]},
+               {~c"rr/lookup_transform/_action/send_goalReply",
+                [~c"tf2_msgs::action::dds_::LookupTransform_SendGoal_Response_"]},
+               {~c"rr/set_test_boolReply", [~c"std_srvs::srv::dds_::SetBool_Response_"]},
+               {~c"rt/chatter", [~c"std_msgs::msg::dds_::String_"]},
+               {~c"rt/lookup_transform/_action/feedback",
+                [~c"tf2_msgs::action::dds_::LookupTransform_FeedbackMessage_"]},
+               {~c"rt/lookup_transform/_action/status",
+                [~c"action_msgs::msg::dds_::GoalStatusArray_"]}
+             ] = publishers
+    else
+      assert is_list(publishers)
+      refute Enum.member?(publishers, {~c"rt/chatter", [~c"std_msgs::msg::dds_::String_"]})
+    end
 
     assert {:error, :not_found} =
              Graph.get_publisher_names_and_types_by_node(node, non_existent, namespace, false)
@@ -172,17 +185,21 @@ defmodule Rclex.GraphTest do
 
     assert [] = Graph.get_publishers_info_by_topic(node, ~c"/does_not_exist", false)
 
-    [info] = Graph.get_publishers_info_by_topic(node, ~c"rt/chatter", true)
-    assert is_binary(info.endpoint_gid)
-    %qos_type{} = info.qos_profile
-    assert qos_type == Rclex.QoS
+    if dds_mangled_graph_supported?() do
+      [info] = Graph.get_publishers_info_by_topic(node, ~c"rt/chatter", true)
+      assert is_binary(info.endpoint_gid)
+      %qos_type{} = info.qos_profile
+      assert qos_type == Rclex.QoS
 
-    assert %{
-             node_name: ~c"name",
-             node_namespace: ~c"/namespace",
-             topic_type: ~c"std_msgs::msg::dds_::String_",
-             endpoint_type: :publisher
-           } == Map.drop(info, [:endpoint_gid, :qos_profile])
+      assert %{
+               node_name: ~c"name",
+               node_namespace: ~c"/namespace",
+               topic_type: ~c"std_msgs::msg::dds_::String_",
+               endpoint_type: :publisher
+             } == Map.drop(info, [:endpoint_gid, :qos_profile])
+    else
+      assert [] = Graph.get_publishers_info_by_topic(node, ~c"rt/chatter", true)
+    end
   end
 
   test "get_subscriber_names_and_types_by_node/1", %{
@@ -197,27 +214,34 @@ defmodule Rclex.GraphTest do
              {topic_name, [~c"std_msgs/msg/String"]}
            )
 
-    assert [
-             {~c"rq/lookup_transform/_action/cancel_goalRequest",
-              [~c"action_msgs::srv::dds_::CancelGoal_Request_"]},
-             {~c"rq/lookup_transform/_action/get_resultRequest",
-              [~c"tf2_msgs::action::dds_::LookupTransform_GetResult_Request_"]},
-             {~c"rq/lookup_transform/_action/send_goalRequest",
-              [~c"tf2_msgs::action::dds_::LookupTransform_SendGoal_Request_"]},
-             {~c"rq/set_test_boolRequest", [~c"std_srvs::srv::dds_::SetBool_Request_"]},
-             {~c"rr/lookup_transform/_action/cancel_goalReply",
-              [~c"action_msgs::srv::dds_::CancelGoal_Response_"]},
-             {~c"rr/lookup_transform/_action/get_resultReply",
-              [~c"tf2_msgs::action::dds_::LookupTransform_GetResult_Response_"]},
-             {~c"rr/lookup_transform/_action/send_goalReply",
-              [~c"tf2_msgs::action::dds_::LookupTransform_SendGoal_Response_"]},
-             {~c"rr/set_test_boolReply", [~c"std_srvs::srv::dds_::SetBool_Response_"]},
-             {~c"rt/chatter", [~c"std_msgs::msg::dds_::String_"]},
-             {~c"rt/lookup_transform/_action/feedback",
-              [~c"tf2_msgs::action::dds_::LookupTransform_FeedbackMessage_"]},
-             {~c"rt/lookup_transform/_action/status",
-              [~c"action_msgs::msg::dds_::GoalStatusArray_"]}
-           ] = Graph.get_subscriber_names_and_types_by_node(node, name, namespace, true)
+    subscribers = Graph.get_subscriber_names_and_types_by_node(node, name, namespace, true)
+
+    if dds_mangled_graph_supported?() do
+      assert [
+               {~c"rq/lookup_transform/_action/cancel_goalRequest",
+                [~c"action_msgs::srv::dds_::CancelGoal_Request_"]},
+               {~c"rq/lookup_transform/_action/get_resultRequest",
+                [~c"tf2_msgs::action::dds_::LookupTransform_GetResult_Request_"]},
+               {~c"rq/lookup_transform/_action/send_goalRequest",
+                [~c"tf2_msgs::action::dds_::LookupTransform_SendGoal_Request_"]},
+               {~c"rq/set_test_boolRequest", [~c"std_srvs::srv::dds_::SetBool_Request_"]},
+               {~c"rr/lookup_transform/_action/cancel_goalReply",
+                [~c"action_msgs::srv::dds_::CancelGoal_Response_"]},
+               {~c"rr/lookup_transform/_action/get_resultReply",
+                [~c"tf2_msgs::action::dds_::LookupTransform_GetResult_Response_"]},
+               {~c"rr/lookup_transform/_action/send_goalReply",
+                [~c"tf2_msgs::action::dds_::LookupTransform_SendGoal_Response_"]},
+               {~c"rr/set_test_boolReply", [~c"std_srvs::srv::dds_::SetBool_Response_"]},
+               {~c"rt/chatter", [~c"std_msgs::msg::dds_::String_"]},
+               {~c"rt/lookup_transform/_action/feedback",
+                [~c"tf2_msgs::action::dds_::LookupTransform_FeedbackMessage_"]},
+               {~c"rt/lookup_transform/_action/status",
+                [~c"action_msgs::msg::dds_::GoalStatusArray_"]}
+             ] = subscribers
+    else
+      assert is_list(subscribers)
+      refute Enum.member?(subscribers, {~c"rt/chatter", [~c"std_msgs::msg::dds_::String_"]})
+    end
 
     assert {:error, :not_found} =
              Graph.get_subscriber_names_and_types_by_node(node, non_existent, namespace, false)
@@ -242,17 +266,21 @@ defmodule Rclex.GraphTest do
 
     assert [] = Graph.get_subscribers_info_by_topic(node, ~c"/does_not_exist", false)
 
-    [info] = Graph.get_subscribers_info_by_topic(node, ~c"rt/chatter", true)
-    assert is_binary(info.endpoint_gid)
-    %qos_type{} = info.qos_profile
-    assert qos_type == Rclex.QoS
+    if dds_mangled_graph_supported?() do
+      [info] = Graph.get_subscribers_info_by_topic(node, ~c"rt/chatter", true)
+      assert is_binary(info.endpoint_gid)
+      %qos_type{} = info.qos_profile
+      assert qos_type == Rclex.QoS
 
-    assert %{
-             node_name: ~c"name",
-             node_namespace: ~c"/namespace",
-             topic_type: ~c"std_msgs::msg::dds_::String_",
-             endpoint_type: :subscription
-           } == Map.drop(info, [:endpoint_gid, :qos_profile])
+      assert %{
+               node_name: ~c"name",
+               node_namespace: ~c"/namespace",
+               topic_type: ~c"std_msgs::msg::dds_::String_",
+               endpoint_type: :subscription
+             } == Map.drop(info, [:endpoint_gid, :qos_profile])
+    else
+      assert [] = Graph.get_subscribers_info_by_topic(node, ~c"rt/chatter", true)
+    end
   end
 
   test "get_topic_names_and_types/1", %{topic_name: topic_name, node: node} do

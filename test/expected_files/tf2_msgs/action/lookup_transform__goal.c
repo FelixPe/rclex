@@ -170,9 +170,18 @@ ERL_NIF_TERM nif_tf2_msgs_action_lookup_transform__goal_get(ErlNifEnv *env, int 
 
   tf2_msgs__action__LookupTransform_Goal *message_p = (tf2_msgs__action__LookupTransform_Goal *)*ros_message_pp;
 
+  ERL_NIF_TERM target_frame_term = enif_make_binary_wrapper(env, message_p->target_frame.data, message_p->target_frame.size);
+  if (enif_is_exception(env, target_frame_term))
+    return target_frame_term;
+  ERL_NIF_TERM source_frame_term = enif_make_binary_wrapper(env, message_p->source_frame.data, message_p->source_frame.size);
+  if (enif_is_exception(env, source_frame_term))
+    return source_frame_term;
+  ERL_NIF_TERM fixed_frame_term = enif_make_binary_wrapper(env, message_p->fixed_frame.data, message_p->fixed_frame.size);
+  if (enif_is_exception(env, fixed_frame_term))
+    return fixed_frame_term;
   return enif_make_tuple(env, 7,
-    enif_make_binary_wrapper(env, message_p->target_frame.data, message_p->target_frame.size),
-    enif_make_binary_wrapper(env, message_p->source_frame.data, message_p->source_frame.size),
+    target_frame_term,
+    source_frame_term,
     enif_make_tuple(env, 2,
       enif_make_int(env, message_p->source_time.sec),
       enif_make_uint(env, message_p->source_time.nanosec)
@@ -185,7 +194,7 @@ ERL_NIF_TERM nif_tf2_msgs_action_lookup_transform__goal_get(ErlNifEnv *env, int 
       enif_make_int(env, message_p->target_time.sec),
       enif_make_uint(env, message_p->target_time.nanosec)
     ),
-    enif_make_binary_wrapper(env, message_p->fixed_frame.data, message_p->fixed_frame.size),
+    fixed_frame_term,
     enif_make_atom(env, message_p->advanced ? "true" : "false")
   );
 }

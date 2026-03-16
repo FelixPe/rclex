@@ -215,6 +215,15 @@ ERL_NIF_TERM nif_tf2_msgs_action_lookup_transform__result_get(ErlNifEnv *env, in
 
   tf2_msgs__action__LookupTransform_Result *message_p = (tf2_msgs__action__LookupTransform_Result *)*ros_message_pp;
 
+  ERL_NIF_TERM transform_header_frame_id_term = enif_make_binary_wrapper(env, message_p->transform.header.frame_id.data, message_p->transform.header.frame_id.size);
+  if (enif_is_exception(env, transform_header_frame_id_term))
+    return transform_header_frame_id_term;
+  ERL_NIF_TERM transform_child_frame_id_term = enif_make_binary_wrapper(env, message_p->transform.child_frame_id.data, message_p->transform.child_frame_id.size);
+  if (enif_is_exception(env, transform_child_frame_id_term))
+    return transform_child_frame_id_term;
+  ERL_NIF_TERM error_error_string_term = enif_make_binary_wrapper(env, message_p->error.error_string.data, message_p->error.error_string.size);
+  if (enif_is_exception(env, error_error_string_term))
+    return error_error_string_term;
   return enif_make_tuple(env, 2,
     enif_make_tuple(env, 3,
       enif_make_tuple(env, 2,
@@ -222,9 +231,9 @@ ERL_NIF_TERM nif_tf2_msgs_action_lookup_transform__result_get(ErlNifEnv *env, in
           enif_make_int(env, message_p->transform.header.stamp.sec),
           enif_make_uint(env, message_p->transform.header.stamp.nanosec)
         ),
-        enif_make_binary_wrapper(env, message_p->transform.header.frame_id.data, message_p->transform.header.frame_id.size)
+        transform_header_frame_id_term
       ),
-      enif_make_binary_wrapper(env, message_p->transform.child_frame_id.data, message_p->transform.child_frame_id.size),
+      transform_child_frame_id_term,
       enif_make_tuple(env, 2,
         enif_make_tuple(env, 3,
           enif_make_double(env, message_p->transform.transform.translation.x),
@@ -241,7 +250,7 @@ ERL_NIF_TERM nif_tf2_msgs_action_lookup_transform__result_get(ErlNifEnv *env, in
     ),
     enif_make_tuple(env, 2,
       enif_make_uint(env, message_p->error.error),
-      enif_make_binary_wrapper(env, message_p->error.error_string.data, message_p->error.error_string.size)
+      error_error_string_term
     )
   );
 }

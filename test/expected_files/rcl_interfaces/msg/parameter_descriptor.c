@@ -212,7 +212,14 @@ ERL_NIF_TERM nif_rcl_interfaces_msg_parameter_descriptor_get(ErlNifEnv *env, int
 
   rcl_interfaces__msg__ParameterDescriptor *message_p = (rcl_interfaces__msg__ParameterDescriptor *)*ros_message_pp;
 
-  ERL_NIF_TERM floating_point_range[message_p->floating_point_range.size];
+  if (message_p->floating_point_range.size > message_p->floating_point_range.capacity)
+    return raise_with_message(env, __FILE__, __LINE__, "invalid sequence size/capacity");
+
+  if (message_p->floating_point_range.size > 0 && message_p->floating_point_range.data == NULL)
+    return raise_with_message(env, __FILE__, __LINE__, "NULL sequence data with non-zero size");
+
+
+  ERL_NIF_TERM floating_point_range[(message_p->floating_point_range.size > 0 ? message_p->floating_point_range.size : 1)];
 
   for (size_t floating_point_range_i = 0; floating_point_range_i < message_p->floating_point_range.size; ++floating_point_range_i)
   {
@@ -223,7 +230,14 @@ ERL_NIF_TERM nif_rcl_interfaces_msg_parameter_descriptor_get(ErlNifEnv *env, int
     );
   }
 
-  ERL_NIF_TERM integer_range[message_p->integer_range.size];
+  if (message_p->integer_range.size > message_p->integer_range.capacity)
+    return raise_with_message(env, __FILE__, __LINE__, "invalid sequence size/capacity");
+
+  if (message_p->integer_range.size > 0 && message_p->integer_range.data == NULL)
+    return raise_with_message(env, __FILE__, __LINE__, "NULL sequence data with non-zero size");
+
+
+  ERL_NIF_TERM integer_range[(message_p->integer_range.size > 0 ? message_p->integer_range.size : 1)];
 
   for (size_t integer_range_i = 0; integer_range_i < message_p->integer_range.size; ++integer_range_i)
   {
@@ -234,15 +248,24 @@ ERL_NIF_TERM nif_rcl_interfaces_msg_parameter_descriptor_get(ErlNifEnv *env, int
     );
   }
 
+  ERL_NIF_TERM name_term = enif_make_binary_wrapper(env, message_p->name.data, message_p->name.size);
+  if (enif_is_exception(env, name_term))
+    return name_term;
+  ERL_NIF_TERM description_term = enif_make_binary_wrapper(env, message_p->description.data, message_p->description.size);
+  if (enif_is_exception(env, description_term))
+    return description_term;
+  ERL_NIF_TERM additional_constraints_term = enif_make_binary_wrapper(env, message_p->additional_constraints.data, message_p->additional_constraints.size);
+  if (enif_is_exception(env, additional_constraints_term))
+    return additional_constraints_term;
   return enif_make_tuple(env, 8,
-    enif_make_binary_wrapper(env, message_p->name.data, message_p->name.size),
+    name_term,
     enif_make_uint(env, message_p->type),
-    enif_make_binary_wrapper(env, message_p->description.data, message_p->description.size),
-    enif_make_binary_wrapper(env, message_p->additional_constraints.data, message_p->additional_constraints.size),
+    description_term,
+    additional_constraints_term,
     enif_make_atom(env, message_p->read_only ? "true" : "false"),
     enif_make_atom(env, message_p->dynamic_typing ? "true" : "false"),
-    enif_make_list_from_array(env, floating_point_range, message_p->floating_point_range.size),
-    enif_make_list_from_array(env, integer_range, message_p->integer_range.size)
+    (message_p->floating_point_range.size == 0 ? enif_make_list(env, 0) : enif_make_list_from_array(env, floating_point_range, message_p->floating_point_range.size)),
+    (message_p->integer_range.size == 0 ? enif_make_list(env, 0) : enif_make_list_from_array(env, integer_range, message_p->integer_range.size))
   );
 }
 // clang-format on

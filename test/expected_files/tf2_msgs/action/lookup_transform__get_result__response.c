@@ -228,6 +228,15 @@ ERL_NIF_TERM nif_tf2_msgs_action_lookup_transform__get_result__response_get(ErlN
 
   tf2_msgs__action__LookupTransform_GetResult_Response *message_p = (tf2_msgs__action__LookupTransform_GetResult_Response *)*ros_message_pp;
 
+  ERL_NIF_TERM result_transform_header_frame_id_term = enif_make_binary_wrapper(env, message_p->result.transform.header.frame_id.data, message_p->result.transform.header.frame_id.size);
+  if (enif_is_exception(env, result_transform_header_frame_id_term))
+    return result_transform_header_frame_id_term;
+  ERL_NIF_TERM result_transform_child_frame_id_term = enif_make_binary_wrapper(env, message_p->result.transform.child_frame_id.data, message_p->result.transform.child_frame_id.size);
+  if (enif_is_exception(env, result_transform_child_frame_id_term))
+    return result_transform_child_frame_id_term;
+  ERL_NIF_TERM result_error_error_string_term = enif_make_binary_wrapper(env, message_p->result.error.error_string.data, message_p->result.error.error_string.size);
+  if (enif_is_exception(env, result_error_error_string_term))
+    return result_error_error_string_term;
   return enif_make_tuple(env, 2,
     enif_make_uint(env, message_p->status),
     enif_make_tuple(env, 2,
@@ -237,9 +246,9 @@ ERL_NIF_TERM nif_tf2_msgs_action_lookup_transform__get_result__response_get(ErlN
             enif_make_int(env, message_p->result.transform.header.stamp.sec),
             enif_make_uint(env, message_p->result.transform.header.stamp.nanosec)
           ),
-          enif_make_binary_wrapper(env, message_p->result.transform.header.frame_id.data, message_p->result.transform.header.frame_id.size)
+          result_transform_header_frame_id_term
         ),
-        enif_make_binary_wrapper(env, message_p->result.transform.child_frame_id.data, message_p->result.transform.child_frame_id.size),
+        result_transform_child_frame_id_term,
         enif_make_tuple(env, 2,
           enif_make_tuple(env, 3,
             enif_make_double(env, message_p->result.transform.transform.translation.x),
@@ -256,7 +265,7 @@ ERL_NIF_TERM nif_tf2_msgs_action_lookup_transform__get_result__response_get(ErlN
       ),
       enif_make_tuple(env, 2,
         enif_make_uint(env, message_p->result.error.error),
-        enif_make_binary_wrapper(env, message_p->result.error.error_string.data, message_p->result.error.error_string.size)
+        result_error_error_string_term
       )
     )
   );

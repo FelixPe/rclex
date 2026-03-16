@@ -164,18 +164,35 @@ ERL_NIF_TERM nif_std_msgs_msg_u_int32_multi_array_get(ErlNifEnv *env, int argc, 
 
   std_msgs__msg__UInt32MultiArray *message_p = (std_msgs__msg__UInt32MultiArray *)*ros_message_pp;
 
-  ERL_NIF_TERM layout_dim[message_p->layout.dim.size];
+  if (message_p->layout.dim.size > message_p->layout.dim.capacity)
+    return raise_with_message(env, __FILE__, __LINE__, "invalid sequence size/capacity");
+
+  if (message_p->layout.dim.size > 0 && message_p->layout.dim.data == NULL)
+    return raise_with_message(env, __FILE__, __LINE__, "NULL sequence data with non-zero size");
+
+
+  ERL_NIF_TERM layout_dim[(message_p->layout.dim.size > 0 ? message_p->layout.dim.size : 1)];
 
   for (size_t layout_dim_i = 0; layout_dim_i < message_p->layout.dim.size; ++layout_dim_i)
   {
+    ERL_NIF_TERM layout_dim_label_term = enif_make_binary_wrapper(env, message_p->layout.dim.data[layout_dim_i].label.data, message_p->layout.dim.data[layout_dim_i].label.size);
+    if (enif_is_exception(env, layout_dim_label_term))
+      return layout_dim_label_term;
     layout_dim[layout_dim_i] = enif_make_tuple(env, 3,
-      enif_make_binary_wrapper(env, message_p->layout.dim.data[layout_dim_i].label.data, message_p->layout.dim.data[layout_dim_i].label.size),
+      layout_dim_label_term,
       enif_make_uint(env, message_p->layout.dim.data[layout_dim_i].size),
       enif_make_uint(env, message_p->layout.dim.data[layout_dim_i].stride)
     );
   }
 
-  ERL_NIF_TERM data[message_p->data.size];
+  if (message_p->data.size > message_p->data.capacity)
+    return raise_with_message(env, __FILE__, __LINE__, "invalid sequence size/capacity");
+
+  if (message_p->data.size > 0 && message_p->data.data == NULL)
+    return raise_with_message(env, __FILE__, __LINE__, "NULL sequence data with non-zero size");
+
+
+  ERL_NIF_TERM data[(message_p->data.size > 0 ? message_p->data.size : 1)];
 
   for (size_t data_i = 0; data_i < message_p->data.size; ++data_i)
   {
@@ -184,10 +201,10 @@ ERL_NIF_TERM nif_std_msgs_msg_u_int32_multi_array_get(ErlNifEnv *env, int argc, 
 
   return enif_make_tuple(env, 2,
     enif_make_tuple(env, 2,
-      enif_make_list_from_array(env, layout_dim, message_p->layout.dim.size),
+      (message_p->layout.dim.size == 0 ? enif_make_list(env, 0) : enif_make_list_from_array(env, layout_dim, message_p->layout.dim.size)),
       enif_make_uint(env, message_p->layout.data_offset)
     ),
-    enif_make_list_from_array(env, data, message_p->data.size)
+    (message_p->data.size == 0 ? enif_make_list(env, 0) : enif_make_list_from_array(env, data, message_p->data.size))
   );
 }
 // clang-format on

@@ -203,13 +203,22 @@ ERL_NIF_TERM nif_tf2_msgs_action_lookup_transform__send_goal__request_get(ErlNif
   memcpy(goal_id_uuid_bin.data, message_p->goal_id.uuid, 16);
   ERL_NIF_TERM goal_id_uuid = enif_make_binary(env, &goal_id_uuid_bin);
 
+  ERL_NIF_TERM goal_target_frame_term = enif_make_binary_wrapper(env, message_p->goal.target_frame.data, message_p->goal.target_frame.size);
+  if (enif_is_exception(env, goal_target_frame_term))
+    return goal_target_frame_term;
+  ERL_NIF_TERM goal_source_frame_term = enif_make_binary_wrapper(env, message_p->goal.source_frame.data, message_p->goal.source_frame.size);
+  if (enif_is_exception(env, goal_source_frame_term))
+    return goal_source_frame_term;
+  ERL_NIF_TERM goal_fixed_frame_term = enif_make_binary_wrapper(env, message_p->goal.fixed_frame.data, message_p->goal.fixed_frame.size);
+  if (enif_is_exception(env, goal_fixed_frame_term))
+    return goal_fixed_frame_term;
   return enif_make_tuple(env, 2,
     enif_make_tuple(env, 1,
       goal_id_uuid
     ),
     enif_make_tuple(env, 7,
-      enif_make_binary_wrapper(env, message_p->goal.target_frame.data, message_p->goal.target_frame.size),
-      enif_make_binary_wrapper(env, message_p->goal.source_frame.data, message_p->goal.source_frame.size),
+      goal_target_frame_term,
+      goal_source_frame_term,
       enif_make_tuple(env, 2,
         enif_make_int(env, message_p->goal.source_time.sec),
         enif_make_uint(env, message_p->goal.source_time.nanosec)
@@ -222,7 +231,7 @@ ERL_NIF_TERM nif_tf2_msgs_action_lookup_transform__send_goal__request_get(ErlNif
         enif_make_int(env, message_p->goal.target_time.sec),
         enif_make_uint(env, message_p->goal.target_time.nanosec)
       ),
-      enif_make_binary_wrapper(env, message_p->goal.fixed_frame.data, message_p->goal.fixed_frame.size),
+      goal_fixed_frame_term,
       enif_make_atom(env, message_p->goal.advanced ? "true" : "false")
     )
   );

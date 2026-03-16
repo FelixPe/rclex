@@ -112,15 +112,25 @@ ERL_NIF_TERM nif_rcl_interfaces_srv_get_parameter_types__request_get(ErlNifEnv *
 
   rcl_interfaces__srv__GetParameterTypes_Request *message_p = (rcl_interfaces__srv__GetParameterTypes_Request *)*ros_message_pp;
 
-  ERL_NIF_TERM names[message_p->names.size];
+  if (message_p->names.size > message_p->names.capacity)
+    return raise_with_message(env, __FILE__, __LINE__, "invalid sequence size/capacity");
+
+  if (message_p->names.size > 0 && message_p->names.data == NULL)
+    return raise_with_message(env, __FILE__, __LINE__, "NULL sequence data with non-zero size");
+
+
+  ERL_NIF_TERM names[(message_p->names.size > 0 ? message_p->names.size : 1)];
 
   for (size_t names_i = 0; names_i < message_p->names.size; ++names_i)
   {
-    names[names_i] = enif_make_binary_wrapper(env, message_p->names.data[names_i].data, message_p->names.data[names_i].size);
+    ERL_NIF_TERM names_term = enif_make_binary_wrapper(env, message_p->names.data[names_i].data, message_p->names.data[names_i].size);
+    if (enif_is_exception(env, names_term))
+      return names_term;
+    names[names_i] = names_term;
   }
 
   return enif_make_tuple(env, 1,
-    enif_make_list_from_array(env, names, message_p->names.size)
+    (message_p->names.size == 0 ? enif_make_list(env, 0) : enif_make_list_from_array(env, names, message_p->names.size))
   );
 }
 // clang-format on

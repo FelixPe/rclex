@@ -205,33 +205,35 @@ defmodule Rclex.Generators.MsgCTest do
       acc = %MsgC.Acc{vars: ["test"], mbrs: ["data"], terms: ["term"]}
 
       # Test string type
-      {result, _acc} = MsgC.enif_make({:builtin_type, "string"}, acc, %{})
-      assert result =~ "enif_make_binary_wrapper"
+      {setup, result, _accs} = MsgC.enif_make({:builtin_type, "string"}, acc, %{})
+      assert setup =~ "enif_make_binary_wrapper"
+      assert setup =~ "enif_is_exception"
+      assert result == "test_term"
 
       # Test boolean type
-      {result, _acc} = MsgC.enif_make({:builtin_type, "bool"}, acc, %{})
+      {_, result, _accs} = MsgC.enif_make({:builtin_type, "bool"}, acc, %{})
       assert result =~ "enif_make_atom"
       assert result =~ "true"
       assert result =~ "false"
 
       # Test integer types
-      {result, _acc} = MsgC.enif_make({:builtin_type, "int32"}, acc, %{})
+      {_, result, _accs} = MsgC.enif_make({:builtin_type, "int32"}, acc, %{})
       assert result =~ "enif_make_int"
 
-      {result, _acc} = MsgC.enif_make({:builtin_type, "uint32"}, acc, %{})
+      {_, result, _accs} = MsgC.enif_make({:builtin_type, "uint32"}, acc, %{})
       assert result =~ "enif_make_uint"
 
-      {result, _acc} = MsgC.enif_make({:builtin_type, "int64"}, acc, %{})
+      {_, result, _accs} = MsgC.enif_make({:builtin_type, "int64"}, acc, %{})
       assert result =~ "enif_make_int64"
 
-      {result, _acc} = MsgC.enif_make({:builtin_type, "uint64"}, acc, %{})
+      {_, result, _accs} = MsgC.enif_make({:builtin_type, "uint64"}, acc, %{})
       assert result =~ "enif_make_uint64"
 
       # Test float types
-      {result, _acc} = MsgC.enif_make({:builtin_type, "float32"}, acc, %{})
+      {_, result, _accs} = MsgC.enif_make({:builtin_type, "float32"}, acc, %{})
       assert result =~ "enif_make_double"
 
-      {result, _acc} = MsgC.enif_make({:builtin_type, "float64"}, acc, %{})
+      {_, result, _accs} = MsgC.enif_make({:builtin_type, "float64"}, acc, %{})
       assert result =~ "enif_make_double"
     end
   end

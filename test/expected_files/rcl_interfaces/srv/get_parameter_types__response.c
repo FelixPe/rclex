@@ -99,6 +99,12 @@ ERL_NIF_TERM nif_rcl_interfaces_srv_get_parameter_types__response_get(ErlNifEnv 
 
   rcl_interfaces__srv__GetParameterTypes_Response *message_p = (rcl_interfaces__srv__GetParameterTypes_Response *)*ros_message_pp;
 
+  if (message_p->types.size > message_p->types.capacity)
+    return raise_with_message(env, __FILE__, __LINE__, "invalid sequence size/capacity");
+
+  if (message_p->types.size > 0 && message_p->types.data == NULL)
+    return raise_with_message(env, __FILE__, __LINE__, "NULL sequence data with non-zero size");
+
   ErlNifBinary types_bin;
   if(!enif_alloc_binary(message_p->types.size, &types_bin))
     return raise(env, __FILE__, __LINE__);

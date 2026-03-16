@@ -105,8 +105,11 @@ ERL_NIF_TERM nif_std_msgs_msg_multi_array_dimension_get(ErlNifEnv *env, int argc
 
   std_msgs__msg__MultiArrayDimension *message_p = (std_msgs__msg__MultiArrayDimension *)*ros_message_pp;
 
+  ERL_NIF_TERM label_term = enif_make_binary_wrapper(env, message_p->label.data, message_p->label.size);
+  if (enif_is_exception(env, label_term))
+    return label_term;
   return enif_make_tuple(env, 3,
-    enif_make_binary_wrapper(env, message_p->label.data, message_p->label.size),
+    label_term,
     enif_make_uint(env, message_p->size),
     enif_make_uint(env, message_p->stride)
   );

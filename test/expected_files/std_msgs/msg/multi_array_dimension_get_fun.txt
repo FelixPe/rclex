@@ -1,5 +1,8 @@
+  ERL_NIF_TERM label_term = enif_make_binary_wrapper(env, message_p->label.data, message_p->label.size);
+  if (enif_is_exception(env, label_term))
+    return label_term;
   return enif_make_tuple(env, 3,
-    enif_make_binary_wrapper(env, message_p->label.data, message_p->label.size),
+    label_term,
     enif_make_uint(env, message_p->size),
     enif_make_uint(env, message_p->stride)
   );

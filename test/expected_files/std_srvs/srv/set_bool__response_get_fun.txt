@@ -1,4 +1,7 @@
+  ERL_NIF_TERM message_term = enif_make_binary_wrapper(env, message_p->message.data, message_p->message.size);
+  if (enif_is_exception(env, message_term))
+    return message_term;
   return enif_make_tuple(env, 2,
     enif_make_atom(env, message_p->success ? "true" : "false"),
-    enif_make_binary_wrapper(env, message_p->message.data, message_p->message.size)
+    message_term
   );

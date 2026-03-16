@@ -95,8 +95,11 @@ ERL_NIF_TERM nif_std_msgs_msg_string_get(ErlNifEnv *env, int argc, const ERL_NIF
 
   std_msgs__msg__String *message_p = (std_msgs__msg__String *)*ros_message_pp;
 
+  ERL_NIF_TERM data_term = enif_make_binary_wrapper(env, message_p->data.data, message_p->data.size);
+  if (enif_is_exception(env, data_term))
+    return data_term;
   return enif_make_tuple(env, 1,
-    enif_make_binary_wrapper(env, message_p->data.data, message_p->data.size)
+    data_term
   );
 }
 // clang-format on
