@@ -572,33 +572,7 @@ defmodule Rclex.ParameterServer do
       :ok ->
         case parameters do
           [{resolved_name, resolved_value}] ->
-            if Map.has_key?(state.parameters, resolved_name) do
-              {results, changed_parameters, _new_descriptors, _changed_descriptors, new_state} =
-                set_one_parameter(resolved_name, resolved_value, [], %{}, [], [], state)
-
-              case results do
-                [%{successful: true}] ->
-                  if state.parameter_event_publisher do
-                    publish_parameter_event(
-                      state.name,
-                      state.namespace,
-                      %{},
-                      changed_parameters,
-                      %{}
-                    )
-                  end
-
-                  {:reply, :ok, new_state}
-
-                [%{successful: false, reason: reason}] ->
-                  {:reply, {:error, reason}, state}
-
-                _ ->
-                  {:reply, {:error, :set_failed}, state}
-              end
-            else
-              {:reply, {:error, :not_declared}, state}
-            end
+            do_handle_set_parameter_resolved(resolved_name, resolved_value, state)
 
           _ ->
             {:reply, {:error, :invalid_pre_set_callback_output}, state}
@@ -687,72 +661,7 @@ defmodule Rclex.ParameterServer do
         {:reply, {:error, reason}, state}
 
       :ok ->
-        # Validate all parameters exist first
-        undeclared =
-          Enum.filter(processed_parameters, fn {name, _value} ->
-            not Map.has_key?(state.parameters, name)
-          end)
-
-        if Enum.empty?(undeclared) do
-          invalid_updates =
-            Enum.filter(processed_parameters, fn {name, new_value} ->
-              case validate_parameter_update(state, name, new_value) do
-                :ok -> false
-                {:error, _reason} -> true
-              end
-            end)
-
-          if Enum.empty?(invalid_updates) do
-            # Set all parameters
-            {updated_parameters, changed_parameters, changes} =
-              Enum.reduce(processed_parameters, {state.parameters, %{}, []}, fn {name, new_value},
-                                                                                {params, changed,
-                                                                                 changes} ->
-                old_value = Map.get(state.parameters, name)
-
-                {
-                  Map.put(params, name, new_value),
-                  Map.put(changed, name, new_value),
-                  [{name, new_value, old_value} | changes]
-                }
-              end)
-
-            new_state = %{state | parameters: updated_parameters}
-
-            # Notify callbacks about all changes
-            Enum.each(changes, fn {name, new_value, old_value} ->
-              notify_parameter_callbacks(
-                state.post_set_parameters_callbacks,
-                name,
-                new_value,
-                old_value
-              )
-            end)
-
-            if state.parameter_event_publisher do
-              publish_parameter_event(
-                state.name,
-                state.namespace,
-                %{},
-                changed_parameters,
-                %{}
-              )
-            end
-
-            {:reply, :ok, new_state}
-          else
-            update_errors =
-              Enum.map(invalid_updates, fn {name, new_value} ->
-                {:error, reason} = validate_parameter_update(state, name, new_value)
-                {name, reason}
-              end)
-
-            {:reply, {:error, {:invalid_parameters, update_errors}}, state}
-          end
-        else
-          undeclared_names = Enum.map(undeclared, &elem(&1, 0))
-          {:reply, {:error, {:undeclared_parameters, undeclared_names}}, state}
-        end
+        process_set_parameters_with_convert(processed_parameters, state)
     end
   end
 
@@ -827,6 +736,100 @@ defmodule Rclex.ParameterServer do
   end
 
   # Helper functions
+  defp do_handle_set_parameter_resolved(resolved_name, resolved_value, state) do
+    if Map.has_key?(state.parameters, resolved_name) do
+      do_set_declared_parameter(resolved_name, resolved_value, state)
+    else
+      {:reply, {:error, :not_declared}, state}
+    end
+  end
+
+  defp do_set_declared_parameter(resolved_name, resolved_value, state) do
+    {results, changed_parameters, _new_descriptors, _changed_descriptors, new_state} =
+      set_one_parameter(resolved_name, resolved_value, [], %{}, [], [], state)
+
+    case results do
+      [%{successful: true}] ->
+        if state.parameter_event_publisher do
+          publish_parameter_event(state.name, state.namespace, %{}, changed_parameters, %{})
+        end
+
+        {:reply, :ok, new_state}
+
+      [%{successful: false, reason: reason}] ->
+        {:reply, {:error, reason}, state}
+
+      _ ->
+        {:reply, {:error, :set_failed}, state}
+    end
+  end
+
+  defp process_set_parameters_with_convert(processed_parameters, state) do
+    undeclared =
+      Enum.filter(processed_parameters, fn {name, _value} ->
+        not Map.has_key?(state.parameters, name)
+      end)
+
+    case undeclared do
+      [] ->
+        process_declared_parameters_with_convert(processed_parameters, state)
+
+      _ ->
+        undeclared_names = Enum.map(undeclared, &elem(&1, 0))
+        {:reply, {:error, {:undeclared_parameters, undeclared_names}}, state}
+    end
+  end
+
+  defp process_declared_parameters_with_convert(processed_parameters, state) do
+    invalid_updates =
+      Enum.filter(processed_parameters, fn {name, new_value} ->
+        case validate_parameter_update(state, name, new_value) do
+          :ok -> false
+          {:error, _reason} -> true
+        end
+      end)
+
+    case invalid_updates do
+      [] ->
+        apply_parameter_updates(processed_parameters, state)
+
+      _ ->
+        update_errors =
+          Enum.map(invalid_updates, fn {name, new_value} ->
+            {:error, reason} = validate_parameter_update(state, name, new_value)
+            {name, reason}
+          end)
+
+        {:reply, {:error, {:invalid_parameters, update_errors}}, state}
+    end
+  end
+
+  defp apply_parameter_updates(processed_parameters, state) do
+    {updated_parameters, changed_parameters, changes} =
+      Enum.reduce(processed_parameters, {state.parameters, %{}, []}, fn {name, new_value},
+                                                                        {params, changed, changes} ->
+        old_value = Map.get(state.parameters, name)
+
+        {
+          Map.put(params, name, new_value),
+          Map.put(changed, name, new_value),
+          [{name, new_value, old_value} | changes]
+        }
+      end)
+
+    new_state = %{state | parameters: updated_parameters}
+
+    Enum.each(changes, fn {name, new_value, old_value} ->
+      notify_parameter_callbacks(state.post_set_parameters_callbacks, name, new_value, old_value)
+    end)
+
+    if state.parameter_event_publisher do
+      publish_parameter_event(state.name, state.namespace, %{}, changed_parameters, %{})
+    end
+
+    {:reply, :ok, new_state}
+  end
+
   defp convert_parameters_for_set(parameters, false, _state), do: parameters
 
   defp convert_parameters_for_set(parameters, true, state) do

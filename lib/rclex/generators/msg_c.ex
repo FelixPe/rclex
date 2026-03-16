@@ -581,9 +581,7 @@ defmodule Rclex.Generators.MsgC do
       |> Enum.map_join(fn {setup, _binary} -> setup end)
 
     binary =
-      fragments
-      |> Enum.map(fn {_setup, binary} -> binary end)
-      |> Enum.join(",\n")
+      Enum.map_join(fragments, ",\n", fn {_setup, binary} -> binary end)
       |> format()
 
     binary =
