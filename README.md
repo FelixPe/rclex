@@ -274,7 +274,7 @@ export TYPE=asan
 2. Set asan options
 
 ```
-export ASAN_OPTIONS="log_path=~/asan/log"
+export ASAN_OPTIONS="log_path=/tmp/asan/log"
 export LSAN_OPTIONS="suppressions=$ERL_TOP/erts/emulator/asan/suppress"
 ```
 
@@ -282,7 +282,8 @@ export LSAN_OPTIONS="suppressions=$ERL_TOP/erts/emulator/asan/suppress"
 4. To build with asan support beside debugging support two parameters need to be given to the compiler in the CFLAGS variable.
 
 ```
-export CFLAGS="-fsanitize=address -static-libasan -g"
+export CFLAGS="-fsanitize=address -fsanitize-recover=address -fno-omit-frame-pointer -g"
+export LDFLAGS="-fsanitize=address"
 mix compile
 ```
 
@@ -291,7 +292,7 @@ mix compile
 ```
 elixir --erl "-emu_type asan" -v
 # or by setting the ERL_AFLAGS accordingly
-ERL_AFLAGS="-emu_type asan" mix -v
+ASAN_OPTIONS="verify_asan_link_order=0 log_path=./asan/log" ERL_AFLAG="-emu_type asan" mix -v
 ```
 
 
