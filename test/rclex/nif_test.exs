@@ -151,7 +151,7 @@ defmodule Rclex.NifTest do
       message = Nif.sensor_msgs_msg_joint_state_create!()
 
       data =
-        {{{11223, 44556}, "joint_frame"}, ["shoulder", "elbow"], [1.0, 7.0, 3.0],
+        {{{11_223, 44_556}, "joint_frame"}, ["shoulder", "elbow"], [1.0, 7.0, 3.0],
          [8.0, 9.0, 6.0, 4.0], [1.0, 0.0, 2.0, 6.0, 7.0]}
 
       workers = 8

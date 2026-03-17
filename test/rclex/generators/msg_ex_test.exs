@@ -491,8 +491,10 @@ defmodule Rclex.Generators.MsgExTest do
       # Test type specification
       type_result = MsgEx.type_fields("test/msg/ArrayMsg", ros2_message_type_map)
       assert type_result =~ "numbers: list(integer())"
+
       assert type_result =~
-           "coordinates: list(float() | :nan | :infinity | :neg_infinity)"
+               "coordinates: list(float() | :nan | :infinity | :neg_infinity)"
+
       assert type_result =~ "messages: list(%Rclex.Pkgs.StdMsgs.Msg.String{})"
     end
   end

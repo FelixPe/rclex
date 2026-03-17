@@ -12,12 +12,12 @@ ERL_NIF_TERM atom_infinity;
 ERL_NIF_TERM atom_neg_infinity;
 
 void make_common_atoms(ErlNifEnv *env) {
-  atom_ok    = enif_make_atom(env, "ok");
-  atom_error = enif_make_atom(env, "error");
-  atom_true  = enif_make_atom(env, "true");
-  atom_false = enif_make_atom(env, "false");
-  atom_nan = enif_make_atom(env, "nan");
-  atom_infinity = enif_make_atom(env, "infinity");
+  atom_ok           = enif_make_atom(env, "ok");
+  atom_error        = enif_make_atom(env, "error");
+  atom_true         = enif_make_atom(env, "true");
+  atom_false        = enif_make_atom(env, "false");
+  atom_nan          = enif_make_atom(env, "nan");
+  atom_infinity     = enif_make_atom(env, "infinity");
   atom_neg_infinity = enif_make_atom(env, "neg_infinity");
 }
 

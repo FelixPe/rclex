@@ -357,7 +357,9 @@ defmodule Rclex.ParameterServerTest do
                  &send(me, &1),
                  ParameterEventDescriptors,
                  topic,
-                 node_name, namespace: namespace)
+                 node_name,
+                 namespace: namespace
+               )
 
       on_exit(fn ->
         capture_log(fn ->
