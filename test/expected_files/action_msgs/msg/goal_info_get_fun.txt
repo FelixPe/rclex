@@ -1,0 +1,16 @@
+  ErlNifBinary goal_id_uuid_bin;
+  if(!enif_alloc_binary(16, &goal_id_uuid_bin))
+    return raise(env, __FILE__, __LINE__);
+
+  memcpy(goal_id_uuid_bin.data, message_p->goal_id.uuid, 16);
+  ERL_NIF_TERM goal_id_uuid = enif_make_binary(env, &goal_id_uuid_bin);
+
+  return enif_make_tuple(env, 2,
+    enif_make_tuple(env, 1,
+      goal_id_uuid
+    ),
+    enif_make_tuple(env, 2,
+      enif_make_int(env, message_p->stamp.sec),
+      enif_make_uint(env, message_p->stamp.nanosec)
+    )
+  );

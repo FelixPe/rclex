@@ -1,5 +1,35 @@
+  ERL_NIF_TERM x_term;
+  if (isnan(message_p->x)) {
+    x_term = atom_nan;
+  } else if (isinf(message_p->x) > 0) {
+    x_term = atom_infinity;
+  } else if (isinf(message_p->x) < 0) {
+    x_term = atom_neg_infinity;
+  } else {
+    x_term = enif_make_double(env, message_p->x);
+  }
+  ERL_NIF_TERM y_term;
+  if (isnan(message_p->y)) {
+    y_term = atom_nan;
+  } else if (isinf(message_p->y) > 0) {
+    y_term = atom_infinity;
+  } else if (isinf(message_p->y) < 0) {
+    y_term = atom_neg_infinity;
+  } else {
+    y_term = enif_make_double(env, message_p->y);
+  }
+  ERL_NIF_TERM z_term;
+  if (isnan(message_p->z)) {
+    z_term = atom_nan;
+  } else if (isinf(message_p->z) > 0) {
+    z_term = atom_infinity;
+  } else if (isinf(message_p->z) < 0) {
+    z_term = atom_neg_infinity;
+  } else {
+    z_term = enif_make_double(env, message_p->z);
+  }
   return enif_make_tuple(env, 3,
-    enif_make_double(env, message_p->x),
-    enif_make_double(env, message_p->y),
-    enif_make_double(env, message_p->z)
+    x_term,
+    y_term,
+    z_term
   );

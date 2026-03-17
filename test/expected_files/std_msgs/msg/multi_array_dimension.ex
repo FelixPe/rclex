@@ -31,10 +31,10 @@ defmodule Rclex.Pkgs.StdMsgs.Msg.MultiArrayDimension do
   end
 
   def to_tuple(%__MODULE__{label: label, size: size, stride: stride}) do
-    {~c"#{label}", size, stride}
+    {label, size, stride}
   end
 
   def to_struct({label, size, stride}) do
-    %__MODULE__{label: "#{label}", size: size, stride: stride}
+    %__MODULE__{label: label, size: size, stride: stride}
   end
 end

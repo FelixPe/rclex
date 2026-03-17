@@ -1,14 +1,35 @@
   double x;
-  if (!enif_get_double(env, tuple[0], &x))
+  if (enif_is_identical(tuple[0], atom_nan)) {
+    x = NAN;
+  } else if (enif_is_identical(tuple[0], atom_infinity)) {
+    x = INFINITY;
+  } else if (enif_is_identical(tuple[0], atom_neg_infinity)) {
+    x = -INFINITY;
+  } else if (!enif_get_double(env, tuple[0], &x)) {
     return enif_make_badarg(env);
+  }
   message_p->x = x;
 
   double y;
-  if (!enif_get_double(env, tuple[1], &y))
+  if (enif_is_identical(tuple[1], atom_nan)) {
+    y = NAN;
+  } else if (enif_is_identical(tuple[1], atom_infinity)) {
+    y = INFINITY;
+  } else if (enif_is_identical(tuple[1], atom_neg_infinity)) {
+    y = -INFINITY;
+  } else if (!enif_get_double(env, tuple[1], &y)) {
     return enif_make_badarg(env);
+  }
   message_p->y = y;
 
   double z;
-  if (!enif_get_double(env, tuple[2], &z))
+  if (enif_is_identical(tuple[2], atom_nan)) {
+    z = NAN;
+  } else if (enif_is_identical(tuple[2], atom_infinity)) {
+    z = INFINITY;
+  } else if (enif_is_identical(tuple[2], atom_neg_infinity)) {
+    z = -INFINITY;
+  } else if (!enif_get_double(env, tuple[2], &z)) {
     return enif_make_badarg(env);
+  }
   message_p->z = z;

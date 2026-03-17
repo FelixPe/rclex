@@ -22,6 +22,7 @@
 #include <action_msgs/msg/detail/goal_info__struct.h>
 #include <action_msgs/msg/detail/goal_info__type_support.h>
 
+#include <math.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <string.h>

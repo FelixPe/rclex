@@ -1,0 +1,24 @@
+  unsigned int accepted_length;
+  if (!enif_get_atom_length(env, tuple[0], &accepted_length, ERL_NIF_LATIN1))
+    return enif_make_badarg(env);
+
+  char accepted[accepted_length + 1];
+  if (enif_get_atom(env, tuple[0], accepted, accepted_length + 1, ERL_NIF_LATIN1) <= 0)
+    return enif_make_badarg(env);
+
+  message_p->accepted = (strncmp(accepted, "true", 4) == 0);
+
+  int stamp_arity;
+  const ERL_NIF_TERM *stamp_tuple;
+  if (!enif_get_tuple(env, tuple[1], &stamp_arity, &stamp_tuple))
+    return enif_make_badarg(env);
+
+  int stamp_sec;
+  if (!enif_get_int(env, stamp_tuple[0], &stamp_sec))
+    return enif_make_badarg(env);
+  message_p->stamp.sec = stamp_sec;
+
+  unsigned int stamp_nanosec;
+  if (!enif_get_uint(env, stamp_tuple[1], &stamp_nanosec))
+    return enif_make_badarg(env);
+  message_p->stamp.nanosec = stamp_nanosec;

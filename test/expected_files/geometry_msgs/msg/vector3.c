@@ -16,6 +16,7 @@
 #include <geometry_msgs/msg/detail/vector3__struct.h>
 #include <geometry_msgs/msg/detail/vector3__type_support.h>
 
+#include <math.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <string.h>
@@ -77,18 +78,39 @@ ERL_NIF_TERM nif_geometry_msgs_msg_vector3_set(ErlNifEnv *env, int argc, const E
   if (!enif_get_tuple(env, argv[1], &arity, &tuple)) return enif_make_badarg(env);
 
   double x;
-  if (!enif_get_double(env, tuple[0], &x))
+  if (enif_is_identical(tuple[0], atom_nan)) {
+    x = NAN;
+  } else if (enif_is_identical(tuple[0], atom_infinity)) {
+    x = INFINITY;
+  } else if (enif_is_identical(tuple[0], atom_neg_infinity)) {
+    x = -INFINITY;
+  } else if (!enif_get_double(env, tuple[0], &x)) {
     return enif_make_badarg(env);
+  }
   message_p->x = x;
 
   double y;
-  if (!enif_get_double(env, tuple[1], &y))
+  if (enif_is_identical(tuple[1], atom_nan)) {
+    y = NAN;
+  } else if (enif_is_identical(tuple[1], atom_infinity)) {
+    y = INFINITY;
+  } else if (enif_is_identical(tuple[1], atom_neg_infinity)) {
+    y = -INFINITY;
+  } else if (!enif_get_double(env, tuple[1], &y)) {
     return enif_make_badarg(env);
+  }
   message_p->y = y;
 
   double z;
-  if (!enif_get_double(env, tuple[2], &z))
+  if (enif_is_identical(tuple[2], atom_nan)) {
+    z = NAN;
+  } else if (enif_is_identical(tuple[2], atom_infinity)) {
+    z = INFINITY;
+  } else if (enif_is_identical(tuple[2], atom_neg_infinity)) {
+    z = -INFINITY;
+  } else if (!enif_get_double(env, tuple[2], &z)) {
     return enif_make_badarg(env);
+  }
   message_p->z = z;
 
   return atom_ok;
@@ -103,10 +125,40 @@ ERL_NIF_TERM nif_geometry_msgs_msg_vector3_get(ErlNifEnv *env, int argc, const E
 
   geometry_msgs__msg__Vector3 *message_p = (geometry_msgs__msg__Vector3 *)*ros_message_pp;
 
+  ERL_NIF_TERM x_term;
+  if (isnan(message_p->x)) {
+    x_term = atom_nan;
+  } else if (isinf(message_p->x) > 0) {
+    x_term = atom_infinity;
+  } else if (isinf(message_p->x) < 0) {
+    x_term = atom_neg_infinity;
+  } else {
+    x_term = enif_make_double(env, message_p->x);
+  }
+  ERL_NIF_TERM y_term;
+  if (isnan(message_p->y)) {
+    y_term = atom_nan;
+  } else if (isinf(message_p->y) > 0) {
+    y_term = atom_infinity;
+  } else if (isinf(message_p->y) < 0) {
+    y_term = atom_neg_infinity;
+  } else {
+    y_term = enif_make_double(env, message_p->y);
+  }
+  ERL_NIF_TERM z_term;
+  if (isnan(message_p->z)) {
+    z_term = atom_nan;
+  } else if (isinf(message_p->z) > 0) {
+    z_term = atom_infinity;
+  } else if (isinf(message_p->z) < 0) {
+    z_term = atom_neg_infinity;
+  } else {
+    z_term = enif_make_double(env, message_p->z);
+  }
   return enif_make_tuple(env, 3,
-    enif_make_double(env, message_p->x),
-    enif_make_double(env, message_p->y),
-    enif_make_double(env, message_p->z)
+    x_term,
+    y_term,
+    z_term
   );
 }
 // clang-format on

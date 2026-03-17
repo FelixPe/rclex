@@ -105,7 +105,8 @@ defmodule Rclex.Generators.MsgExTest do
            "dim: list(%Rclex.Pkgs.StdMsgs.Msg.MultiArrayDimension{}),\ndata_offset: non_neg_integer()"},
           {"std_msgs/msg/UInt32MultiArray",
            "layout: %Rclex.Pkgs.StdMsgs.Msg.MultiArrayLayout{},\ndata: list(non_neg_integer())"},
-          {"geometry_msgs/msg/Vector3", "x: float(),\ny: float(),\nz: float()"},
+          {"geometry_msgs/msg/Vector3",
+           "x: float() | :nan | :infinity | :neg_infinity,\ny: float() | :nan | :infinity | :neg_infinity,\nz: float() | :nan | :infinity | :neg_infinity"},
           {"geometry_msgs/msg/Twist",
            "linear: %Rclex.Pkgs.GeometryMsgs.Msg.Vector3{},\nangular: %Rclex.Pkgs.GeometryMsgs.Msg.Vector3{}"}
         ] do
@@ -490,7 +491,8 @@ defmodule Rclex.Generators.MsgExTest do
       # Test type specification
       type_result = MsgEx.type_fields("test/msg/ArrayMsg", ros2_message_type_map)
       assert type_result =~ "numbers: list(integer())"
-      assert type_result =~ "coordinates: list(float())"
+      assert type_result =~
+           "coordinates: list(float() | :nan | :infinity | :neg_infinity)"
       assert type_result =~ "messages: list(%Rclex.Pkgs.StdMsgs.Msg.String{})"
     end
   end

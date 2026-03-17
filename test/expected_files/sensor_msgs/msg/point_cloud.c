@@ -28,6 +28,7 @@
 #include <sensor_msgs/msg/detail/point_cloud__struct.h>
 #include <sensor_msgs/msg/detail/point_cloud__type_support.h>
 
+#include <math.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <string.h>
@@ -136,18 +137,39 @@ ERL_NIF_TERM nif_sensor_msgs_msg_point_cloud_set(ErlNifEnv *env, int argc, const
       return enif_make_badarg(env);
 
     double points_i_x;
-    if (!enif_get_double(env, points_i_tuple[0], &points_i_x))
+    if (enif_is_identical(points_i_tuple[0], atom_nan)) {
+      points_i_x = NAN;
+    } else if (enif_is_identical(points_i_tuple[0], atom_infinity)) {
+      points_i_x = INFINITY;
+    } else if (enif_is_identical(points_i_tuple[0], atom_neg_infinity)) {
+      points_i_x = -INFINITY;
+    } else if (!enif_get_double(env, points_i_tuple[0], &points_i_x)) {
       return enif_make_badarg(env);
+    }
     message_p->points.data[points_i].x = (float)points_i_x;
 
     double points_i_y;
-    if (!enif_get_double(env, points_i_tuple[1], &points_i_y))
+    if (enif_is_identical(points_i_tuple[1], atom_nan)) {
+      points_i_y = NAN;
+    } else if (enif_is_identical(points_i_tuple[1], atom_infinity)) {
+      points_i_y = INFINITY;
+    } else if (enif_is_identical(points_i_tuple[1], atom_neg_infinity)) {
+      points_i_y = -INFINITY;
+    } else if (!enif_get_double(env, points_i_tuple[1], &points_i_y)) {
       return enif_make_badarg(env);
+    }
     message_p->points.data[points_i].y = (float)points_i_y;
 
     double points_i_z;
-    if (!enif_get_double(env, points_i_tuple[2], &points_i_z))
+    if (enif_is_identical(points_i_tuple[2], atom_nan)) {
+      points_i_z = NAN;
+    } else if (enif_is_identical(points_i_tuple[2], atom_infinity)) {
+      points_i_z = INFINITY;
+    } else if (enif_is_identical(points_i_tuple[2], atom_neg_infinity)) {
+      points_i_z = -INFINITY;
+    } else if (!enif_get_double(env, points_i_tuple[2], &points_i_z)) {
       return enif_make_badarg(env);
+    }
     message_p->points.data[points_i].z = (float)points_i_z;
   }
 
@@ -195,8 +217,15 @@ ERL_NIF_TERM nif_sensor_msgs_msg_point_cloud_set(ErlNifEnv *env, int argc, const
         return enif_make_badarg(env);
 
       double channels_i_values_float32;
-      if (!enif_get_double(env, channels_i_values_head, &channels_i_values_float32))
+      if (enif_is_identical(channels_i_values_head, atom_nan)) {
+        channels_i_values_float32 = NAN;
+      } else if (enif_is_identical(channels_i_values_head, atom_infinity)) {
+        channels_i_values_float32 = INFINITY;
+      } else if (enif_is_identical(channels_i_values_head, atom_neg_infinity)) {
+        channels_i_values_float32 = -INFINITY;
+      } else if (!enif_get_double(env, channels_i_values_head, &channels_i_values_float32)) {
         return enif_make_badarg(env);
+      }
       message_p->channels.data[channels_i].values.data[channels_i_values_i] = (float)channels_i_values_float32;
     }
   }
@@ -224,10 +253,40 @@ ERL_NIF_TERM nif_sensor_msgs_msg_point_cloud_get(ErlNifEnv *env, int argc, const
 
   for (size_t points_i = 0; points_i < message_p->points.size; ++points_i)
   {
+    ERL_NIF_TERM points_x_term;
+    if (isnan(message_p->points.data[points_i].x)) {
+      points_x_term = atom_nan;
+    } else if (isinf(message_p->points.data[points_i].x) > 0) {
+      points_x_term = atom_infinity;
+    } else if (isinf(message_p->points.data[points_i].x) < 0) {
+      points_x_term = atom_neg_infinity;
+    } else {
+      points_x_term = enif_make_double(env, message_p->points.data[points_i].x);
+    }
+    ERL_NIF_TERM points_y_term;
+    if (isnan(message_p->points.data[points_i].y)) {
+      points_y_term = atom_nan;
+    } else if (isinf(message_p->points.data[points_i].y) > 0) {
+      points_y_term = atom_infinity;
+    } else if (isinf(message_p->points.data[points_i].y) < 0) {
+      points_y_term = atom_neg_infinity;
+    } else {
+      points_y_term = enif_make_double(env, message_p->points.data[points_i].y);
+    }
+    ERL_NIF_TERM points_z_term;
+    if (isnan(message_p->points.data[points_i].z)) {
+      points_z_term = atom_nan;
+    } else if (isinf(message_p->points.data[points_i].z) > 0) {
+      points_z_term = atom_infinity;
+    } else if (isinf(message_p->points.data[points_i].z) < 0) {
+      points_z_term = atom_neg_infinity;
+    } else {
+      points_z_term = enif_make_double(env, message_p->points.data[points_i].z);
+    }
     points[points_i] = enif_make_tuple(env, 3,
-      enif_make_double(env, message_p->points.data[points_i].x),
-      enif_make_double(env, message_p->points.data[points_i].y),
-      enif_make_double(env, message_p->points.data[points_i].z)
+      points_x_term,
+      points_y_term,
+      points_z_term
     );
   }
 
@@ -253,7 +312,17 @@ ERL_NIF_TERM nif_sensor_msgs_msg_point_cloud_get(ErlNifEnv *env, int argc, const
 
     for (size_t channels_values_i = 0; channels_values_i < message_p->channels.data[channels_i].values.size; ++channels_values_i)
     {
-      channels_values[channels_values_i] = enif_make_double(env, message_p->channels.data[channels_i].values.data[channels_values_i]);
+      ERL_NIF_TERM channels_values_term;
+      if (isnan(message_p->channels.data[channels_i].values.data[channels_values_i])) {
+        channels_values_term = atom_nan;
+      } else if (isinf(message_p->channels.data[channels_i].values.data[channels_values_i]) > 0) {
+        channels_values_term = atom_infinity;
+      } else if (isinf(message_p->channels.data[channels_i].values.data[channels_values_i]) < 0) {
+        channels_values_term = atom_neg_infinity;
+      } else {
+        channels_values_term = enif_make_double(env, message_p->channels.data[channels_i].values.data[channels_values_i]);
+      }
+      channels_values[channels_values_i] = channels_values_term;
     }
 
     ERL_NIF_TERM channels_name_term = enif_make_binary_wrapper(env, message_p->channels.data[channels_i].name.data, message_p->channels.data[channels_i].name.size);

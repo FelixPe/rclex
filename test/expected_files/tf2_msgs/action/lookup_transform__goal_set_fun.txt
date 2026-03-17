@@ -1,0 +1,75 @@
+  ErlNifBinary target_frame_binary;
+  if (!enif_inspect_binary(env, tuple[0], &target_frame_binary))
+    return enif_make_badarg(env);
+
+  if (!rosidl_runtime_c__String__assignn(&(message_p->target_frame), (const char *)target_frame_binary.data, target_frame_binary.size))
+    return raise(env, __FILE__, __LINE__);
+
+  ErlNifBinary source_frame_binary;
+  if (!enif_inspect_binary(env, tuple[1], &source_frame_binary))
+    return enif_make_badarg(env);
+
+  if (!rosidl_runtime_c__String__assignn(&(message_p->source_frame), (const char *)source_frame_binary.data, source_frame_binary.size))
+    return raise(env, __FILE__, __LINE__);
+
+  int source_time_arity;
+  const ERL_NIF_TERM *source_time_tuple;
+  if (!enif_get_tuple(env, tuple[2], &source_time_arity, &source_time_tuple))
+    return enif_make_badarg(env);
+
+  int source_time_sec;
+  if (!enif_get_int(env, source_time_tuple[0], &source_time_sec))
+    return enif_make_badarg(env);
+  message_p->source_time.sec = source_time_sec;
+
+  unsigned int source_time_nanosec;
+  if (!enif_get_uint(env, source_time_tuple[1], &source_time_nanosec))
+    return enif_make_badarg(env);
+  message_p->source_time.nanosec = source_time_nanosec;
+
+  int timeout_arity;
+  const ERL_NIF_TERM *timeout_tuple;
+  if (!enif_get_tuple(env, tuple[3], &timeout_arity, &timeout_tuple))
+    return enif_make_badarg(env);
+
+  int timeout_sec;
+  if (!enif_get_int(env, timeout_tuple[0], &timeout_sec))
+    return enif_make_badarg(env);
+  message_p->timeout.sec = timeout_sec;
+
+  unsigned int timeout_nanosec;
+  if (!enif_get_uint(env, timeout_tuple[1], &timeout_nanosec))
+    return enif_make_badarg(env);
+  message_p->timeout.nanosec = timeout_nanosec;
+
+  int target_time_arity;
+  const ERL_NIF_TERM *target_time_tuple;
+  if (!enif_get_tuple(env, tuple[4], &target_time_arity, &target_time_tuple))
+    return enif_make_badarg(env);
+
+  int target_time_sec;
+  if (!enif_get_int(env, target_time_tuple[0], &target_time_sec))
+    return enif_make_badarg(env);
+  message_p->target_time.sec = target_time_sec;
+
+  unsigned int target_time_nanosec;
+  if (!enif_get_uint(env, target_time_tuple[1], &target_time_nanosec))
+    return enif_make_badarg(env);
+  message_p->target_time.nanosec = target_time_nanosec;
+
+  ErlNifBinary fixed_frame_binary;
+  if (!enif_inspect_binary(env, tuple[5], &fixed_frame_binary))
+    return enif_make_badarg(env);
+
+  if (!rosidl_runtime_c__String__assignn(&(message_p->fixed_frame), (const char *)fixed_frame_binary.data, fixed_frame_binary.size))
+    return raise(env, __FILE__, __LINE__);
+
+  unsigned int advanced_length;
+  if (!enif_get_atom_length(env, tuple[6], &advanced_length, ERL_NIF_LATIN1))
+    return enif_make_badarg(env);
+
+  char advanced[advanced_length + 1];
+  if (enif_get_atom(env, tuple[6], advanced, advanced_length + 1, ERL_NIF_LATIN1) <= 0)
+    return enif_make_badarg(env);
+
+  message_p->advanced = (strncmp(advanced, "true", 4) == 0);

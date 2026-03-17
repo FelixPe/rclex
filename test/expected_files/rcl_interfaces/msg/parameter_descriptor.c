@@ -22,6 +22,7 @@
 #include <rcl_interfaces/msg/detail/parameter_descriptor__struct.h>
 #include <rcl_interfaces/msg/detail/parameter_descriptor__type_support.h>
 
+#include <math.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <string.h>
@@ -149,18 +150,39 @@ ERL_NIF_TERM nif_rcl_interfaces_msg_parameter_descriptor_set(ErlNifEnv *env, int
       return enif_make_badarg(env);
 
     double floating_point_range_i_from_value;
-    if (!enif_get_double(env, floating_point_range_i_tuple[0], &floating_point_range_i_from_value))
+    if (enif_is_identical(floating_point_range_i_tuple[0], atom_nan)) {
+      floating_point_range_i_from_value = NAN;
+    } else if (enif_is_identical(floating_point_range_i_tuple[0], atom_infinity)) {
+      floating_point_range_i_from_value = INFINITY;
+    } else if (enif_is_identical(floating_point_range_i_tuple[0], atom_neg_infinity)) {
+      floating_point_range_i_from_value = -INFINITY;
+    } else if (!enif_get_double(env, floating_point_range_i_tuple[0], &floating_point_range_i_from_value)) {
       return enif_make_badarg(env);
+    }
     message_p->floating_point_range.data[floating_point_range_i].from_value = floating_point_range_i_from_value;
 
     double floating_point_range_i_to_value;
-    if (!enif_get_double(env, floating_point_range_i_tuple[1], &floating_point_range_i_to_value))
+    if (enif_is_identical(floating_point_range_i_tuple[1], atom_nan)) {
+      floating_point_range_i_to_value = NAN;
+    } else if (enif_is_identical(floating_point_range_i_tuple[1], atom_infinity)) {
+      floating_point_range_i_to_value = INFINITY;
+    } else if (enif_is_identical(floating_point_range_i_tuple[1], atom_neg_infinity)) {
+      floating_point_range_i_to_value = -INFINITY;
+    } else if (!enif_get_double(env, floating_point_range_i_tuple[1], &floating_point_range_i_to_value)) {
       return enif_make_badarg(env);
+    }
     message_p->floating_point_range.data[floating_point_range_i].to_value = floating_point_range_i_to_value;
 
     double floating_point_range_i_step;
-    if (!enif_get_double(env, floating_point_range_i_tuple[2], &floating_point_range_i_step))
+    if (enif_is_identical(floating_point_range_i_tuple[2], atom_nan)) {
+      floating_point_range_i_step = NAN;
+    } else if (enif_is_identical(floating_point_range_i_tuple[2], atom_infinity)) {
+      floating_point_range_i_step = INFINITY;
+    } else if (enif_is_identical(floating_point_range_i_tuple[2], atom_neg_infinity)) {
+      floating_point_range_i_step = -INFINITY;
+    } else if (!enif_get_double(env, floating_point_range_i_tuple[2], &floating_point_range_i_step)) {
       return enif_make_badarg(env);
+    }
     message_p->floating_point_range.data[floating_point_range_i].step = floating_point_range_i_step;
   }
 
@@ -223,10 +245,40 @@ ERL_NIF_TERM nif_rcl_interfaces_msg_parameter_descriptor_get(ErlNifEnv *env, int
 
   for (size_t floating_point_range_i = 0; floating_point_range_i < message_p->floating_point_range.size; ++floating_point_range_i)
   {
+    ERL_NIF_TERM floating_point_range_from_value_term;
+    if (isnan(message_p->floating_point_range.data[floating_point_range_i].from_value)) {
+      floating_point_range_from_value_term = atom_nan;
+    } else if (isinf(message_p->floating_point_range.data[floating_point_range_i].from_value) > 0) {
+      floating_point_range_from_value_term = atom_infinity;
+    } else if (isinf(message_p->floating_point_range.data[floating_point_range_i].from_value) < 0) {
+      floating_point_range_from_value_term = atom_neg_infinity;
+    } else {
+      floating_point_range_from_value_term = enif_make_double(env, message_p->floating_point_range.data[floating_point_range_i].from_value);
+    }
+    ERL_NIF_TERM floating_point_range_to_value_term;
+    if (isnan(message_p->floating_point_range.data[floating_point_range_i].to_value)) {
+      floating_point_range_to_value_term = atom_nan;
+    } else if (isinf(message_p->floating_point_range.data[floating_point_range_i].to_value) > 0) {
+      floating_point_range_to_value_term = atom_infinity;
+    } else if (isinf(message_p->floating_point_range.data[floating_point_range_i].to_value) < 0) {
+      floating_point_range_to_value_term = atom_neg_infinity;
+    } else {
+      floating_point_range_to_value_term = enif_make_double(env, message_p->floating_point_range.data[floating_point_range_i].to_value);
+    }
+    ERL_NIF_TERM floating_point_range_step_term;
+    if (isnan(message_p->floating_point_range.data[floating_point_range_i].step)) {
+      floating_point_range_step_term = atom_nan;
+    } else if (isinf(message_p->floating_point_range.data[floating_point_range_i].step) > 0) {
+      floating_point_range_step_term = atom_infinity;
+    } else if (isinf(message_p->floating_point_range.data[floating_point_range_i].step) < 0) {
+      floating_point_range_step_term = atom_neg_infinity;
+    } else {
+      floating_point_range_step_term = enif_make_double(env, message_p->floating_point_range.data[floating_point_range_i].step);
+    }
     floating_point_range[floating_point_range_i] = enif_make_tuple(env, 3,
-      enif_make_double(env, message_p->floating_point_range.data[floating_point_range_i].from_value),
-      enif_make_double(env, message_p->floating_point_range.data[floating_point_range_i].to_value),
-      enif_make_double(env, message_p->floating_point_range.data[floating_point_range_i].step)
+      floating_point_range_from_value_term,
+      floating_point_range_to_value_term,
+      floating_point_range_step_term
     );
   }
 

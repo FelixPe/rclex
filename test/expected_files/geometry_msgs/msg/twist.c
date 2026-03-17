@@ -19,6 +19,7 @@
 #include <geometry_msgs/msg/detail/twist__struct.h>
 #include <geometry_msgs/msg/detail/twist__type_support.h>
 
+#include <math.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <string.h>
@@ -85,18 +86,39 @@ ERL_NIF_TERM nif_geometry_msgs_msg_twist_set(ErlNifEnv *env, int argc, const ERL
     return enif_make_badarg(env);
 
   double linear_x;
-  if (!enif_get_double(env, linear_tuple[0], &linear_x))
+  if (enif_is_identical(linear_tuple[0], atom_nan)) {
+    linear_x = NAN;
+  } else if (enif_is_identical(linear_tuple[0], atom_infinity)) {
+    linear_x = INFINITY;
+  } else if (enif_is_identical(linear_tuple[0], atom_neg_infinity)) {
+    linear_x = -INFINITY;
+  } else if (!enif_get_double(env, linear_tuple[0], &linear_x)) {
     return enif_make_badarg(env);
+  }
   message_p->linear.x = linear_x;
 
   double linear_y;
-  if (!enif_get_double(env, linear_tuple[1], &linear_y))
+  if (enif_is_identical(linear_tuple[1], atom_nan)) {
+    linear_y = NAN;
+  } else if (enif_is_identical(linear_tuple[1], atom_infinity)) {
+    linear_y = INFINITY;
+  } else if (enif_is_identical(linear_tuple[1], atom_neg_infinity)) {
+    linear_y = -INFINITY;
+  } else if (!enif_get_double(env, linear_tuple[1], &linear_y)) {
     return enif_make_badarg(env);
+  }
   message_p->linear.y = linear_y;
 
   double linear_z;
-  if (!enif_get_double(env, linear_tuple[2], &linear_z))
+  if (enif_is_identical(linear_tuple[2], atom_nan)) {
+    linear_z = NAN;
+  } else if (enif_is_identical(linear_tuple[2], atom_infinity)) {
+    linear_z = INFINITY;
+  } else if (enif_is_identical(linear_tuple[2], atom_neg_infinity)) {
+    linear_z = -INFINITY;
+  } else if (!enif_get_double(env, linear_tuple[2], &linear_z)) {
     return enif_make_badarg(env);
+  }
   message_p->linear.z = linear_z;
 
   int angular_arity;
@@ -105,18 +127,39 @@ ERL_NIF_TERM nif_geometry_msgs_msg_twist_set(ErlNifEnv *env, int argc, const ERL
     return enif_make_badarg(env);
 
   double angular_x;
-  if (!enif_get_double(env, angular_tuple[0], &angular_x))
+  if (enif_is_identical(angular_tuple[0], atom_nan)) {
+    angular_x = NAN;
+  } else if (enif_is_identical(angular_tuple[0], atom_infinity)) {
+    angular_x = INFINITY;
+  } else if (enif_is_identical(angular_tuple[0], atom_neg_infinity)) {
+    angular_x = -INFINITY;
+  } else if (!enif_get_double(env, angular_tuple[0], &angular_x)) {
     return enif_make_badarg(env);
+  }
   message_p->angular.x = angular_x;
 
   double angular_y;
-  if (!enif_get_double(env, angular_tuple[1], &angular_y))
+  if (enif_is_identical(angular_tuple[1], atom_nan)) {
+    angular_y = NAN;
+  } else if (enif_is_identical(angular_tuple[1], atom_infinity)) {
+    angular_y = INFINITY;
+  } else if (enif_is_identical(angular_tuple[1], atom_neg_infinity)) {
+    angular_y = -INFINITY;
+  } else if (!enif_get_double(env, angular_tuple[1], &angular_y)) {
     return enif_make_badarg(env);
+  }
   message_p->angular.y = angular_y;
 
   double angular_z;
-  if (!enif_get_double(env, angular_tuple[2], &angular_z))
+  if (enif_is_identical(angular_tuple[2], atom_nan)) {
+    angular_z = NAN;
+  } else if (enif_is_identical(angular_tuple[2], atom_infinity)) {
+    angular_z = INFINITY;
+  } else if (enif_is_identical(angular_tuple[2], atom_neg_infinity)) {
+    angular_z = -INFINITY;
+  } else if (!enif_get_double(env, angular_tuple[2], &angular_z)) {
     return enif_make_badarg(env);
+  }
   message_p->angular.z = angular_z;
 
   return atom_ok;
@@ -131,16 +174,76 @@ ERL_NIF_TERM nif_geometry_msgs_msg_twist_get(ErlNifEnv *env, int argc, const ERL
 
   geometry_msgs__msg__Twist *message_p = (geometry_msgs__msg__Twist *)*ros_message_pp;
 
+  ERL_NIF_TERM linear_x_term;
+  if (isnan(message_p->linear.x)) {
+    linear_x_term = atom_nan;
+  } else if (isinf(message_p->linear.x) > 0) {
+    linear_x_term = atom_infinity;
+  } else if (isinf(message_p->linear.x) < 0) {
+    linear_x_term = atom_neg_infinity;
+  } else {
+    linear_x_term = enif_make_double(env, message_p->linear.x);
+  }
+  ERL_NIF_TERM linear_y_term;
+  if (isnan(message_p->linear.y)) {
+    linear_y_term = atom_nan;
+  } else if (isinf(message_p->linear.y) > 0) {
+    linear_y_term = atom_infinity;
+  } else if (isinf(message_p->linear.y) < 0) {
+    linear_y_term = atom_neg_infinity;
+  } else {
+    linear_y_term = enif_make_double(env, message_p->linear.y);
+  }
+  ERL_NIF_TERM linear_z_term;
+  if (isnan(message_p->linear.z)) {
+    linear_z_term = atom_nan;
+  } else if (isinf(message_p->linear.z) > 0) {
+    linear_z_term = atom_infinity;
+  } else if (isinf(message_p->linear.z) < 0) {
+    linear_z_term = atom_neg_infinity;
+  } else {
+    linear_z_term = enif_make_double(env, message_p->linear.z);
+  }
+  ERL_NIF_TERM angular_x_term;
+  if (isnan(message_p->angular.x)) {
+    angular_x_term = atom_nan;
+  } else if (isinf(message_p->angular.x) > 0) {
+    angular_x_term = atom_infinity;
+  } else if (isinf(message_p->angular.x) < 0) {
+    angular_x_term = atom_neg_infinity;
+  } else {
+    angular_x_term = enif_make_double(env, message_p->angular.x);
+  }
+  ERL_NIF_TERM angular_y_term;
+  if (isnan(message_p->angular.y)) {
+    angular_y_term = atom_nan;
+  } else if (isinf(message_p->angular.y) > 0) {
+    angular_y_term = atom_infinity;
+  } else if (isinf(message_p->angular.y) < 0) {
+    angular_y_term = atom_neg_infinity;
+  } else {
+    angular_y_term = enif_make_double(env, message_p->angular.y);
+  }
+  ERL_NIF_TERM angular_z_term;
+  if (isnan(message_p->angular.z)) {
+    angular_z_term = atom_nan;
+  } else if (isinf(message_p->angular.z) > 0) {
+    angular_z_term = atom_infinity;
+  } else if (isinf(message_p->angular.z) < 0) {
+    angular_z_term = atom_neg_infinity;
+  } else {
+    angular_z_term = enif_make_double(env, message_p->angular.z);
+  }
   return enif_make_tuple(env, 2,
     enif_make_tuple(env, 3,
-      enif_make_double(env, message_p->linear.x),
-      enif_make_double(env, message_p->linear.y),
-      enif_make_double(env, message_p->linear.z)
+      linear_x_term,
+      linear_y_term,
+      linear_z_term
     ),
     enif_make_tuple(env, 3,
-      enif_make_double(env, message_p->angular.x),
-      enif_make_double(env, message_p->angular.y),
-      enif_make_double(env, message_p->angular.z)
+      angular_x_term,
+      angular_y_term,
+      angular_z_term
     )
   );
 }

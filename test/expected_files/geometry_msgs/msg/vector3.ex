@@ -6,7 +6,11 @@ defmodule Rclex.Pkgs.GeometryMsgs.Msg.Vector3 do
             y: 0.0,
             z: 0.0
 
-  @type t :: %__MODULE__{x: float(), y: float(), z: float()}
+  @type t :: %__MODULE__{
+          x: float() | :nan | :infinity | :neg_infinity,
+          y: float() | :nan | :infinity | :neg_infinity,
+          z: float() | :nan | :infinity | :neg_infinity
+        }
 
   alias Rclex.Nif
 

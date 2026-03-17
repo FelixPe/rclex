@@ -9,10 +9,40 @@
 
   for (size_t floating_point_range_i = 0; floating_point_range_i < message_p->floating_point_range.size; ++floating_point_range_i)
   {
+    ERL_NIF_TERM floating_point_range_from_value_term;
+    if (isnan(message_p->floating_point_range.data[floating_point_range_i].from_value)) {
+      floating_point_range_from_value_term = atom_nan;
+    } else if (isinf(message_p->floating_point_range.data[floating_point_range_i].from_value) > 0) {
+      floating_point_range_from_value_term = atom_infinity;
+    } else if (isinf(message_p->floating_point_range.data[floating_point_range_i].from_value) < 0) {
+      floating_point_range_from_value_term = atom_neg_infinity;
+    } else {
+      floating_point_range_from_value_term = enif_make_double(env, message_p->floating_point_range.data[floating_point_range_i].from_value);
+    }
+    ERL_NIF_TERM floating_point_range_to_value_term;
+    if (isnan(message_p->floating_point_range.data[floating_point_range_i].to_value)) {
+      floating_point_range_to_value_term = atom_nan;
+    } else if (isinf(message_p->floating_point_range.data[floating_point_range_i].to_value) > 0) {
+      floating_point_range_to_value_term = atom_infinity;
+    } else if (isinf(message_p->floating_point_range.data[floating_point_range_i].to_value) < 0) {
+      floating_point_range_to_value_term = atom_neg_infinity;
+    } else {
+      floating_point_range_to_value_term = enif_make_double(env, message_p->floating_point_range.data[floating_point_range_i].to_value);
+    }
+    ERL_NIF_TERM floating_point_range_step_term;
+    if (isnan(message_p->floating_point_range.data[floating_point_range_i].step)) {
+      floating_point_range_step_term = atom_nan;
+    } else if (isinf(message_p->floating_point_range.data[floating_point_range_i].step) > 0) {
+      floating_point_range_step_term = atom_infinity;
+    } else if (isinf(message_p->floating_point_range.data[floating_point_range_i].step) < 0) {
+      floating_point_range_step_term = atom_neg_infinity;
+    } else {
+      floating_point_range_step_term = enif_make_double(env, message_p->floating_point_range.data[floating_point_range_i].step);
+    }
     floating_point_range[floating_point_range_i] = enif_make_tuple(env, 3,
-      enif_make_double(env, message_p->floating_point_range.data[floating_point_range_i].from_value),
-      enif_make_double(env, message_p->floating_point_range.data[floating_point_range_i].to_value),
-      enif_make_double(env, message_p->floating_point_range.data[floating_point_range_i].step)
+      floating_point_range_from_value_term,
+      floating_point_range_to_value_term,
+      floating_point_range_step_term
     );
   }
 

@@ -22,6 +22,7 @@
 #include <std_msgs/msg/detail/u_int32_multi_array__struct.h>
 #include <std_msgs/msg/detail/u_int32_multi_array__type_support.h>
 
+#include <math.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <string.h>

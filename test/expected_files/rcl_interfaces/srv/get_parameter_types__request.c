@@ -16,6 +16,7 @@
 #include <rcl_interfaces/srv/detail/get_parameter_types__struct.h>
 #include <rcl_interfaces/srv/detail/get_parameter_types__type_support.h>
 
+#include <math.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <string.h>

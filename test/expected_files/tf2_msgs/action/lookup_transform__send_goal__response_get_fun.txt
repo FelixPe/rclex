@@ -1,0 +1,7 @@
+  return enif_make_tuple(env, 2,
+    enif_make_atom(env, message_p->accepted ? "true" : "false"),
+    enif_make_tuple(env, 2,
+      enif_make_int(env, message_p->stamp.sec),
+      enif_make_uint(env, message_p->stamp.nanosec)
+    )
+  );

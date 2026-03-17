@@ -1,0 +1,14 @@
+  int goal_id_arity;
+  const ERL_NIF_TERM *goal_id_tuple;
+  if (!enif_get_tuple(env, tuple[0], &goal_id_arity, &goal_id_tuple))
+    return enif_make_badarg(env);
+
+  ErlNifBinary goal_id_uuid_bin;
+  if(!enif_inspect_binary(env, goal_id_tuple[0], &goal_id_uuid_bin))
+    return enif_make_badarg(env);
+
+  unsigned int goal_id_uuid_length = goal_id_uuid_bin.size;
+  if(goal_id_uuid_length > 16)
+    return enif_make_badarg(env);
+
+  memcpy(message_p->goal_id.uuid, goal_id_uuid_bin.data, goal_id_uuid_length);

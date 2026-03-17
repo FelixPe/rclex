@@ -16,6 +16,7 @@
 #include <std_srvs/srv/detail/set_bool__struct.h>
 #include <std_srvs/srv/detail/set_bool__type_support.h>
 
+#include <math.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <string.h>

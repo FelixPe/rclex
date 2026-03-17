@@ -16,6 +16,7 @@
 #include <std_msgs/msg/detail/string__struct.h>
 #include <std_msgs/msg/detail/string__type_support.h>
 
+#include <math.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <string.h>

@@ -40,6 +40,7 @@
 #include <tf2_msgs/action/detail/lookup_transform__struct.h>
 #include <tf2_msgs/action/detail/lookup_transform__type_support.h>
 
+#include <math.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <string.h>
@@ -160,18 +161,39 @@ ERL_NIF_TERM nif_tf2_msgs_action_lookup_transform__get_result__response_set(ErlN
     return enif_make_badarg(env);
 
   double result_transform_transform_translation_x;
-  if (!enif_get_double(env, result_transform_transform_translation_tuple[0], &result_transform_transform_translation_x))
+  if (enif_is_identical(result_transform_transform_translation_tuple[0], atom_nan)) {
+    result_transform_transform_translation_x = NAN;
+  } else if (enif_is_identical(result_transform_transform_translation_tuple[0], atom_infinity)) {
+    result_transform_transform_translation_x = INFINITY;
+  } else if (enif_is_identical(result_transform_transform_translation_tuple[0], atom_neg_infinity)) {
+    result_transform_transform_translation_x = -INFINITY;
+  } else if (!enif_get_double(env, result_transform_transform_translation_tuple[0], &result_transform_transform_translation_x)) {
     return enif_make_badarg(env);
+  }
   message_p->result.transform.transform.translation.x = result_transform_transform_translation_x;
 
   double result_transform_transform_translation_y;
-  if (!enif_get_double(env, result_transform_transform_translation_tuple[1], &result_transform_transform_translation_y))
+  if (enif_is_identical(result_transform_transform_translation_tuple[1], atom_nan)) {
+    result_transform_transform_translation_y = NAN;
+  } else if (enif_is_identical(result_transform_transform_translation_tuple[1], atom_infinity)) {
+    result_transform_transform_translation_y = INFINITY;
+  } else if (enif_is_identical(result_transform_transform_translation_tuple[1], atom_neg_infinity)) {
+    result_transform_transform_translation_y = -INFINITY;
+  } else if (!enif_get_double(env, result_transform_transform_translation_tuple[1], &result_transform_transform_translation_y)) {
     return enif_make_badarg(env);
+  }
   message_p->result.transform.transform.translation.y = result_transform_transform_translation_y;
 
   double result_transform_transform_translation_z;
-  if (!enif_get_double(env, result_transform_transform_translation_tuple[2], &result_transform_transform_translation_z))
+  if (enif_is_identical(result_transform_transform_translation_tuple[2], atom_nan)) {
+    result_transform_transform_translation_z = NAN;
+  } else if (enif_is_identical(result_transform_transform_translation_tuple[2], atom_infinity)) {
+    result_transform_transform_translation_z = INFINITY;
+  } else if (enif_is_identical(result_transform_transform_translation_tuple[2], atom_neg_infinity)) {
+    result_transform_transform_translation_z = -INFINITY;
+  } else if (!enif_get_double(env, result_transform_transform_translation_tuple[2], &result_transform_transform_translation_z)) {
     return enif_make_badarg(env);
+  }
   message_p->result.transform.transform.translation.z = result_transform_transform_translation_z;
 
   int result_transform_transform_rotation_arity;
@@ -180,23 +202,51 @@ ERL_NIF_TERM nif_tf2_msgs_action_lookup_transform__get_result__response_set(ErlN
     return enif_make_badarg(env);
 
   double result_transform_transform_rotation_x;
-  if (!enif_get_double(env, result_transform_transform_rotation_tuple[0], &result_transform_transform_rotation_x))
+  if (enif_is_identical(result_transform_transform_rotation_tuple[0], atom_nan)) {
+    result_transform_transform_rotation_x = NAN;
+  } else if (enif_is_identical(result_transform_transform_rotation_tuple[0], atom_infinity)) {
+    result_transform_transform_rotation_x = INFINITY;
+  } else if (enif_is_identical(result_transform_transform_rotation_tuple[0], atom_neg_infinity)) {
+    result_transform_transform_rotation_x = -INFINITY;
+  } else if (!enif_get_double(env, result_transform_transform_rotation_tuple[0], &result_transform_transform_rotation_x)) {
     return enif_make_badarg(env);
+  }
   message_p->result.transform.transform.rotation.x = result_transform_transform_rotation_x;
 
   double result_transform_transform_rotation_y;
-  if (!enif_get_double(env, result_transform_transform_rotation_tuple[1], &result_transform_transform_rotation_y))
+  if (enif_is_identical(result_transform_transform_rotation_tuple[1], atom_nan)) {
+    result_transform_transform_rotation_y = NAN;
+  } else if (enif_is_identical(result_transform_transform_rotation_tuple[1], atom_infinity)) {
+    result_transform_transform_rotation_y = INFINITY;
+  } else if (enif_is_identical(result_transform_transform_rotation_tuple[1], atom_neg_infinity)) {
+    result_transform_transform_rotation_y = -INFINITY;
+  } else if (!enif_get_double(env, result_transform_transform_rotation_tuple[1], &result_transform_transform_rotation_y)) {
     return enif_make_badarg(env);
+  }
   message_p->result.transform.transform.rotation.y = result_transform_transform_rotation_y;
 
   double result_transform_transform_rotation_z;
-  if (!enif_get_double(env, result_transform_transform_rotation_tuple[2], &result_transform_transform_rotation_z))
+  if (enif_is_identical(result_transform_transform_rotation_tuple[2], atom_nan)) {
+    result_transform_transform_rotation_z = NAN;
+  } else if (enif_is_identical(result_transform_transform_rotation_tuple[2], atom_infinity)) {
+    result_transform_transform_rotation_z = INFINITY;
+  } else if (enif_is_identical(result_transform_transform_rotation_tuple[2], atom_neg_infinity)) {
+    result_transform_transform_rotation_z = -INFINITY;
+  } else if (!enif_get_double(env, result_transform_transform_rotation_tuple[2], &result_transform_transform_rotation_z)) {
     return enif_make_badarg(env);
+  }
   message_p->result.transform.transform.rotation.z = result_transform_transform_rotation_z;
 
   double result_transform_transform_rotation_w;
-  if (!enif_get_double(env, result_transform_transform_rotation_tuple[3], &result_transform_transform_rotation_w))
+  if (enif_is_identical(result_transform_transform_rotation_tuple[3], atom_nan)) {
+    result_transform_transform_rotation_w = NAN;
+  } else if (enif_is_identical(result_transform_transform_rotation_tuple[3], atom_infinity)) {
+    result_transform_transform_rotation_w = INFINITY;
+  } else if (enif_is_identical(result_transform_transform_rotation_tuple[3], atom_neg_infinity)) {
+    result_transform_transform_rotation_w = -INFINITY;
+  } else if (!enif_get_double(env, result_transform_transform_rotation_tuple[3], &result_transform_transform_rotation_w)) {
     return enif_make_badarg(env);
+  }
   message_p->result.transform.transform.rotation.w = result_transform_transform_rotation_w;
 
   int result_error_arity;
@@ -234,6 +284,76 @@ ERL_NIF_TERM nif_tf2_msgs_action_lookup_transform__get_result__response_get(ErlN
   ERL_NIF_TERM result_transform_child_frame_id_term = enif_make_binary_wrapper(env, message_p->result.transform.child_frame_id.data, message_p->result.transform.child_frame_id.size);
   if (enif_is_exception(env, result_transform_child_frame_id_term))
     return result_transform_child_frame_id_term;
+  ERL_NIF_TERM result_transform_transform_translation_x_term;
+  if (isnan(message_p->result.transform.transform.translation.x)) {
+    result_transform_transform_translation_x_term = atom_nan;
+  } else if (isinf(message_p->result.transform.transform.translation.x) > 0) {
+    result_transform_transform_translation_x_term = atom_infinity;
+  } else if (isinf(message_p->result.transform.transform.translation.x) < 0) {
+    result_transform_transform_translation_x_term = atom_neg_infinity;
+  } else {
+    result_transform_transform_translation_x_term = enif_make_double(env, message_p->result.transform.transform.translation.x);
+  }
+  ERL_NIF_TERM result_transform_transform_translation_y_term;
+  if (isnan(message_p->result.transform.transform.translation.y)) {
+    result_transform_transform_translation_y_term = atom_nan;
+  } else if (isinf(message_p->result.transform.transform.translation.y) > 0) {
+    result_transform_transform_translation_y_term = atom_infinity;
+  } else if (isinf(message_p->result.transform.transform.translation.y) < 0) {
+    result_transform_transform_translation_y_term = atom_neg_infinity;
+  } else {
+    result_transform_transform_translation_y_term = enif_make_double(env, message_p->result.transform.transform.translation.y);
+  }
+  ERL_NIF_TERM result_transform_transform_translation_z_term;
+  if (isnan(message_p->result.transform.transform.translation.z)) {
+    result_transform_transform_translation_z_term = atom_nan;
+  } else if (isinf(message_p->result.transform.transform.translation.z) > 0) {
+    result_transform_transform_translation_z_term = atom_infinity;
+  } else if (isinf(message_p->result.transform.transform.translation.z) < 0) {
+    result_transform_transform_translation_z_term = atom_neg_infinity;
+  } else {
+    result_transform_transform_translation_z_term = enif_make_double(env, message_p->result.transform.transform.translation.z);
+  }
+  ERL_NIF_TERM result_transform_transform_rotation_x_term;
+  if (isnan(message_p->result.transform.transform.rotation.x)) {
+    result_transform_transform_rotation_x_term = atom_nan;
+  } else if (isinf(message_p->result.transform.transform.rotation.x) > 0) {
+    result_transform_transform_rotation_x_term = atom_infinity;
+  } else if (isinf(message_p->result.transform.transform.rotation.x) < 0) {
+    result_transform_transform_rotation_x_term = atom_neg_infinity;
+  } else {
+    result_transform_transform_rotation_x_term = enif_make_double(env, message_p->result.transform.transform.rotation.x);
+  }
+  ERL_NIF_TERM result_transform_transform_rotation_y_term;
+  if (isnan(message_p->result.transform.transform.rotation.y)) {
+    result_transform_transform_rotation_y_term = atom_nan;
+  } else if (isinf(message_p->result.transform.transform.rotation.y) > 0) {
+    result_transform_transform_rotation_y_term = atom_infinity;
+  } else if (isinf(message_p->result.transform.transform.rotation.y) < 0) {
+    result_transform_transform_rotation_y_term = atom_neg_infinity;
+  } else {
+    result_transform_transform_rotation_y_term = enif_make_double(env, message_p->result.transform.transform.rotation.y);
+  }
+  ERL_NIF_TERM result_transform_transform_rotation_z_term;
+  if (isnan(message_p->result.transform.transform.rotation.z)) {
+    result_transform_transform_rotation_z_term = atom_nan;
+  } else if (isinf(message_p->result.transform.transform.rotation.z) > 0) {
+    result_transform_transform_rotation_z_term = atom_infinity;
+  } else if (isinf(message_p->result.transform.transform.rotation.z) < 0) {
+    result_transform_transform_rotation_z_term = atom_neg_infinity;
+  } else {
+    result_transform_transform_rotation_z_term = enif_make_double(env, message_p->result.transform.transform.rotation.z);
+  }
+  ERL_NIF_TERM result_transform_transform_rotation_w_term;
+  if (isnan(message_p->result.transform.transform.rotation.w)) {
+    result_transform_transform_rotation_w_term = atom_nan;
+  } else if (isinf(message_p->result.transform.transform.rotation.w) > 0) {
+    result_transform_transform_rotation_w_term = atom_infinity;
+  } else if (isinf(message_p->result.transform.transform.rotation.w) < 0) {
+    result_transform_transform_rotation_w_term = atom_neg_infinity;
+  } else {
+    result_transform_transform_rotation_w_term = enif_make_double(env, message_p->result.transform.transform.rotation.w);
+  }
   ERL_NIF_TERM result_error_error_string_term = enif_make_binary_wrapper(env, message_p->result.error.error_string.data, message_p->result.error.error_string.size);
   if (enif_is_exception(env, result_error_error_string_term))
     return result_error_error_string_term;
@@ -251,15 +371,15 @@ ERL_NIF_TERM nif_tf2_msgs_action_lookup_transform__get_result__response_get(ErlN
         result_transform_child_frame_id_term,
         enif_make_tuple(env, 2,
           enif_make_tuple(env, 3,
-            enif_make_double(env, message_p->result.transform.transform.translation.x),
-            enif_make_double(env, message_p->result.transform.transform.translation.y),
-            enif_make_double(env, message_p->result.transform.transform.translation.z)
+            result_transform_transform_translation_x_term,
+            result_transform_transform_translation_y_term,
+            result_transform_transform_translation_z_term
           ),
           enif_make_tuple(env, 4,
-            enif_make_double(env, message_p->result.transform.transform.rotation.x),
-            enif_make_double(env, message_p->result.transform.transform.rotation.y),
-            enif_make_double(env, message_p->result.transform.transform.rotation.z),
-            enif_make_double(env, message_p->result.transform.transform.rotation.w)
+            result_transform_transform_rotation_x_term,
+            result_transform_transform_rotation_y_term,
+            result_transform_transform_rotation_z_term,
+            result_transform_transform_rotation_w_term
           )
         )
       ),

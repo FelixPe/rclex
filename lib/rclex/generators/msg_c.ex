@@ -384,8 +384,15 @@ defmodule Rclex.Generators.MsgC do
   defp enif_get_builtin("float64", var, mbr, term) do
     """
     double #{var};
-    if (!enif_get_double(env, #{term}, &#{var}))
+    if (enif_is_identical(#{term}, atom_nan)) {
+      #{var} = NAN;
+    } else if (enif_is_identical(#{term}, atom_infinity)) {
+      #{var} = INFINITY;
+    } else if (enif_is_identical(#{term}, atom_neg_infinity)) {
+      #{var} = -INFINITY;
+    } else if (!enif_get_double(env, #{term}, &#{var})) {
       return enif_make_badarg(env);
+    }
     message_p->#{mbr} = #{var};
     """
   end
@@ -393,8 +400,15 @@ defmodule Rclex.Generators.MsgC do
   defp enif_get_builtin("float32", var, mbr, term) do
     """
     double #{var};
-    if (!enif_get_double(env, #{term}, &#{var}))
+    if (enif_is_identical(#{term}, atom_nan)) {
+      #{var} = NAN;
+    } else if (enif_is_identical(#{term}, atom_infinity)) {
+      #{var} = INFINITY;
+    } else if (enif_is_identical(#{term}, atom_neg_infinity)) {
+      #{var} = -INFINITY;
+    } else if (!enif_get_double(env, #{term}, &#{var})) {
       return enif_make_badarg(env);
+    }
     message_p->#{mbr} = (float)#{var};
     """
   end
@@ -681,8 +695,23 @@ defmodule Rclex.Generators.MsgC do
     {"", "enif_make_uint(env, message_p->#{mbr})", []}
   end
 
-  defp enif_make_builtin("float" <> _, _var, mbr) do
-    {"", "enif_make_double(env, message_p->#{mbr})", []}
+  defp enif_make_builtin("float" <> _, var, mbr) do
+    term_var = "#{var}_term"
+
+    setup = """
+    ERL_NIF_TERM #{term_var};
+    if (isnan(message_p->#{mbr})) {
+      #{term_var} = atom_nan;
+    } else if (isinf(message_p->#{mbr}) > 0) {
+      #{term_var} = atom_infinity;
+    } else if (isinf(message_p->#{mbr}) < 0) {
+      #{term_var} = atom_neg_infinity;
+    } else {
+      #{term_var} = enif_make_double(env, message_p->#{mbr});
+    }
+    """
+
+    {setup, term_var, []}
   end
 
   defp enif_make_builtin("string", var, mbr) do

@@ -230,11 +230,19 @@ defmodule Rclex.Generators.MsgCTest do
       assert result =~ "enif_make_uint64"
 
       # Test float types
-      {_, result, _accs} = MsgC.enif_make({:builtin_type, "float32"}, acc, %{})
-      assert result =~ "enif_make_double"
+      {setup, result, _accs} = MsgC.enif_make({:builtin_type, "float32"}, acc, %{})
+      assert setup =~ "isnan(message_p->data)"
+      assert setup =~ "atom_nan"
+      assert setup =~ "atom_infinity"
+      assert setup =~ "atom_neg_infinity"
+      assert result == "test_term"
 
-      {_, result, _accs} = MsgC.enif_make({:builtin_type, "float64"}, acc, %{})
-      assert result =~ "enif_make_double"
+      {setup, result, _accs} = MsgC.enif_make({:builtin_type, "float64"}, acc, %{})
+      assert setup =~ "isnan(message_p->data)"
+      assert setup =~ "atom_nan"
+      assert setup =~ "atom_infinity"
+      assert setup =~ "atom_neg_infinity"
+      assert result == "test_term"
     end
   end
 

@@ -19,6 +19,7 @@
 #include <<%= header_prefix %>__struct.h>
 #include <<%= header_prefix %>__type_support.h>
 
+#include <math.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <string.h>

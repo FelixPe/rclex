@@ -19,6 +19,7 @@
 #include <tf2_msgs/action/detail/lookup_transform__struct.h>
 #include <tf2_msgs/action/detail/lookup_transform__type_support.h>
 
+#include <math.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <string.h>

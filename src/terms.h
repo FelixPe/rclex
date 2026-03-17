@@ -5,6 +5,9 @@ extern ERL_NIF_TERM atom_ok;
 extern ERL_NIF_TERM atom_error;
 extern ERL_NIF_TERM atom_true;
 extern ERL_NIF_TERM atom_false;
+extern ERL_NIF_TERM atom_nan;
+extern ERL_NIF_TERM atom_infinity;
+extern ERL_NIF_TERM atom_neg_infinity;
 
 extern void make_common_atoms(ErlNifEnv *env);
 extern ERL_NIF_TERM nif_test_raise(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);

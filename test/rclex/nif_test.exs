@@ -11,7 +11,7 @@ defmodule Rclex.NifTest do
       rescue
         ex in [ErlangError] ->
           %ErlangError{original: charlist, reason: nil} = ex
-          assert "at src/terms.c:22" <> _ = to_string(charlist)
+          assert "at src/terms.c:28" <> _ = to_string(charlist)
       end
     end
 
@@ -21,9 +21,33 @@ defmodule Rclex.NifTest do
       rescue
         ex in [ErlangError] ->
           %ErlangError{original: charlist, reason: nil} = ex
-          assert "at src/terms.c:29" <> _ = to_string(charlist)
+          assert "at src/terms.c:35" <> _ = to_string(charlist)
           assert String.ends_with?(to_string(charlist), "test")
       end
+    end
+
+    test "geometry_msgs_msg_vector3 handles :nan" do
+      message = Nif.geometry_msgs_msg_vector3_create!()
+      assert Nif.geometry_msgs_msg_vector3_set!(message, {:nan, 0.0, 0.0}) == :ok
+      {x, _y, _z} = Nif.geometry_msgs_msg_vector3_get!(message)
+      assert x == :nan
+      :ok = Nif.geometry_msgs_msg_vector3_destroy!(message)
+    end
+
+    test "geometry_msgs_msg_vector3 handles :infinity" do
+      message = Nif.geometry_msgs_msg_vector3_create!()
+      assert Nif.geometry_msgs_msg_vector3_set!(message, {:infinity, 0.0, 0.0}) == :ok
+      {x, _y, _z} = Nif.geometry_msgs_msg_vector3_get!(message)
+      assert x == :infinity
+      :ok = Nif.geometry_msgs_msg_vector3_destroy!(message)
+    end
+
+    test "geometry_msgs_msg_vector3 handles :neg_infinity" do
+      message = Nif.geometry_msgs_msg_vector3_create!()
+      assert Nif.geometry_msgs_msg_vector3_set!(message, {:neg_infinity, 0.0, 0.0}) == :ok
+      {x, _y, _z} = Nif.geometry_msgs_msg_vector3_get!(message)
+      assert x == :neg_infinity
+      :ok = Nif.geometry_msgs_msg_vector3_destroy!(message)
     end
   end
 

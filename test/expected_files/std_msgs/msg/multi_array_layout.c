@@ -19,6 +19,7 @@
 #include <std_msgs/msg/detail/multi_array_layout__struct.h>
 #include <std_msgs/msg/detail/multi_array_layout__type_support.h>
 
+#include <math.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <string.h>

@@ -9,10 +9,40 @@
 
   for (size_t points_i = 0; points_i < message_p->points.size; ++points_i)
   {
+    ERL_NIF_TERM points_x_term;
+    if (isnan(message_p->points.data[points_i].x)) {
+      points_x_term = atom_nan;
+    } else if (isinf(message_p->points.data[points_i].x) > 0) {
+      points_x_term = atom_infinity;
+    } else if (isinf(message_p->points.data[points_i].x) < 0) {
+      points_x_term = atom_neg_infinity;
+    } else {
+      points_x_term = enif_make_double(env, message_p->points.data[points_i].x);
+    }
+    ERL_NIF_TERM points_y_term;
+    if (isnan(message_p->points.data[points_i].y)) {
+      points_y_term = atom_nan;
+    } else if (isinf(message_p->points.data[points_i].y) > 0) {
+      points_y_term = atom_infinity;
+    } else if (isinf(message_p->points.data[points_i].y) < 0) {
+      points_y_term = atom_neg_infinity;
+    } else {
+      points_y_term = enif_make_double(env, message_p->points.data[points_i].y);
+    }
+    ERL_NIF_TERM points_z_term;
+    if (isnan(message_p->points.data[points_i].z)) {
+      points_z_term = atom_nan;
+    } else if (isinf(message_p->points.data[points_i].z) > 0) {
+      points_z_term = atom_infinity;
+    } else if (isinf(message_p->points.data[points_i].z) < 0) {
+      points_z_term = atom_neg_infinity;
+    } else {
+      points_z_term = enif_make_double(env, message_p->points.data[points_i].z);
+    }
     points[points_i] = enif_make_tuple(env, 3,
-      enif_make_double(env, message_p->points.data[points_i].x),
-      enif_make_double(env, message_p->points.data[points_i].y),
-      enif_make_double(env, message_p->points.data[points_i].z)
+      points_x_term,
+      points_y_term,
+      points_z_term
     );
   }
 
@@ -38,7 +68,17 @@
 
     for (size_t channels_values_i = 0; channels_values_i < message_p->channels.data[channels_i].values.size; ++channels_values_i)
     {
-      channels_values[channels_values_i] = enif_make_double(env, message_p->channels.data[channels_i].values.data[channels_values_i]);
+      ERL_NIF_TERM channels_values_term;
+      if (isnan(message_p->channels.data[channels_i].values.data[channels_values_i])) {
+        channels_values_term = atom_nan;
+      } else if (isinf(message_p->channels.data[channels_i].values.data[channels_values_i]) > 0) {
+        channels_values_term = atom_infinity;
+      } else if (isinf(message_p->channels.data[channels_i].values.data[channels_values_i]) < 0) {
+        channels_values_term = atom_neg_infinity;
+      } else {
+        channels_values_term = enif_make_double(env, message_p->channels.data[channels_i].values.data[channels_values_i]);
+      }
+      channels_values[channels_values_i] = channels_values_term;
     }
 
     ERL_NIF_TERM channels_name_term = enif_make_binary_wrapper(env, message_p->channels.data[channels_i].name.data, message_p->channels.data[channels_i].name.size);

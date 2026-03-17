@@ -1,12 +1,72 @@
+  ERL_NIF_TERM linear_x_term;
+  if (isnan(message_p->linear.x)) {
+    linear_x_term = atom_nan;
+  } else if (isinf(message_p->linear.x) > 0) {
+    linear_x_term = atom_infinity;
+  } else if (isinf(message_p->linear.x) < 0) {
+    linear_x_term = atom_neg_infinity;
+  } else {
+    linear_x_term = enif_make_double(env, message_p->linear.x);
+  }
+  ERL_NIF_TERM linear_y_term;
+  if (isnan(message_p->linear.y)) {
+    linear_y_term = atom_nan;
+  } else if (isinf(message_p->linear.y) > 0) {
+    linear_y_term = atom_infinity;
+  } else if (isinf(message_p->linear.y) < 0) {
+    linear_y_term = atom_neg_infinity;
+  } else {
+    linear_y_term = enif_make_double(env, message_p->linear.y);
+  }
+  ERL_NIF_TERM linear_z_term;
+  if (isnan(message_p->linear.z)) {
+    linear_z_term = atom_nan;
+  } else if (isinf(message_p->linear.z) > 0) {
+    linear_z_term = atom_infinity;
+  } else if (isinf(message_p->linear.z) < 0) {
+    linear_z_term = atom_neg_infinity;
+  } else {
+    linear_z_term = enif_make_double(env, message_p->linear.z);
+  }
+  ERL_NIF_TERM angular_x_term;
+  if (isnan(message_p->angular.x)) {
+    angular_x_term = atom_nan;
+  } else if (isinf(message_p->angular.x) > 0) {
+    angular_x_term = atom_infinity;
+  } else if (isinf(message_p->angular.x) < 0) {
+    angular_x_term = atom_neg_infinity;
+  } else {
+    angular_x_term = enif_make_double(env, message_p->angular.x);
+  }
+  ERL_NIF_TERM angular_y_term;
+  if (isnan(message_p->angular.y)) {
+    angular_y_term = atom_nan;
+  } else if (isinf(message_p->angular.y) > 0) {
+    angular_y_term = atom_infinity;
+  } else if (isinf(message_p->angular.y) < 0) {
+    angular_y_term = atom_neg_infinity;
+  } else {
+    angular_y_term = enif_make_double(env, message_p->angular.y);
+  }
+  ERL_NIF_TERM angular_z_term;
+  if (isnan(message_p->angular.z)) {
+    angular_z_term = atom_nan;
+  } else if (isinf(message_p->angular.z) > 0) {
+    angular_z_term = atom_infinity;
+  } else if (isinf(message_p->angular.z) < 0) {
+    angular_z_term = atom_neg_infinity;
+  } else {
+    angular_z_term = enif_make_double(env, message_p->angular.z);
+  }
   return enif_make_tuple(env, 2,
     enif_make_tuple(env, 3,
-      enif_make_double(env, message_p->linear.x),
-      enif_make_double(env, message_p->linear.y),
-      enif_make_double(env, message_p->linear.z)
+      linear_x_term,
+      linear_y_term,
+      linear_z_term
     ),
     enif_make_tuple(env, 3,
-      enif_make_double(env, message_p->angular.x),
-      enif_make_double(env, message_p->angular.y),
-      enif_make_double(env, message_p->angular.z)
+      angular_x_term,
+      angular_y_term,
+      angular_z_term
     )
   );

@@ -1,0 +1,164 @@
+  unsigned int status;
+  if (!enif_get_uint(env, tuple[0], &status))
+    return enif_make_badarg(env);
+  message_p->status = status;
+
+  int result_arity;
+  const ERL_NIF_TERM *result_tuple;
+  if (!enif_get_tuple(env, tuple[1], &result_arity, &result_tuple))
+    return enif_make_badarg(env);
+
+  int result_transform_arity;
+  const ERL_NIF_TERM *result_transform_tuple;
+  if (!enif_get_tuple(env, result_tuple[0], &result_transform_arity, &result_transform_tuple))
+    return enif_make_badarg(env);
+
+  int result_transform_header_arity;
+  const ERL_NIF_TERM *result_transform_header_tuple;
+  if (!enif_get_tuple(env, result_transform_tuple[0], &result_transform_header_arity, &result_transform_header_tuple))
+    return enif_make_badarg(env);
+
+  int result_transform_header_stamp_arity;
+  const ERL_NIF_TERM *result_transform_header_stamp_tuple;
+  if (!enif_get_tuple(env, result_transform_header_tuple[0], &result_transform_header_stamp_arity, &result_transform_header_stamp_tuple))
+    return enif_make_badarg(env);
+
+  int result_transform_header_stamp_sec;
+  if (!enif_get_int(env, result_transform_header_stamp_tuple[0], &result_transform_header_stamp_sec))
+    return enif_make_badarg(env);
+  message_p->result.transform.header.stamp.sec = result_transform_header_stamp_sec;
+
+  unsigned int result_transform_header_stamp_nanosec;
+  if (!enif_get_uint(env, result_transform_header_stamp_tuple[1], &result_transform_header_stamp_nanosec))
+    return enif_make_badarg(env);
+  message_p->result.transform.header.stamp.nanosec = result_transform_header_stamp_nanosec;
+
+  ErlNifBinary result_transform_header_frame_id_binary;
+  if (!enif_inspect_binary(env, result_transform_header_tuple[1], &result_transform_header_frame_id_binary))
+    return enif_make_badarg(env);
+
+  if (!rosidl_runtime_c__String__assignn(&(message_p->result.transform.header.frame_id), (const char *)result_transform_header_frame_id_binary.data, result_transform_header_frame_id_binary.size))
+    return raise(env, __FILE__, __LINE__);
+
+  ErlNifBinary result_transform_child_frame_id_binary;
+  if (!enif_inspect_binary(env, result_transform_tuple[1], &result_transform_child_frame_id_binary))
+    return enif_make_badarg(env);
+
+  if (!rosidl_runtime_c__String__assignn(&(message_p->result.transform.child_frame_id), (const char *)result_transform_child_frame_id_binary.data, result_transform_child_frame_id_binary.size))
+    return raise(env, __FILE__, __LINE__);
+
+  int result_transform_transform_arity;
+  const ERL_NIF_TERM *result_transform_transform_tuple;
+  if (!enif_get_tuple(env, result_transform_tuple[2], &result_transform_transform_arity, &result_transform_transform_tuple))
+    return enif_make_badarg(env);
+
+  int result_transform_transform_translation_arity;
+  const ERL_NIF_TERM *result_transform_transform_translation_tuple;
+  if (!enif_get_tuple(env, result_transform_transform_tuple[0], &result_transform_transform_translation_arity, &result_transform_transform_translation_tuple))
+    return enif_make_badarg(env);
+
+  double result_transform_transform_translation_x;
+  if (enif_is_identical(result_transform_transform_translation_tuple[0], atom_nan)) {
+    result_transform_transform_translation_x = NAN;
+  } else if (enif_is_identical(result_transform_transform_translation_tuple[0], atom_infinity)) {
+    result_transform_transform_translation_x = INFINITY;
+  } else if (enif_is_identical(result_transform_transform_translation_tuple[0], atom_neg_infinity)) {
+    result_transform_transform_translation_x = -INFINITY;
+  } else if (!enif_get_double(env, result_transform_transform_translation_tuple[0], &result_transform_transform_translation_x)) {
+    return enif_make_badarg(env);
+  }
+  message_p->result.transform.transform.translation.x = result_transform_transform_translation_x;
+
+  double result_transform_transform_translation_y;
+  if (enif_is_identical(result_transform_transform_translation_tuple[1], atom_nan)) {
+    result_transform_transform_translation_y = NAN;
+  } else if (enif_is_identical(result_transform_transform_translation_tuple[1], atom_infinity)) {
+    result_transform_transform_translation_y = INFINITY;
+  } else if (enif_is_identical(result_transform_transform_translation_tuple[1], atom_neg_infinity)) {
+    result_transform_transform_translation_y = -INFINITY;
+  } else if (!enif_get_double(env, result_transform_transform_translation_tuple[1], &result_transform_transform_translation_y)) {
+    return enif_make_badarg(env);
+  }
+  message_p->result.transform.transform.translation.y = result_transform_transform_translation_y;
+
+  double result_transform_transform_translation_z;
+  if (enif_is_identical(result_transform_transform_translation_tuple[2], atom_nan)) {
+    result_transform_transform_translation_z = NAN;
+  } else if (enif_is_identical(result_transform_transform_translation_tuple[2], atom_infinity)) {
+    result_transform_transform_translation_z = INFINITY;
+  } else if (enif_is_identical(result_transform_transform_translation_tuple[2], atom_neg_infinity)) {
+    result_transform_transform_translation_z = -INFINITY;
+  } else if (!enif_get_double(env, result_transform_transform_translation_tuple[2], &result_transform_transform_translation_z)) {
+    return enif_make_badarg(env);
+  }
+  message_p->result.transform.transform.translation.z = result_transform_transform_translation_z;
+
+  int result_transform_transform_rotation_arity;
+  const ERL_NIF_TERM *result_transform_transform_rotation_tuple;
+  if (!enif_get_tuple(env, result_transform_transform_tuple[1], &result_transform_transform_rotation_arity, &result_transform_transform_rotation_tuple))
+    return enif_make_badarg(env);
+
+  double result_transform_transform_rotation_x;
+  if (enif_is_identical(result_transform_transform_rotation_tuple[0], atom_nan)) {
+    result_transform_transform_rotation_x = NAN;
+  } else if (enif_is_identical(result_transform_transform_rotation_tuple[0], atom_infinity)) {
+    result_transform_transform_rotation_x = INFINITY;
+  } else if (enif_is_identical(result_transform_transform_rotation_tuple[0], atom_neg_infinity)) {
+    result_transform_transform_rotation_x = -INFINITY;
+  } else if (!enif_get_double(env, result_transform_transform_rotation_tuple[0], &result_transform_transform_rotation_x)) {
+    return enif_make_badarg(env);
+  }
+  message_p->result.transform.transform.rotation.x = result_transform_transform_rotation_x;
+
+  double result_transform_transform_rotation_y;
+  if (enif_is_identical(result_transform_transform_rotation_tuple[1], atom_nan)) {
+    result_transform_transform_rotation_y = NAN;
+  } else if (enif_is_identical(result_transform_transform_rotation_tuple[1], atom_infinity)) {
+    result_transform_transform_rotation_y = INFINITY;
+  } else if (enif_is_identical(result_transform_transform_rotation_tuple[1], atom_neg_infinity)) {
+    result_transform_transform_rotation_y = -INFINITY;
+  } else if (!enif_get_double(env, result_transform_transform_rotation_tuple[1], &result_transform_transform_rotation_y)) {
+    return enif_make_badarg(env);
+  }
+  message_p->result.transform.transform.rotation.y = result_transform_transform_rotation_y;
+
+  double result_transform_transform_rotation_z;
+  if (enif_is_identical(result_transform_transform_rotation_tuple[2], atom_nan)) {
+    result_transform_transform_rotation_z = NAN;
+  } else if (enif_is_identical(result_transform_transform_rotation_tuple[2], atom_infinity)) {
+    result_transform_transform_rotation_z = INFINITY;
+  } else if (enif_is_identical(result_transform_transform_rotation_tuple[2], atom_neg_infinity)) {
+    result_transform_transform_rotation_z = -INFINITY;
+  } else if (!enif_get_double(env, result_transform_transform_rotation_tuple[2], &result_transform_transform_rotation_z)) {
+    return enif_make_badarg(env);
+  }
+  message_p->result.transform.transform.rotation.z = result_transform_transform_rotation_z;
+
+  double result_transform_transform_rotation_w;
+  if (enif_is_identical(result_transform_transform_rotation_tuple[3], atom_nan)) {
+    result_transform_transform_rotation_w = NAN;
+  } else if (enif_is_identical(result_transform_transform_rotation_tuple[3], atom_infinity)) {
+    result_transform_transform_rotation_w = INFINITY;
+  } else if (enif_is_identical(result_transform_transform_rotation_tuple[3], atom_neg_infinity)) {
+    result_transform_transform_rotation_w = -INFINITY;
+  } else if (!enif_get_double(env, result_transform_transform_rotation_tuple[3], &result_transform_transform_rotation_w)) {
+    return enif_make_badarg(env);
+  }
+  message_p->result.transform.transform.rotation.w = result_transform_transform_rotation_w;
+
+  int result_error_arity;
+  const ERL_NIF_TERM *result_error_tuple;
+  if (!enif_get_tuple(env, result_tuple[1], &result_error_arity, &result_error_tuple))
+    return enif_make_badarg(env);
+
+  unsigned int result_error_error;
+  if (!enif_get_uint(env, result_error_tuple[0], &result_error_error))
+    return enif_make_badarg(env);
+  message_p->result.error.error = result_error_error;
+
+  ErlNifBinary result_error_error_string_binary;
+  if (!enif_inspect_binary(env, result_error_tuple[1], &result_error_error_string_binary))
+    return enif_make_badarg(env);
+
+  if (!rosidl_runtime_c__String__assignn(&(message_p->result.error.error_string), (const char *)result_error_error_string_binary.data, result_error_error_string_binary.size))
+    return raise(env, __FILE__, __LINE__);
