@@ -493,7 +493,7 @@ defmodule Rclex.Generators.MsgExTest do
       assert type_result =~ "numbers: list(integer())"
 
       assert type_result =~
-               "coordinates: list(float() | :nan | :infinity | :neg_infinity)"
+                    "coordinates: list(float() | :nan | :infinity | :neg_infinity)"
 
       assert type_result =~ "messages: list(%Rclex.Pkgs.StdMsgs.Msg.String{})"
     end
