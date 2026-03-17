@@ -112,6 +112,56 @@ defmodule Rclex.NifTest do
     end
   end
 
+  describe "sensor_msgs_msg_joint_state" do
+    test "sensor_msgs_msg_joint_state_type_support!/0" do
+      assert is_reference(Nif.sensor_msgs_msg_joint_state_type_support!())
+    end
+
+    test "sensor_msgs_msg_joint_state_create!/0, sensor_msgs_msg_joint_state_destroy!/1" do
+      message = Nif.sensor_msgs_msg_joint_state_create!()
+      assert is_reference(message)
+      assert Nif.sensor_msgs_msg_joint_state_destroy!(message) == :ok
+    end
+
+    test "sensor_msgs_msg_joint_state_set!/2, sensor_msgs_msg_joint_state_get!/1" do
+      message = Nif.sensor_msgs_msg_joint_state_create!()
+
+      data =
+        {{{11223, 44556}, "joint_frame"}, ["shoulder", "elbow"], [1.0, 7.0, 3.0],
+         [8.0, 9.0, 6.0, 4.0], [1.0, 0.0, 2.0, 6.0, 7.0]}
+
+      workers = 8
+      iterations_per_worker = 500
+
+      assert Nif.sensor_msgs_msg_joint_state_set!(message, data) == :ok
+      assert Nif.sensor_msgs_msg_joint_state_get!(message) == data
+
+      parent = self()
+
+      tasks =
+        for _ <- 1..workers do
+          Task.async(fn ->
+            for _ <- 1..iterations_per_worker do
+              send(parent, {:joint_state_value, Nif.sensor_msgs_msg_joint_state_get!(message)})
+
+              _churn = :crypto.strong_rand_bytes(64 * 1024)
+              :erlang.garbage_collect(self())
+            end
+
+            :ok
+          end)
+        end
+
+      for _ <- 1..(workers * iterations_per_worker) do
+        assert_receive {:joint_state_value, ^data}, 5_000
+      end
+
+      Enum.each(tasks, &Task.await(&1, 15_000))
+
+      :ok = Nif.sensor_msgs_msg_joint_state_destroy!(message)
+    end
+  end
+
   describe "std_msgs_msg_string" do
     test "std_msgs_msg_string_type_support!/0" do
       assert is_reference(Nif.std_msgs_msg_string_type_support!())
