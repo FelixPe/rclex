@@ -379,9 +379,9 @@ defmodule Rclex.ActionClient do
 
           if timer, do: Process.cancel_timer(timer)
 
-          uuid = request_struct.goal_id.uuid
-
           if request_struct do
+            uuid = request_struct.goal_id.uuid
+
             Logger.debug(
               "#{__MODULE__}: [seq: #{response_sequence_number}] -> [uuid: #{Base.encode16(uuid)}] goal #{if response_struct.accepted do
                 "accepted"
@@ -411,6 +411,10 @@ defmodule Rclex.ActionClient do
               {requests, goals}
             end
           else
+            Logger.warning(
+              "#{__MODULE__}: received goal response for unknown sequence number #{response_sequence_number}, ignoring"
+            )
+
             {requests, goals}
           end
         after

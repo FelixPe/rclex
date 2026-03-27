@@ -87,6 +87,8 @@ defmodule Mix.Tasks.Rclex.Gen.Msgs do
 
   @doc false
   def run(args) do
+    ensure_generator_util_loaded!()
+
     {valid_options, _, _} =
       OptionParser.parse(args, strict: [from: :keep, clean: :boolean, show_types: :boolean])
 
@@ -111,6 +113,13 @@ defmodule Mix.Tasks.Rclex.Gen.Msgs do
 
       _ ->
         Mix.shell().info(@moduledoc)
+    end
+  end
+
+  defp ensure_generator_util_loaded! do
+    case Code.ensure_loaded(Rclex.Generators.Util) do
+      {:module, _} -> :ok
+      {:error, reason} -> Mix.raise("failed to load Rclex.Generators.Util: #{inspect(reason)}")
     end
   end
 
