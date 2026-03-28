@@ -1857,4 +1857,526 @@ defmodule Rclex do
     namespace = Keyword.get(opts, :namespace, "/")
     Rclex.Client.service_server_available?(service_type, service_name, name, namespace)
   end
+
+  @doc """
+  Create a TF2 buffer identified by `buffer_name` for a node.
+
+  This buffer stores dynamic and static transforms and is queried by frame names.
+
+  ### Parameters
+
+  - `buffer_name` - Public identifier for the TF buffer (for example `"main"`).
+  - `name` - Node name used to scope the buffer owner.
+
+  ### opts
+
+  - #{@namespace_doc}
+  - `:cache_time_sec` cache duration for dynamic transforms in seconds (`float`), default `10.0`.
+
+  ### Examples
+
+      iex> Rclex.tf2_buffer_new("main", "node", namespace: "/robot")
+      :ok
+  """
+  @doc section: :tf2
+  @spec tf2_buffer_new(
+          buffer_name :: String.t() | atom(),
+          name :: String.t(),
+          opts :: [namespace: String.t(), cache_time_sec: float()]
+        ) :: :ok | {:error, term()}
+  def tf2_buffer_new(buffer_name, name, opts \\ [])
+      when (is_binary(buffer_name) or is_atom(buffer_name)) and is_binary(name) and is_list(opts) do
+    Rclex.Tf2.buffer_new(buffer_name, name, opts)
+  end
+
+  @doc """
+  Destroy a TF2 buffer identified by `buffer_name` for a node.
+
+  ### Parameters
+
+  - `buffer_name` - Buffer identifier passed to `tf2_buffer_new/3`.
+  - `name` - Node name used when creating the buffer.
+
+  ### opts
+
+  - #{@namespace_doc}
+
+  ### Examples
+
+      iex> Rclex.tf2_buffer_destroy("main", "node", namespace: "/robot")
+      :ok
+  """
+  @doc section: :tf2
+  @spec tf2_buffer_destroy(
+          buffer_name :: String.t() | atom(),
+          name :: String.t(),
+          opts :: [namespace: String.t()]
+        ) :: :ok | {:error, term()}
+  def tf2_buffer_destroy(buffer_name, name, opts \\ [])
+      when (is_binary(buffer_name) or is_atom(buffer_name)) and is_binary(name) and is_list(opts) do
+    Rclex.Tf2.buffer_destroy(buffer_name, name, opts)
+  end
+
+  @doc """
+  Insert or update a TF2 transform in the buffer.
+
+  Dynamic transforms are time-aware and can be interpolated for lookup queries.
+
+  ### Parameters
+
+  - `buffer_name` - Buffer identifier.
+  - `transform_stamped` - Map/struct compatible with `geometry_msgs/TransformStamped` shape.
+  - `authority` - Optional broadcaster identifier for diagnostics.
+  - `name` - Node name used to resolve the buffer.
+
+  ### opts
+
+  - #{@namespace_doc}
+
+  ### Examples
+
+      iex> ts = %{
+      ...>   header: %{frame_id: "map", stamp: %{sec: 10, nanosec: 0}},
+      ...>   child_frame_id: "base_link",
+      ...>   transform: %{
+      ...>     translation: %{x: 1.0, y: 0.0, z: 0.0},
+      ...>     rotation: %{w: 1.0, x: 0.0, y: 0.0, z: 0.0}
+      ...>   }
+      ...> }
+      iex> Rclex.tf2_set_transform("main", ts, "odometry", "node", namespace: "/robot")
+      :ok
+  """
+  @doc section: :tf2
+  @spec tf2_set_transform(
+          buffer_name :: String.t() | atom(),
+          transform_stamped :: map() | struct(),
+          authority :: String.t(),
+          name :: String.t(),
+          opts :: [namespace: String.t()]
+        ) :: :ok | {:error, term()}
+  def tf2_set_transform(buffer_name, transform_stamped, authority \\ "", name, opts \\ [])
+      when (is_binary(buffer_name) or is_atom(buffer_name)) and
+             (is_map(transform_stamped) or is_struct(transform_stamped)) and is_binary(authority) and
+             is_binary(name) and is_list(opts) do
+    Rclex.Tf2.set_transform(buffer_name, transform_stamped, authority, name, opts)
+  end
+
+  @doc """
+  Insert or update a static TF2 transform in the buffer.
+
+  Static transforms are treated as valid across time and are not subject to
+  dynamic cache extrapolation behavior.
+
+  ### Parameters
+
+  - `buffer_name` - Buffer identifier.
+  - `transform_stamped` - Map/struct compatible with `geometry_msgs/TransformStamped` shape.
+  - `authority` - Optional broadcaster identifier for diagnostics.
+  - `name` - Node name used to resolve the buffer.
+
+  ### opts
+
+  - #{@namespace_doc}
+
+  ### Examples
+
+      iex> ts = %{
+      ...>   header: %{frame_id: "base_link", stamp: %{sec: 0, nanosec: 0}},
+      ...>   child_frame_id: "camera_link",
+      ...>   transform: %{
+      ...>     translation: %{x: 0.2, y: 0.0, z: 0.1},
+      ...>     rotation: %{w: 1.0, x: 0.0, y: 0.0, z: 0.0}
+      ...>   }
+      ...> }
+      iex> Rclex.tf2_set_transform_static("main", ts, "urdf", "node")
+      :ok
+  """
+  @doc section: :tf2
+  @spec tf2_set_transform_static(
+          buffer_name :: String.t() | atom(),
+          transform_stamped :: map() | struct(),
+          authority :: String.t(),
+          name :: String.t(),
+          opts :: [namespace: String.t()]
+        ) :: :ok | {:error, term()}
+  def tf2_set_transform_static(buffer_name, transform_stamped, authority \\ "", name, opts \\ [])
+      when (is_binary(buffer_name) or is_atom(buffer_name)) and
+             (is_map(transform_stamped) or is_struct(transform_stamped)) and is_binary(authority) and
+             is_binary(name) and is_list(opts) do
+    Rclex.Tf2.set_transform_static(buffer_name, transform_stamped, authority, name, opts)
+  end
+
+  @doc """
+  Clear all TF2 data (dynamic and static) from a buffer.
+
+  ### Parameters
+
+  - `buffer_name` - Buffer identifier.
+  - `name` - Node name used to resolve the buffer.
+
+  ### opts
+
+  - #{@namespace_doc}
+
+  ### Examples
+
+      iex> Rclex.tf2_clear("main", "node", namespace: "/robot")
+      :ok
+  """
+  @doc section: :tf2
+  @spec tf2_clear(buffer_name :: String.t() | atom(), name :: String.t(), opts :: [namespace: String.t()]) ::
+          :ok | {:error, term()}
+  def tf2_clear(buffer_name, name, opts \\ [])
+      when (is_binary(buffer_name) or is_atom(buffer_name)) and is_binary(name) and is_list(opts) do
+    Rclex.Tf2.clear(buffer_name, name, opts)
+  end
+
+  @doc """
+  Return known TF2 frames as YAML.
+
+  The output is intended for diagnostics and mirrors the common TF2 frame-graph
+  style: entries include parent frame, broadcaster, rate, latest/oldest
+  transform time, and buffer length.
+
+  ### Parameters
+
+  - `buffer_name` - Buffer identifier.
+  - `name` - Node name used to resolve the buffer.
+
+  ### opts
+
+  - #{@namespace_doc}
+
+  ### Examples
+
+      iex> {:ok, yaml} = Rclex.tf2_all_frames_as_yaml("main", "node")
+      iex> is_binary(yaml)
+      true
+  """
+  @doc section: :tf2
+  @spec tf2_all_frames_as_yaml(
+          buffer_name :: String.t() | atom(),
+          name :: String.t(),
+          opts :: [namespace: String.t()]
+        ) :: {:ok, String.t()} | {:error, term()}
+  def tf2_all_frames_as_yaml(buffer_name, name, opts \\ [])
+      when (is_binary(buffer_name) or is_atom(buffer_name)) and is_binary(name) and is_list(opts) do
+    Rclex.Tf2.all_frames_as_yaml(buffer_name, name, opts)
+  end
+
+  @doc """
+  Return latest common timestamp (ns) between two frames.
+
+  This follows the TF2 "latest common time" concept and is useful when
+  performing `time_ns = 0` (latest) lookups.
+
+  ### Parameters
+
+  - `buffer_name` - Buffer identifier.
+  - `target_frame` - Destination frame.
+  - `source_frame` - Source frame.
+  - `name` - Node name used to resolve the buffer.
+
+  ### opts
+
+  - #{@namespace_doc}
+
+  ### Examples
+
+      iex> {:ok, ns} = Rclex.tf2_get_latest_common_time("main", "map", "base_link", "node")
+      iex> is_integer(ns)
+      true
+  """
+  @doc section: :tf2
+  @spec tf2_get_latest_common_time(
+          buffer_name :: String.t() | atom(),
+          target_frame :: String.t(),
+          source_frame :: String.t(),
+          name :: String.t(),
+          opts :: [namespace: String.t()]
+        ) :: {:ok, integer()} | {:error, term()}
+  def tf2_get_latest_common_time(buffer_name, target_frame, source_frame, name, opts \\ [])
+      when (is_binary(buffer_name) or is_atom(buffer_name)) and is_binary(target_frame) and
+             is_binary(source_frame) and is_binary(name) and is_list(opts) do
+    Rclex.Tf2.get_latest_common_time(buffer_name, target_frame, source_frame, name, opts)
+  end
+
+  @doc """
+  Start TF topic listeners for `/tf` and `/tf_static` and feed incoming transforms
+  into the specified TF2 buffer.
+
+  This is the ROS transport counterpart to `tf2_set_transform/5` and
+  `tf2_set_transform_static/5`.
+
+  ### Parameters
+
+  - `buffer_name` - TF2 buffer identifier.
+  - `name` - Node name that owns the subscriptions.
+
+  ### opts
+
+  - #{@namespace_doc}
+  - `:authority` authority string attached to ingested transforms (default `"tf_listener"`).
+  - `:tf_message_type_module` override TF message module (default `Rclex.Pkgs.Tf2Msgs.Msg.TFMessage`).
+
+  ### Notes
+
+  Requires generated message type `tf2_msgs/msg/TFMessage`.
+  """
+  @doc section: :tf2
+  @spec tf2_start_listener(
+          buffer_name :: String.t() | atom(),
+          name :: String.t(),
+          opts :: [namespace: String.t(), authority: String.t(), tf_message_type_module: module()]
+        ) :: :ok | {:error, term()}
+  def tf2_start_listener(buffer_name, name, opts \\ [])
+      when (is_binary(buffer_name) or is_atom(buffer_name)) and is_binary(name) and is_list(opts) do
+    Rclex.Tf2.start_listener(buffer_name, name, opts)
+  end
+
+  @doc """
+  Stop TF topic listeners (`/tf`, `/tf_static`) for the given buffer and node.
+
+  ### opts
+
+  - #{@namespace_doc}
+  - `:tf_message_type_module` override TF message module (default `Rclex.Pkgs.Tf2Msgs.Msg.TFMessage`).
+  """
+  @doc section: :tf2
+  @spec tf2_stop_listener(
+          buffer_name :: String.t() | atom(),
+          name :: String.t(),
+          opts :: [namespace: String.t(), tf_message_type_module: module()]
+        ) :: :ok | {:error, term()}
+  def tf2_stop_listener(buffer_name, name, opts \\ [])
+      when (is_binary(buffer_name) or is_atom(buffer_name)) and is_binary(name) and is_list(opts) do
+    Rclex.Tf2.stop_listener(buffer_name, name, opts)
+  end
+
+  @doc """
+  Start TF topic publishers for `/tf` and `/tf_static`.
+
+  ### Parameters
+
+  - `name` - Node name that owns the publishers.
+
+  ### opts
+
+  - #{@namespace_doc}
+  - `:tf_message_type_module` override TF message module (default `Rclex.Pkgs.Tf2Msgs.Msg.TFMessage`).
+  """
+  @doc section: :tf2
+  @spec tf2_start_broadcaster(
+          name :: String.t(),
+          opts :: [namespace: String.t(), tf_message_type_module: module()]
+        ) :: :ok | {:error, term()}
+  def tf2_start_broadcaster(name, opts \\ []) when is_binary(name) and is_list(opts) do
+    Rclex.Tf2.start_broadcaster(name, opts)
+  end
+
+  @doc """
+  Stop TF topic publishers for `/tf` and `/tf_static`.
+
+  ### opts
+
+  - #{@namespace_doc}
+  - `:tf_message_type_module` override TF message module (default `Rclex.Pkgs.Tf2Msgs.Msg.TFMessage`).
+  """
+  @doc section: :tf2
+  @spec tf2_stop_broadcaster(
+          name :: String.t(),
+          opts :: [namespace: String.t(), tf_message_type_module: module()]
+        ) :: :ok | {:error, term()}
+  def tf2_stop_broadcaster(name, opts \\ []) when is_binary(name) and is_list(opts) do
+    Rclex.Tf2.stop_broadcaster(name, opts)
+  end
+
+  @doc """
+  Publish one or more dynamic transforms to `/tf`.
+
+  ### Parameters
+
+  - `transform_stamped_or_list` - A `TransformStamped`-compatible map/struct or a list of them.
+  - `name` - Node name that owns the publisher.
+
+  ### opts
+
+  - #{@namespace_doc}
+  - `:tf_message_type_module` override TF message module (default `Rclex.Pkgs.Tf2Msgs.Msg.TFMessage`).
+  """
+  @doc section: :tf2
+  @spec tf2_broadcast_dynamic(
+          transform_stamped_or_list :: map() | struct() | [map() | struct()],
+          name :: String.t(),
+          opts :: [namespace: String.t(), tf_message_type_module: module()]
+        ) :: :ok | {:error, term()}
+  def tf2_broadcast_dynamic(transform_stamped_or_list, name, opts \\ [])
+      when (is_map(transform_stamped_or_list) or is_struct(transform_stamped_or_list) or
+              is_list(transform_stamped_or_list)) and is_binary(name) and is_list(opts) do
+    Rclex.Tf2.broadcast_dynamic(transform_stamped_or_list, name, opts)
+  end
+
+  @doc """
+  Publish one or more static transforms to `/tf_static`.
+
+  ### Parameters
+
+  - `transform_stamped_or_list` - A `TransformStamped`-compatible map/struct or a list of them.
+  - `name` - Node name that owns the publisher.
+
+  ### opts
+
+  - #{@namespace_doc}
+  - `:tf_message_type_module` override TF message module (default `Rclex.Pkgs.Tf2Msgs.Msg.TFMessage`).
+  """
+  @doc section: :tf2
+  @spec tf2_broadcast_static(
+          transform_stamped_or_list :: map() | struct() | [map() | struct()],
+          name :: String.t(),
+          opts :: [namespace: String.t(), tf_message_type_module: module()]
+        ) :: :ok | {:error, term()}
+  def tf2_broadcast_static(transform_stamped_or_list, name, opts \\ [])
+      when (is_map(transform_stamped_or_list) or is_struct(transform_stamped_or_list) or
+              is_list(transform_stamped_or_list)) and is_binary(name) and is_list(opts) do
+    Rclex.Tf2.broadcast_static(transform_stamped_or_list, name, opts)
+  end
+
+  @doc """
+  Check whether a TF2 transform is available within timeout.
+
+  `timeout_sec` is in seconds (`float`).
+
+  `time_ns` semantics:
+
+  - `0` => latest common time lookup
+  - `> 0` => lookup at specific timestamp (ns)
+
+  ### Parameters
+
+  - `buffer_name` - Buffer identifier.
+  - `target_frame` - Destination frame.
+  - `source_frame` - Source frame.
+  - `time_ns` - Query timestamp in nanoseconds (`0` means latest).
+  - `timeout_sec` - Maximum wait duration in seconds.
+  - `name` - Node name used to resolve the buffer.
+
+  ### opts
+
+  - #{@namespace_doc}
+  - `:return_debug_tuple` when `true`, returns `{boolean, reason}`.
+
+  ### Examples
+
+      iex> Rclex.tf2_can_transform?("main", "map", "base_link", 0, 0.1, "node")
+      true
+
+      iex> Rclex.tf2_can_transform?("main", "map", "unknown", 0, 0.0, "node", return_debug_tuple: true)
+      {false, "frame connectivity failed"}
+  """
+  @doc section: :tf2
+  @spec tf2_can_transform?(
+          buffer_name :: String.t() | atom(),
+          target_frame :: String.t(),
+          source_frame :: String.t(),
+          time_ns :: integer(),
+          timeout_sec :: float(),
+          name :: String.t(),
+          opts :: [namespace: String.t(), return_debug_tuple: boolean()]
+        ) :: boolean() | {boolean(), String.t()} | {:error, term()}
+  def tf2_can_transform?(
+        buffer_name,
+        target_frame,
+        source_frame,
+        time_ns,
+        timeout_sec \\ 0.0,
+        name,
+        opts \\ []
+      )
+      when (is_binary(buffer_name) or is_atom(buffer_name)) and is_binary(target_frame) and
+             is_binary(source_frame) and is_integer(time_ns) and is_number(timeout_sec) and
+             is_binary(name) and is_list(opts) do
+    Rclex.Tf2.can_transform?(
+      buffer_name,
+      target_frame,
+      source_frame,
+      time_ns,
+      timeout_sec,
+      name,
+      opts
+    )
+  end
+
+  @doc """
+  Lookup a TF2 transform within timeout.
+
+  `timeout_sec` is in seconds (`float`).
+
+  `time_ns` semantics:
+
+  - `0` => latest common time lookup
+  - `> 0` => lookup at specific timestamp (ns)
+
+  Possible errors include connectivity and extrapolation (`:extrapolation_past`
+  or `:extrapolation_future`) depending on the query time and cached data.
+
+  ### Parameters
+
+  - `buffer_name` - Buffer identifier.
+  - `target_frame` - Destination frame.
+  - `source_frame` - Source frame.
+  - `time_ns` - Query timestamp in nanoseconds (`0` means latest).
+  - `timeout_sec` - Maximum wait duration in seconds.
+  - `name` - Node name used to resolve the buffer.
+
+  ### opts
+
+  - #{@namespace_doc}
+
+  ### Examples
+
+      iex> {:ok, tf} =
+      ...>   Rclex.tf2_lookup_transform(
+      ...>     "main",
+      ...>     "map",
+      ...>     "base_link",
+      ...>     0,
+      ...>     0.1,
+      ...>     "node",
+      ...>     namespace: "/robot"
+      ...>   )
+      iex> tf.header.frame_id
+      "map"
+  """
+  @doc section: :tf2
+  @spec tf2_lookup_transform(
+          buffer_name :: String.t() | atom(),
+          target_frame :: String.t(),
+          source_frame :: String.t(),
+          time_ns :: integer(),
+          timeout_sec :: float(),
+          name :: String.t(),
+          opts :: [namespace: String.t()]
+        ) :: {:ok, map()} | {:error, term()}
+  def tf2_lookup_transform(
+        buffer_name,
+        target_frame,
+        source_frame,
+        time_ns,
+        timeout_sec \\ 0.0,
+        name,
+        opts \\ []
+      )
+      when (is_binary(buffer_name) or is_atom(buffer_name)) and is_binary(target_frame) and
+             is_binary(source_frame) and is_integer(time_ns) and is_number(timeout_sec) and
+             is_binary(name) and is_list(opts) do
+    Rclex.Tf2.lookup_transform(
+      buffer_name,
+      target_frame,
+      source_frame,
+      time_ns,
+      timeout_sec,
+      name,
+      opts
+    )
+  end
 end
