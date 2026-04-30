@@ -34,7 +34,12 @@ defmodule Rclex.Subscription do
     namespace = Keyword.fetch!(args, :namespace)
     qos = Keyword.get(args, :qos, Rclex.QoS.profile_default())
 
-    1 = :erlang.fun_info(callback)[:arity]
+    arity = :erlang.fun_info(callback)[:arity]
+
+    unless arity in [1, 2] do
+      raise ArgumentError,
+            "subscription callback must take 1 (msg) or 2 (msg, info) arguments, got arity #{arity}"
+    end
 
     type_support = apply(message_type, :type_support!, [])
     subscription = Nif.rcl_subscription_init!(node, type_support, ~c"#{topic_name}", qos)
@@ -46,6 +51,7 @@ defmodule Rclex.Subscription do
        message_type: message_type,
        topic_name: topic_name,
        callback: callback,
+       callback_arity: arity,
        name: name,
        namespace: namespace,
        subscription: subscription,
@@ -70,15 +76,14 @@ defmodule Rclex.Subscription do
       message = apply(state.message_type, :create!, [])
 
       try do
-        case Nif.rcl_take!(state.subscription, message) do
+        case take(state, message) do
+          {:ok, message_info} ->
+            message_struct = apply(state.message_type, :get!, [message])
+            dispatch(state, message_struct, message_info)
+
           :ok ->
             message_struct = apply(state.message_type, :get!, [message])
-
-            {:ok, _pid} =
-              Task.Supervisor.start_child(
-                {:via, PartitionSupervisor, {Rclex.TaskSupervisors, self()}},
-                fn -> state.callback.(message_struct) end
-              )
+            dispatch(state, message_struct, nil)
 
           :subscription_take_failed ->
             Logger.debug("#{__MODULE__}: take failed but no error occurred in the middleware")
@@ -89,5 +94,29 @@ defmodule Rclex.Subscription do
     end
 
     {:noreply, state}
+  end
+
+  defp take(%{callback_arity: 2} = state, message) do
+    Nif.rcl_take_with_info!(state.subscription, message)
+  end
+
+  defp take(state, message) do
+    Nif.rcl_take!(state.subscription, message)
+  end
+
+  defp dispatch(%{callback_arity: 2} = state, message_struct, message_info) do
+    {:ok, _pid} =
+      Task.Supervisor.start_child(
+        {:via, PartitionSupervisor, {Rclex.TaskSupervisors, self()}},
+        fn -> state.callback.(message_struct, message_info) end
+      )
+  end
+
+  defp dispatch(state, message_struct, _message_info) do
+    {:ok, _pid} =
+      Task.Supervisor.start_child(
+        {:via, PartitionSupervisor, {Rclex.TaskSupervisors, self()}},
+        fn -> state.callback.(message_struct) end
+      )
   end
 end

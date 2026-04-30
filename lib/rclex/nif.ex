@@ -80,6 +80,10 @@ defmodule Rclex.Nif do
     :erlang.nif_error(:nif_not_loaded)
   end
 
+  def rcl_take_with_info!(_subscription, _message) do
+    :erlang.nif_error(:nif_not_loaded)
+  end
+
   def rcl_clock_init!(_opts) do
     :erlang.nif_error(:nif_not_loaded)
   end

@@ -84,7 +84,7 @@ defmodule Mix.Tasks.Rclex.Gen.Srvs do
       Mix.raise("ros2_service_types is not specified in config.")
     end
 
-    srv_types = srv_types ++ srv_types_for_rcl_interfaces()
+    srv_types = srv_types ++ srv_types_for_rcl_interfaces() ++ srv_types_for_lifecycle()
 
     for type <- srv_types do
       [interfaces, interface_type, type_name] = String.split(type, "/")
@@ -118,6 +118,17 @@ defmodule Mix.Tasks.Rclex.Gen.Srvs do
       "rcl_interfaces/srv/SetParameters",
       "rcl_interfaces/srv/SetParametersAtomically",
       "rcl_interfaces/srv/DescribeParameters"
+    ]
+  end
+
+  defp srv_types_for_lifecycle() do
+    # Always generated so `Rclex.LifecycleNode` works without requiring users
+    # to add `lifecycle_msgs/srv/*` to their config.
+    [
+      "lifecycle_msgs/srv/ChangeState",
+      "lifecycle_msgs/srv/GetState",
+      "lifecycle_msgs/srv/GetAvailableStates",
+      "lifecycle_msgs/srv/GetAvailableTransitions"
     ]
   end
 

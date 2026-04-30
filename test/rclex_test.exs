@@ -195,6 +195,79 @@ defmodule RclexTest do
     end
   end
 
+  describe "wait_for_message" do
+    setup do
+      name = "name"
+      topic_name = "/chatter"
+      :ok = Rclex.start_node(name)
+      :ok = Rclex.start_publisher(StdMsgs.Msg.String, topic_name, name)
+      on_exit(fn -> capture_log(fn -> Rclex.stop_node(name) end) end)
+      %{topic_name: topic_name, name: name}
+    end
+
+    test "returns the first published message", %{topic_name: topic_name, name: name} do
+      task =
+        Task.async(fn ->
+          Rclex.wait_for_message(StdMsgs.Msg.String, topic_name, name, timeout: 2_000)
+        end)
+
+      Process.sleep(100)
+      message = struct(StdMsgs.Msg.String, %{data: "wait hello"})
+      :ok = Rclex.publish(message, topic_name, name)
+
+      assert {:ok, ^message} = Task.await(task, 3_000)
+    end
+
+    test "returns :timeout when no message arrives", %{topic_name: topic_name, name: name} do
+      assert {:error, :timeout} =
+               Rclex.wait_for_message(StdMsgs.Msg.String, topic_name, name, timeout: 50)
+    end
+  end
+
+  describe "subscription with MessageInfo (2-arity callback)" do
+    setup do
+      name = "name"
+      topic_name = "/info_chatter"
+      :ok = Rclex.start_node(name)
+      :ok = Rclex.start_publisher(StdMsgs.Msg.String, topic_name, name)
+      on_exit(fn -> capture_log(fn -> Rclex.stop_node(name) end) end)
+      %{topic_name: topic_name, name: name}
+    end
+
+    test "callback receives message and info map", %{topic_name: topic_name, name: name} do
+      me = self()
+
+      :ok =
+        Rclex.start_subscription(
+          fn msg, info -> send(me, {:got, msg, info}) end,
+          StdMsgs.Msg.String,
+          topic_name,
+          name
+        )
+
+      message = struct(StdMsgs.Msg.String, %{data: "with info"})
+      :ok = Rclex.publish(message, topic_name, name)
+
+      assert_receive {:got, ^message, info}, 2_000
+      assert is_map(info)
+
+      assert %{
+               source_timestamp: src,
+               received_timestamp: rcv,
+               publication_sequence_number: _,
+               reception_sequence_number: _,
+               publisher_gid: gid,
+               from_intra_process: from_ip
+             } = info
+
+      assert is_integer(src)
+      assert is_integer(rcv)
+      assert is_binary(gid)
+      assert byte_size(gid) == 16
+      assert is_boolean(from_ip)
+    end
+  end
+
   describe "service" do
     setup do
       :ok = Rclex.start_node("name")

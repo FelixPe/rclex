@@ -95,6 +95,8 @@ defmodule Rclex.MixProject do
         Service: &(&1[:section] == :service),
         Subscription: &(&1[:section] == :subscription),
         Timer: &(&1[:section] == :time),
+        Clock: &(&1[:section] == :clock),
+        Lifecycle_Node: &(&1[:section] == :lifecycle_node),
         Action_Server: &(&1[:section] == :action_server),
         Action_Client: &(&1[:section] == :action_client),
         Parameter: &(&1[:section] == :parameter),

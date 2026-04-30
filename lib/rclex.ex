@@ -102,6 +102,84 @@ defmodule Rclex do
   end
 
   @doc """
+  Start a [managed (lifecycle) node](https://design.ros.org/articles/node_lifecycle.html).
+
+  `impl_module` must be a module that `use Rclex.LifecycleNode`. The node and
+  the five standard lifecycle services are started immediately; the node
+  begins in the `:unconfigured` primary state.
+
+  ### opts
+
+  - `:namespace` — the node namespace, defaults to `"/"`.
+  - `:user_state` — initial user state passed to the first lifecycle
+    callback, defaults to `%{}`.
+
+  ### Examples
+
+      iex> defmodule MyManaged do
+      ...>   use Rclex.LifecycleNode
+      ...> end
+      iex> Rclex.start_lifecycle_node(MyManaged, "managed", namespace: "/example")
+      :ok
+      iex> Rclex.lifecycle_get_state("managed", namespace: "/example")
+      :unconfigured
+      iex> Rclex.lifecycle_change_state("managed", :configure, namespace: "/example")
+      :ok
+      iex> Rclex.lifecycle_get_state("managed", namespace: "/example")
+      :inactive
+  """
+  @doc section: :lifecycle_node
+  @spec start_lifecycle_node(
+          impl_module :: module(),
+          node_name :: String.t(),
+          opts :: [namespace: String.t(), user_state: any()]
+        ) :: :ok | {:error, :already_started} | {:error, term()}
+  def start_lifecycle_node(impl_module, node_name, opts \\ [])
+      when is_atom(impl_module) and is_binary(node_name) and is_list(opts) do
+    args =
+      Keyword.merge(opts, node_name: node_name, impl_module: impl_module)
+
+    case Rclex.LifecycleNode.start_link(args) do
+      {:ok, _pid} -> :ok
+      {:error, {:already_started, _pid}} -> {:error, :already_started}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  @doc "Stop a managed node started with `start_lifecycle_node/3`."
+  @doc section: :lifecycle_node
+  @spec stop_lifecycle_node(node_name :: String.t(), opts :: [namespace: String.t()]) ::
+          :ok | {:error, :not_found}
+  def stop_lifecycle_node(node_name, opts \\ []) when is_binary(node_name) and is_list(opts) do
+    namespace = Keyword.get(opts, :namespace, "/")
+    name = Rclex.LifecycleNode.name(node_name, namespace)
+
+    case GenServer.whereis(name) do
+      nil -> {:error, :not_found}
+      pid -> GenServer.stop(pid)
+    end
+  end
+
+  @doc "Trigger a lifecycle transition. See `Rclex.LifecycleNode.change_state/3`."
+  @doc section: :lifecycle_node
+  @spec lifecycle_change_state(
+          node_name :: String.t(),
+          transition :: Rclex.LifecycleNode.transition(),
+          opts :: [namespace: String.t()]
+        ) :: :ok | {:error, term()}
+  def lifecycle_change_state(node_name, transition, opts \\ []) do
+    Rclex.LifecycleNode.change_state(node_name, transition, opts)
+  end
+
+  @doc "Return the current primary state of a managed node."
+  @doc section: :lifecycle_node
+  @spec lifecycle_get_state(node_name :: String.t(), opts :: [namespace: String.t()]) ::
+          Rclex.LifecycleNode.primary_state()
+  def lifecycle_get_state(node_name, opts \\ []) do
+    Rclex.LifecycleNode.get_state(node_name, opts)
+  end
+
+  @doc """
   Start a ROS publisher. fter calling this function for a `topic_name`, the node can be used to publish messages of the given type to the given topic using `publish/4`. The message type module can to be generated from .msg files by calling `mix rclex.gen.msgs`, after adding the type to `config :rclex, ros2_message_types`.
 
   - #{@topic_name_doc}
@@ -205,6 +283,11 @@ defmodule Rclex do
   The message type module can to be generated from .msg files by calling `mix rclex.gen.msgs`,
   after adding the type to `config :rclex, ros2_message_types`.
 
+  The callback may take **1** argument (the message struct) or **2** arguments
+  (the message struct and a `MessageInfo` map containing
+  `:source_timestamp`, `:received_timestamp`, `:publication_sequence_number`,
+  `:reception_sequence_number`, `:publisher_gid`, `:from_intra_process`).
+
   - #{@topic_name_doc}
 
   ### opts
@@ -219,6 +302,11 @@ defmodule Rclex do
       :ok
       iex> Rclex.start_subscription(&IO.inspect/1, StdMsgs.Msg.String, "/chatter", "node", namespace: "/example")
       {:error, :already_started}
+
+      # 2-arity callback receives MessageInfo
+      iex> alias Rclex.Pkgs.StdMsgs
+      iex> Rclex.start_subscription(fn _msg, _info -> :ok end, StdMsgs.Msg.String, "/chatter2", "node", namespace: "/example")
+      :ok
   """
   @doc section: :subscription
   @spec start_subscription(
@@ -279,6 +367,65 @@ defmodule Rclex do
              is_list(opts) do
     namespace = Keyword.get(opts, :namespace, "/")
     Rclex.Node.stop_subscription(message_type, topic_name, node_name, namespace)
+  end
+
+  @doc """
+  Wait for a single message on `topic_name` and return it.
+
+  Starts a transient subscription, blocks the calling process up to `:timeout`
+  milliseconds, then stops the subscription and returns the first message
+  received. Useful for one-shot reads (configuration, latched topics, etc.)
+  without writing a full subscription callback.
+
+  ### opts
+
+    * `:namespace` — node namespace (default `"/"`).
+    * `:qos`       — QoS profile (default `Rclex.QoS.profile_default/0`).
+    * `:timeout`   — milliseconds to wait, or `:infinity` (default `5000`).
+
+  ### Examples
+
+      # In another process: Rclex.publish(%StdMsgs.Msg.String{data: "hi"}, "/chatter", "talker")
+      iex> Rclex.wait_for_message(StdMsgs.Msg.String, "/chatter", "listener", timeout: 1000)
+      {:ok, %Rclex.Pkgs.StdMsgs.Msg.String{data: "hi"}}
+  """
+  @doc section: :subscription
+  @spec wait_for_message(
+          message_type :: module(),
+          topic_name :: topic_name(),
+          node_name :: String.t(),
+          opts :: [namespace: String.t(), qos: QoS.t(), timeout: timeout()]
+        ) ::
+          {:ok, struct()} | {:error, :timeout} | {:error, term()}
+  def wait_for_message(message_type, topic_name, node_name, opts \\ [])
+      when is_atom(message_type) and is_binary(topic_name) and is_binary(node_name) and
+             is_list(opts) do
+    namespace = Keyword.get(opts, :namespace, "/")
+    qos = Keyword.get(opts, :qos, QoS.profile_default())
+    timeout = Keyword.get(opts, :timeout, 5_000)
+
+    me = self()
+    ref = make_ref()
+    callback = fn msg -> send(me, {ref, msg}) end
+
+    case start_subscription(callback, message_type, topic_name, node_name,
+           namespace: namespace,
+           qos: qos
+         ) do
+      :ok ->
+        result =
+          receive do
+            {^ref, msg} -> {:ok, msg}
+          after
+            timeout -> {:error, :timeout}
+          end
+
+        _ = stop_subscription(message_type, topic_name, node_name, namespace: namespace)
+        result
+
+      {:error, _reason} = err ->
+        err
+    end
   end
 
   @doc """
@@ -1034,6 +1181,50 @@ defmodule Rclex do
       when is_binary(timer_name) and is_binary(node_name) and is_list(opts) do
     namespace = Keyword.get(opts, :namespace, "/")
     Rclex.Node.stop_timer(timer_name, node_name, namespace)
+  end
+
+  @doc """
+  Start a `Rclex.Clock` GenServer.
+
+  The clock can be looked up by its registered name (default `Rclex.Clock`)
+  and queried via `Rclex.Clock.now/1` or the `now/1` helper below.
+
+  ### opts
+
+    * `:clock_type` — `:system_time` (default), `:steady_time`, or `:ros_time`.
+    * `:name`       — registered name (default `Rclex.Clock`).
+
+  ### Examples
+
+      iex> Rclex.start_clock(clock_type: :steady_time, name: :steady)
+      :ok
+      iex> %Rclex.Time{clock_type: :steady_time} = Rclex.now(:steady)
+      iex> Rclex.stop_clock(:steady)
+      :ok
+  """
+  @doc section: :clock
+  @spec start_clock(opts :: [clock_type: Rclex.Clock.clock_type(), name: GenServer.name()]) ::
+          :ok | {:error, :already_started} | {:error, term()}
+  def start_clock(opts \\ []) when is_list(opts) do
+    case Rclex.Clock.start_link(opts) do
+      {:ok, _pid} -> :ok
+      {:error, {:already_started, _pid}} -> {:error, :already_started}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  @doc "Stop a previously started `Rclex.Clock`."
+  @doc section: :clock
+  @spec stop_clock(GenServer.server()) :: :ok
+  def stop_clock(server \\ Rclex.Clock) do
+    Rclex.Clock.stop(server)
+  end
+
+  @doc "Return the current time of the named clock as a `Rclex.Time`."
+  @doc section: :clock
+  @spec now(GenServer.server()) :: Rclex.Time.t()
+  def now(server \\ Rclex.Clock) do
+    Rclex.Clock.now(server)
   end
 
   @doc """

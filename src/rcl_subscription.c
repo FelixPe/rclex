@@ -108,6 +108,55 @@ ERL_NIF_TERM nif_rcl_take(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
   return raise(env, __FILE__, __LINE__);
 }
 
+ERL_NIF_TERM nif_rcl_take_with_info(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
+  if (argc != 2) return enif_make_badarg(env);
+
+  rcl_ret_t rc;
+
+  rcl_subscription_t *subscription_p;
+  if (!enif_get_resource(env, argv[0], rt_rcl_subscription_t, (void **)&subscription_p))
+    return enif_make_badarg(env);
+  if (!rcl_subscription_is_valid(subscription_p)) return raise(env, __FILE__, __LINE__);
+
+  void **ros_message_pp;
+  if (!enif_get_resource(env, argv[1], rt_ros_message, (void **)&ros_message_pp))
+    return enif_make_badarg(env);
+
+  rmw_message_info_t info = rmw_get_zero_initialized_message_info();
+  rc                      = rcl_take(subscription_p, *ros_message_pp, &info, NULL);
+  if (rc == RCL_RET_SUBSCRIPTION_TAKE_FAILED) return subscription_take_failed;
+  if (rc != RCL_RET_OK) return raise(env, __FILE__, __LINE__);
+
+  ERL_NIF_TERM gid_bin;
+  unsigned char *gid_data = enif_make_new_binary(env, RMW_GID_STORAGE_SIZE, &gid_bin);
+  for (size_t i = 0; i < RMW_GID_STORAGE_SIZE; ++i) {
+    gid_data[i] = info.publisher_gid.data[i];
+  }
+
+  ERL_NIF_TERM keys[6] = {
+      enif_make_atom(env, "source_timestamp"),
+      enif_make_atom(env, "received_timestamp"),
+      enif_make_atom(env, "publication_sequence_number"),
+      enif_make_atom(env, "reception_sequence_number"),
+      enif_make_atom(env, "publisher_gid"),
+      enif_make_atom(env, "from_intra_process"),
+  };
+  ERL_NIF_TERM values[6] = {
+      enif_make_int64(env, info.source_timestamp),
+      enif_make_int64(env, info.received_timestamp),
+      enif_make_uint64(env, info.publication_sequence_number),
+      enif_make_uint64(env, info.reception_sequence_number),
+      gid_bin,
+      info.from_intra_process ? atom_true : atom_false,
+  };
+
+  ERL_NIF_TERM info_map;
+  if (!enif_make_map_from_arrays(env, keys, values, 6, &info_map))
+    return raise(env, __FILE__, __LINE__);
+
+  return enif_make_tuple2(env, atom_ok, info_map);
+}
+
 static void new_message_callback(const void *user_data, size_t number_of_events) {
   ErlNifPid *pid_p = (ErlNifPid *)user_data;
 

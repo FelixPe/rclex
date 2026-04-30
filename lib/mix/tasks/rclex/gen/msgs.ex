@@ -182,7 +182,7 @@ defmodule Mix.Tasks.Rclex.Gen.Msgs do
     msg_types =
       msg_types ++
         msg_types_for_actions(action_types) ++
-        msg_types_for_rcl_interfaces() ++ msg_types_for_tf2()
+        msg_types_for_rcl_interfaces() ++ msg_types_for_tf2() ++ msg_types_for_lifecycle()
 
     ros2_message_type_map =
       Enum.reduce(msg_types, %{}, fn type, acc ->
@@ -350,6 +350,27 @@ defmodule Mix.Tasks.Rclex.Gen.Msgs do
     # Always generated so the built-in TF helpers in `Rclex.Tf2` work without
     # requiring users to add `tf2_msgs/msg/TFMessage` to their config.
     ["tf2_msgs/msg/TFMessage"]
+  end
+
+  defp msg_types_for_lifecycle() do
+    # Always generated so `Rclex.LifecycleNode` works without requiring users
+    # to add `lifecycle_msgs/*` to their config. Includes State, Transition,
+    # TransitionEvent (published on `~/transition_event`), and the four
+    # services backing the standard managed-node API.
+    [
+      "lifecycle_msgs/msg/State",
+      "lifecycle_msgs/msg/Transition",
+      "lifecycle_msgs/msg/TransitionDescription",
+      "lifecycle_msgs/msg/TransitionEvent",
+      "lifecycle_msgs/srv/ChangeState_Request",
+      "lifecycle_msgs/srv/ChangeState_Response",
+      "lifecycle_msgs/srv/GetState_Request",
+      "lifecycle_msgs/srv/GetState_Response",
+      "lifecycle_msgs/srv/GetAvailableStates_Request",
+      "lifecycle_msgs/srv/GetAvailableStates_Response",
+      "lifecycle_msgs/srv/GetAvailableTransitions_Request",
+      "lifecycle_msgs/srv/GetAvailableTransitions_Response"
+    ]
   end
 
   defp msg_types_for_actions([]) do

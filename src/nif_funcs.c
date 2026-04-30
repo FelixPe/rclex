@@ -52,6 +52,7 @@ static ErlNifFunc nif_funcs[] = {
     nif_regular_func(rcl_subscription_set_on_new_message_callback, 1),
     nif_regular_func(rcl_subscription_clear_message_callback, 2),
     nif_regular_func(rcl_take, 2),
+    nif_regular_func(rcl_take_with_info, 2),
     nif_io_bound_func(rcl_clock_init, 1),
     nif_io_bound_func(rcl_clock_fini, 1),
     nif_regular_func(rcl_clock_get_now, 1),
