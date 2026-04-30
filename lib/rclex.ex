@@ -1400,6 +1400,243 @@ defmodule Rclex do
     Rclex.ParameterServer.remove_post_set_parameters_callback(node_name, namespace, callback)
   end
 
+  # ----------------------------------------------------------------------------
+  # Parameter client (remote parameter access)
+  # ----------------------------------------------------------------------------
+
+  @doc """
+  Start a parameter client on the local node `client_node_name` that targets
+  the parameter services of the remote node `server_node_name`.
+
+  This registers six service clients on the local node, one for each ROS 2
+  parameter service. Use `stop_parameter_client/3` to clean up.
+
+  ### opts
+
+  - #{@namespace_doc} (namespace of the local client node)
+  - `:server_namespace` namespace of the remote server node, default `"/"`
+  - `:qos` service QoS, defaults to `Rclex.QoS.profile_services_default/0`
+
+  ### Examples
+
+      iex> Rclex.start_parameter_client("server_node", "client_node", server_namespace: "/example")
+      :ok
+  """
+  @doc section: :parameter_client
+  @spec start_parameter_client(
+          server_node_name :: String.t(),
+          client_node_name :: String.t(),
+          opts :: [namespace: String.t(), server_namespace: String.t(), qos: QoS.t()]
+        ) :: :ok | {:error, term()}
+  def start_parameter_client(server_node_name, client_node_name, opts \\ [])
+      when is_binary(server_node_name) and is_binary(client_node_name) and is_list(opts) do
+    Rclex.ParameterClient.start(server_node_name, client_node_name, opts)
+  end
+
+  @doc """
+  Stop the parameter client on `client_node_name` for the given
+  `server_node_name`. Same options as `start_parameter_client/3`.
+  """
+  @doc section: :parameter_client
+  @spec stop_parameter_client(
+          server_node_name :: String.t(),
+          client_node_name :: String.t(),
+          opts :: [namespace: String.t(), server_namespace: String.t()]
+        ) :: :ok
+  def stop_parameter_client(server_node_name, client_node_name, opts \\ [])
+      when is_binary(server_node_name) and is_binary(client_node_name) and is_list(opts) do
+    Rclex.ParameterClient.stop(server_node_name, client_node_name, opts)
+  end
+
+  @doc """
+  Returns whether the remote parameter services are currently available.
+  Returns `{:error, :not_found}` if the parameter client has not been started.
+  """
+  @doc section: :parameter_client
+  @spec parameter_service_available?(
+          server_node_name :: String.t(),
+          client_node_name :: String.t(),
+          opts :: [namespace: String.t(), server_namespace: String.t()]
+        ) :: boolean() | {:error, :not_found}
+  def parameter_service_available?(server_node_name, client_node_name, opts \\ [])
+      when is_binary(server_node_name) and is_binary(client_node_name) and is_list(opts) do
+    Rclex.ParameterClient.service_available?(server_node_name, client_node_name, opts)
+  end
+
+  @doc """
+  Get the values of `parameter_names` from the remote `server_node_name`.
+
+  Returns `{:ok, [{name, value}, ...]}` on success, where each `value` is the
+  Elixir-side decoded parameter value (or `nil` if not set).
+
+  ### opts
+
+  - #{@namespace_doc}
+  - `:server_namespace` (default `"/"`)
+  - `:timeout` (seconds, float; default `nil` for infinite)
+  """
+  @doc section: :parameter_client
+  @spec get_remote_parameters(
+          server_node_name :: String.t(),
+          parameter_names :: [String.t()],
+          client_node_name :: String.t(),
+          opts :: keyword()
+        ) :: {:ok, [{String.t(), term()}]} | {:error, term()}
+  def get_remote_parameters(server_node_name, parameter_names, client_node_name, opts \\ [])
+      when is_binary(server_node_name) and is_list(parameter_names) and
+             is_binary(client_node_name) and is_list(opts) do
+    Rclex.ParameterClient.get_parameters(
+      server_node_name,
+      parameter_names,
+      client_node_name,
+      opts
+    )
+  end
+
+  @doc """
+  Get the parameter types of `parameter_names` on the remote node.
+
+  Returns `{:ok, types_binary}` on success, with one byte per requested name
+  matching the ROS 2 `ParameterType` constants.
+  """
+  @doc section: :parameter_client
+  @spec get_remote_parameter_types(
+          server_node_name :: String.t(),
+          parameter_names :: [String.t()],
+          client_node_name :: String.t(),
+          opts :: keyword()
+        ) :: {:ok, binary()} | {:error, term()}
+  def get_remote_parameter_types(server_node_name, parameter_names, client_node_name, opts \\ [])
+      when is_binary(server_node_name) and is_list(parameter_names) and
+             is_binary(client_node_name) and is_list(opts) do
+    Rclex.ParameterClient.get_parameter_types(
+      server_node_name,
+      parameter_names,
+      client_node_name,
+      opts
+    )
+  end
+
+  @doc """
+  Describe `parameter_names` on the remote node. If `parameter_names` is
+  empty, all parameters are described.
+  """
+  @doc section: :parameter_client
+  @spec describe_remote_parameters(
+          server_node_name :: String.t(),
+          parameter_names :: [String.t()],
+          client_node_name :: String.t(),
+          opts :: keyword()
+        ) :: {:ok, [struct()]} | {:error, term()}
+  def describe_remote_parameters(server_node_name, parameter_names, client_node_name, opts \\ [])
+      when is_binary(server_node_name) and is_list(parameter_names) and
+             is_binary(client_node_name) and is_list(opts) do
+    Rclex.ParameterClient.describe_parameters(
+      server_node_name,
+      parameter_names,
+      client_node_name,
+      opts
+    )
+  end
+
+  @doc """
+  List parameters on the remote node.
+
+  ### opts
+
+  - `:prefixes` — list of prefixes to filter by, default `[]`
+  - `:depth` — recursion depth, default `0` (unlimited)
+  - #{@namespace_doc}
+  - `:server_namespace`, `:timeout`
+  """
+  @doc section: :parameter_client
+  @spec list_remote_parameters(
+          server_node_name :: String.t(),
+          client_node_name :: String.t(),
+          opts :: keyword()
+        ) :: {:ok, %{names: [String.t()], prefixes: [String.t()]}} | {:error, term()}
+  def list_remote_parameters(server_node_name, client_node_name, opts \\ [])
+      when is_binary(server_node_name) and is_binary(client_node_name) and is_list(opts) do
+    Rclex.ParameterClient.list_parameters(server_node_name, client_node_name, opts)
+  end
+
+  @doc """
+  Set parameters on the remote node, one by one.
+
+  `parameters` is a list of `{name, value}` tuples, `{name, value, type}`
+  tuples (with explicit type, see `Rclex.ParameterHelpers.gen_parameter_value_struct/2`),
+  or pre-built `%Rclex.Pkgs.RclInterfaces.Msg.Parameter{}` structs.
+
+  Returns `{:ok, [%SetParametersResult{}]}` on success.
+  """
+  @doc section: :parameter_client
+  @spec set_remote_parameters(
+          server_node_name :: String.t(),
+          parameters :: [{String.t(), term()} | {String.t(), term(), atom()} | struct()],
+          client_node_name :: String.t(),
+          opts :: keyword()
+        ) :: {:ok, [struct()]} | {:error, term()}
+  def set_remote_parameters(server_node_name, parameters, client_node_name, opts \\ [])
+      when is_binary(server_node_name) and is_list(parameters) and
+             is_binary(client_node_name) and is_list(opts) do
+    Rclex.ParameterClient.set_parameters(server_node_name, parameters, client_node_name, opts)
+  end
+
+  @doc """
+  Set parameters on the remote node atomically. Either all parameters are
+  applied or none.
+  """
+  @doc section: :parameter_client
+  @spec set_remote_parameters_atomically(
+          server_node_name :: String.t(),
+          parameters :: [{String.t(), term()} | {String.t(), term(), atom()} | struct()],
+          client_node_name :: String.t(),
+          opts :: keyword()
+        ) :: {:ok, struct()} | {:error, term()}
+  def set_remote_parameters_atomically(server_node_name, parameters, client_node_name, opts \\ [])
+      when is_binary(server_node_name) and is_list(parameters) and
+             is_binary(client_node_name) and is_list(opts) do
+    Rclex.ParameterClient.set_parameters_atomically(
+      server_node_name,
+      parameters,
+      client_node_name,
+      opts
+    )
+  end
+
+  @doc """
+  Start a subscription that forwards ROS 2 parameter events to `callback`.
+
+  ### opts
+
+  - #{@namespace_doc}
+  - `:node_filter` — fully qualified node name to filter by (default: no filter)
+  - `:parameter_filter` — list of parameter names to filter by (default: no filter)
+  - `:qos` — defaults to `Rclex.QoS.profile_parameter_events/0`
+  """
+  @doc section: :parameter_client
+  @spec start_parameter_event_handler(
+          callback ::
+            (Rclex.Pkgs.RclInterfaces.Msg.ParameterEvent.t() -> any()),
+          client_node_name :: String.t(),
+          opts :: keyword()
+        ) :: :ok | {:error, term()}
+  def start_parameter_event_handler(callback, client_node_name, opts \\ [])
+      when is_function(callback, 1) and is_binary(client_node_name) and is_list(opts) do
+    Rclex.ParameterEventHandler.start(callback, client_node_name, opts)
+  end
+
+  @doc """
+  Stop the parameter event handler on `client_node_name`.
+  """
+  @doc section: :parameter_client
+  @spec stop_parameter_event_handler(client_node_name :: String.t(), opts :: keyword()) ::
+          :ok | {:error, :not_found}
+  def stop_parameter_event_handler(client_node_name, opts \\ [])
+      when is_binary(client_node_name) and is_list(opts) do
+    Rclex.ParameterEventHandler.stop(client_node_name, opts)
+  end
+
   @doc """
   Return the number of publishers on a given topic.
 
@@ -2024,7 +2261,11 @@ defmodule Rclex do
       :ok
   """
   @doc section: :tf2
-  @spec tf2_clear(buffer_name :: String.t() | atom(), name :: String.t(), opts :: [namespace: String.t()]) ::
+  @spec tf2_clear(
+          buffer_name :: String.t() | atom(),
+          name :: String.t(),
+          opts :: [namespace: String.t()]
+        ) ::
           :ok | {:error, term()}
   def tf2_clear(buffer_name, name, opts \\ [])
       when (is_binary(buffer_name) or is_atom(buffer_name)) and is_binary(name) and is_list(opts) do

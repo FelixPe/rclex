@@ -96,7 +96,9 @@ defmodule Rclex.MixProject do
         Subscription: &(&1[:section] == :subscription),
         Timer: &(&1[:section] == :time),
         Action_Server: &(&1[:section] == :action_server),
-        Action_Client: &(&1[:section] == :action_client)
+        Action_Client: &(&1[:section] == :action_client),
+        Parameter: &(&1[:section] == :parameter),
+        Parameter_Client: &(&1[:section] == :parameter_client)
       ]
     ]
   end

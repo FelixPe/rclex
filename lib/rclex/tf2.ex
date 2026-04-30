@@ -64,7 +64,8 @@ defmodule Rclex.Tf2 do
     end
   end
 
-  @spec all_frames_as_yaml(buffer_name(), String.t(), opts()) :: {:ok, String.t()} | {:error, term()}
+  @spec all_frames_as_yaml(buffer_name(), String.t(), opts()) ::
+          {:ok, String.t()} | {:error, term()}
   def all_frames_as_yaml(buffer_name, name, opts \\ []) do
     ensure_table!()
     ensure_io_table!()
@@ -84,9 +85,8 @@ defmodule Rclex.Tf2 do
 
     with {:ok, buffer} <- fetch_buffer(key),
          :ok <- validate_frame_ids(target_frame, source_frame),
-         :ok <- ensure_known_frames(buffer, target_frame, source_frame),
-         {:ok, stamp_ns} <- latest_common_time_ns(buffer, target_frame, source_frame) do
-      {:ok, stamp_ns}
+         :ok <- ensure_known_frames(buffer, target_frame, source_frame) do
+      latest_common_time_ns(buffer, target_frame, source_frame)
     end
   end
 
@@ -123,7 +123,9 @@ defmodule Rclex.Tf2 do
          {:ok, edge} <- extract_edge(transform_stamped),
          {:ok, normalized_tf} <- normalize_transform(transform_stamped),
          :ok <- validate_quaternion(normalized_tf.rotation) do
-      updated_static = Map.put(buffer.static, edge, %{transform: normalized_tf, authority: authority})
+      updated_static =
+        Map.put(buffer.static, edge, %{transform: normalized_tf, authority: authority})
+
       true = :ets.insert(@table, {key, %{buffer | static: updated_static}})
       :ok
     end
@@ -154,22 +156,22 @@ defmodule Rclex.Tf2 do
 
     with {:ok, _} <- fetch_buffer(key) do
       deadline = deadline_ms(timeout_sec)
-
-      wait_until(deadline, :lookup, fn ->
-        case lookup_internal(key, target_frame, source_frame, time_ns) do
-          {:ok, _} -> {:ok, true}
-          {:error, reason} -> {:retry, reason}
-        end
-      end)
-      |> case do
-        {:ok, true} ->
-          if return_debug_tuple, do: {true, ""}, else: true
-
-        {:error, reason} ->
-          if return_debug_tuple, do: {false, reason_to_string(reason)}, else: false
-      end
+      result = wait_until(deadline, :lookup, fn -> probe_can_transform(key, target_frame, source_frame, time_ns) end)
+      can_transform_result(result, return_debug_tuple)
     end
   end
+
+  defp probe_can_transform(key, target_frame, source_frame, time_ns) do
+    case lookup_internal(key, target_frame, source_frame, time_ns) do
+      {:ok, _} -> {:ok, true}
+      {:error, reason} -> {:retry, reason}
+    end
+  end
+
+  defp can_transform_result({:ok, true}, true), do: {true, ""}
+  defp can_transform_result({:ok, true}, false), do: true
+  defp can_transform_result({:error, reason}, true), do: {false, reason_to_string(reason)}
+  defp can_transform_result({:error, _reason}, false), do: false
 
   @spec lookup_transform(
           buffer_name(),
@@ -212,9 +214,8 @@ defmodule Rclex.Tf2 do
 
     with :ok <- ensure_tf_message_type_available(opts),
          {:ok, _} <- fetch_buffer(key(buffer_name, name, opts)),
-         :ok <- ensure_subscription(:tf, buffer_name, name, namespace, authority, opts),
-         :ok <- ensure_subscription(:tf_static, buffer_name, name, namespace, authority, opts) do
-      :ok
+         :ok <- ensure_subscription(:tf, buffer_name, name, namespace, authority, opts) do
+      ensure_subscription(:tf_static, buffer_name, name, namespace, authority, opts)
     end
   end
 
@@ -229,7 +230,9 @@ defmodule Rclex.Tf2 do
       _ = safe_rclex_call(fn -> Rclex.stop_subscription(tf_message_type, "/tf", name, opts) end)
 
       _ =
-        safe_rclex_call(fn -> Rclex.stop_subscription(tf_message_type, "/tf_static", name, opts) end)
+        safe_rclex_call(fn ->
+          Rclex.stop_subscription(tf_message_type, "/tf_static", name, opts)
+        end)
 
       namespace = Keyword.get(opts, :namespace, "/")
       _ = :ets.delete(@io_table, {:listener, buffer_name, name, namespace, :tf})
@@ -245,9 +248,8 @@ defmodule Rclex.Tf2 do
     ensure_io_table!()
 
     with :ok <- ensure_tf_message_type_available(opts),
-         :ok <- ensure_publisher(:tf, name, opts),
-         :ok <- ensure_publisher(:tf_static, name, opts) do
-      :ok
+         :ok <- ensure_publisher(:tf, name, opts) do
+      ensure_publisher(:tf_static, name, opts)
     end
   end
 
@@ -259,7 +261,9 @@ defmodule Rclex.Tf2 do
     with :ok <- ensure_tf_message_type_available(opts) do
       tf_message_type = tf_message_type_module(opts)
       _ = safe_rclex_call(fn -> Rclex.stop_publisher(tf_message_type, "/tf", name, opts) end)
-      _ = safe_rclex_call(fn -> Rclex.stop_publisher(tf_message_type, "/tf_static", name, opts) end)
+
+      _ =
+        safe_rclex_call(fn -> Rclex.stop_publisher(tf_message_type, "/tf_static", name, opts) end)
 
       namespace = Keyword.get(opts, :namespace, "/")
       _ = :ets.delete(@io_table, {:broadcaster, name, namespace, :tf})
@@ -294,7 +298,8 @@ defmodule Rclex.Tf2 do
          :ok <- validate_frame_ids(target_frame, source_frame),
          :ok <- ensure_known_frames(buffer, target_frame, source_frame),
          {:ok, query_time_ns} <- resolve_query_time(buffer, target_frame, source_frame, time_ns),
-         {:ok, transform} <- resolve_path_transform(buffer, target_frame, source_frame, query_time_ns) do
+         {:ok, transform} <-
+           resolve_path_transform(buffer, target_frame, source_frame, query_time_ns) do
       {:ok,
        %{
          header: %{frame_id: target_frame, stamp: ns_to_stamp(query_time_ns)},
@@ -318,7 +323,13 @@ defmodule Rclex.Tf2 do
     end
   end
 
-  defp resolve_path_transform(buffer, target_frame, source_frame, query_time_ns, only_time \\ false) do
+  defp resolve_path_transform(
+         buffer,
+         target_frame,
+         source_frame,
+         query_time_ns,
+         only_time \\ false
+       ) do
     start = {target_frame, identity_transform(), query_time_ns}
 
     bfs_result =
@@ -363,63 +374,80 @@ defmodule Rclex.Tf2 do
       {:ok, acc_transform, min_stamp_ns}
     else
       {rest2, visited2, reason2} =
-        Enum.reduce(neighbors(buffer, current_frame, query_time_ns), {rest, visited, best_reason}, fn
-          {:ok, next_frame, edge_transform, edge_stamp_ns}, {queue, seen, reason} ->
-            if MapSet.member?(seen, next_frame) do
-              {queue, seen, reason}
-            else
-              composed = compose_transform(acc_transform, edge_transform)
-              new_min_stamp = min_stamp(min_stamp_ns, edge_stamp_ns)
-              {queue ++ [{next_frame, composed, new_min_stamp}], MapSet.put(seen, next_frame), reason}
-            end
-
-          {:error, edge_reason}, {queue, seen, reason} ->
-            {queue, seen, prefer_reason(reason, edge_reason)}
-        end)
+        Enum.reduce(
+          neighbors(buffer, current_frame, query_time_ns),
+          {rest, visited, best_reason},
+          &fold_resolve_neighbor(&1, &2, acc_transform, min_stamp_ns)
+        )
 
       do_resolve_path_transform(rest2, visited2, buffer, source_frame, query_time_ns, reason2)
     end
   end
 
+  defp fold_resolve_neighbor(
+         {:ok, next_frame, edge_transform, edge_stamp_ns},
+         {queue, seen, reason},
+         acc_transform,
+         min_stamp_ns
+       ) do
+    if MapSet.member?(seen, next_frame) do
+      {queue, seen, reason}
+    else
+      composed = compose_transform(acc_transform, edge_transform)
+      new_min_stamp = min_stamp(min_stamp_ns, edge_stamp_ns)
+      {queue ++ [{next_frame, composed, new_min_stamp}], MapSet.put(seen, next_frame), reason}
+    end
+  end
+
+  defp fold_resolve_neighbor(
+         {:error, edge_reason},
+         {queue, seen, reason},
+         _acc_transform,
+         _min_stamp_ns
+       ) do
+    {queue, seen, prefer_reason(reason, edge_reason)}
+  end
+
   defp neighbors(buffer, frame, query_time_ns) do
-    static_edges =
-      Enum.flat_map(buffer.static, fn
-        {{target, source}, %{transform: transform}} ->
-          cond do
-            target == frame -> [{:ok, source, transform, :infinite}]
-            source == frame -> [{:ok, target, invert_transform(transform), :infinite}]
-            true -> []
-          end
-
-        _ ->
-          []
-      end)
-
-    dynamic_edges =
-      Enum.flat_map(buffer.dynamic, fn
-        {{target, source}, samples} ->
-          cond do
-            target == frame ->
-              case transform_from_samples(samples, query_time_ns) do
-                {:ok, transform, stamp_ns} -> [{:ok, source, transform, stamp_ns}]
-                {:error, reason} -> [{:error, reason}]
-              end
-
-            source == frame ->
-              case transform_from_samples(samples, query_time_ns) do
-                {:ok, transform, stamp_ns} -> [{:ok, target, invert_transform(transform), stamp_ns}]
-                {:error, reason} -> [{:error, reason}]
-              end
-
-            true ->
-              []
-          end
-
-        _ ->
-          []
-      end)
-
+    static_edges = Enum.flat_map(buffer.static, &static_edge_for_frame(&1, frame))
+    dynamic_edges = Enum.flat_map(buffer.dynamic, &dynamic_edge_for_frame(&1, frame, query_time_ns))
     static_edges ++ dynamic_edges
+  end
+
+  defp static_edge_for_frame({{target, source}, %{transform: transform}}, frame) do
+    cond do
+      target == frame -> [{:ok, source, transform, :infinite}]
+      source == frame -> [{:ok, target, invert_transform(transform), :infinite}]
+      true -> []
+    end
+  end
+
+  defp static_edge_for_frame(_, _), do: []
+
+  defp dynamic_edge_for_frame({{target, source}, samples}, frame, query_time_ns) do
+    cond do
+      target == frame -> dynamic_edge_sample(samples, source, query_time_ns, :forward)
+      source == frame -> dynamic_edge_sample(samples, target, query_time_ns, :inverse)
+      true -> []
+    end
+  end
+
+  defp dynamic_edge_for_frame(_, _, _), do: []
+
+  defp dynamic_edge_sample(samples, other_frame, query_time_ns, direction) do
+    case transform_from_samples(samples, query_time_ns) do
+      {:ok, transform, stamp_ns} ->
+        edge_transform =
+          case direction do
+            :forward -> transform
+            :inverse -> invert_transform(transform)
+          end
+
+        [{:ok, other_frame, edge_transform, stamp_ns}]
+
+      {:error, reason} ->
+        [{:error, reason}]
+    end
   end
 
   defp transform_from_samples([], _query_time_ns), do: {:error, :lookup}
@@ -462,7 +490,9 @@ defmodule Rclex.Tf2 do
         pair =
           samples
           |> Enum.chunk_every(2, 1, :discard)
-          |> Enum.find(fn [a, b] -> a.stamp_ns <= query_time_ns and query_time_ns <= b.stamp_ns end)
+          |> Enum.find(fn [a, b] ->
+            a.stamp_ns <= query_time_ns and query_time_ns <= b.stamp_ns
+          end)
 
         case pair do
           [a, b] when a.stamp_ns == b.stamp_ns -> {:ok, a.transform, a.stamp_ns}
@@ -569,26 +599,30 @@ defmodule Rclex.Tf2 do
     if current == source_frame do
       true
     else
-      nexts =
-        Enum.flat_map(all_edges(buffer), fn {target, source} ->
-          cond do
-            target == current -> [source]
-            source == current -> [target]
-            true -> []
-          end
-        end)
-
-      {queue, visited2} =
-        Enum.reduce(nexts, {rest, visited}, fn frame, {q, seen} ->
-          if MapSet.member?(seen, frame) do
-            {q, seen}
-          else
-            {q ++ [frame], MapSet.put(seen, frame)}
-          end
-        end)
-
+      nexts = path_neighbor_frames(buffer, current)
+      {queue, visited2} = enqueue_unseen(nexts, rest, visited)
       do_path_exists?(queue, visited2, buffer, source_frame)
     end
+  end
+
+  defp path_neighbor_frames(buffer, current) do
+    Enum.flat_map(all_edges(buffer), fn {target, source} ->
+      cond do
+        target == current -> [source]
+        source == current -> [target]
+        true -> []
+      end
+    end)
+  end
+
+  defp enqueue_unseen(nexts, queue, visited) do
+    Enum.reduce(nexts, {queue, visited}, fn frame, {q, seen} ->
+      if MapSet.member?(seen, frame) do
+        {q, seen}
+      else
+        {q ++ [frame], MapSet.put(seen, frame)}
+      end
+    end)
   end
 
   defp all_edges(buffer) do
@@ -682,7 +716,9 @@ defmodule Rclex.Tf2 do
     end)
   end
 
-  defp normalize_broadcaster(authority) when is_binary(authority) and authority != "", do: authority
+  defp normalize_broadcaster(authority) when is_binary(authority) and authority != "",
+    do: authority
+
   defp normalize_broadcaster(_), do: "unknown"
 
   defp float_to_string(value) when is_float(value) do
@@ -703,9 +739,14 @@ defmodule Rclex.Tf2 do
 
   defp validate_frame_ids(target_frame, source_frame) do
     cond do
-      not is_binary(target_frame) or String.trim(target_frame) == "" -> {:error, :invalid_target_frame}
-      not is_binary(source_frame) or String.trim(source_frame) == "" -> {:error, :invalid_source_frame}
-      true -> :ok
+      not is_binary(target_frame) or String.trim(target_frame) == "" ->
+        {:error, :invalid_target_frame}
+
+      not is_binary(source_frame) or String.trim(source_frame) == "" ->
+        {:error, :invalid_source_frame}
+
+      true ->
+        :ok
     end
   end
 
@@ -731,17 +772,17 @@ defmodule Rclex.Tf2 do
   defp extract_stamp_ns(transform_stamped) do
     map = to_map(transform_stamped)
 
-    sec = get_in_any(map, [:header, :stamp, :sec]) || get_in_any(map, [:header, :stamp, :secs]) || 0
+    sec =
+      get_in_any(map, [:header, :stamp, :sec]) || get_in_any(map, [:header, :stamp, :secs]) || 0
 
     nanosec =
-      get_in_any(map, [:header, :stamp, :nanosec]) || get_in_any(map, [:header, :stamp, :nsec]) || 0
+      get_in_any(map, [:header, :stamp, :nanosec]) || get_in_any(map, [:header, :stamp, :nsec]) ||
+        0
 
-    cond do
-      is_integer(sec) and is_integer(nanosec) and sec >= 0 and nanosec >= 0 ->
-        {:ok, sec * 1_000_000_000 + nanosec}
-
-      true ->
-        {:error, :invalid_stamp}
+    if is_integer(sec) and is_integer(nanosec) and sec >= 0 and nanosec >= 0 do
+      {:ok, sec * 1_000_000_000 + nanosec}
+    else
+      {:error, :invalid_stamp}
     end
   end
 
@@ -854,7 +895,11 @@ defmodule Rclex.Tf2 do
   end
 
   defp tf_message_type_module(opts) do
-    Keyword.get(opts, :tf_message_type_module, Module.concat([Rclex, Pkgs, Tf2Msgs, Msg, TFMessage]))
+    Keyword.get(
+      opts,
+      :tf_message_type_module,
+      Module.concat([Rclex, Pkgs, Tf2Msgs, Msg, TFMessage])
+    )
   end
 
   defp ensure_tf_message_type_available(opts) do
@@ -877,7 +922,9 @@ defmodule Rclex.Tf2 do
         tf_message_type = tf_message_type_module(opts)
         topic = topic_name(topic_kind)
 
-        callback = fn msg -> ingest_tf_message(msg, topic_kind == :tf_static, buffer_name, name, opts, authority) end
+        callback = fn msg ->
+          ingest_tf_message(msg, topic_kind == :tf_static, buffer_name, name, opts, authority)
+        end
 
         case Rclex.start_subscription(callback, tf_message_type, topic, name, opts) do
           :ok ->
@@ -1020,12 +1067,16 @@ defmodule Rclex.Tf2 do
     |> Enum.sort_by(& &1.stamp_ns)
   end
 
-  defp trim_samples(samples, cache_time_ns) when cache_time_ns == 0, do: [List.last(samples)] |> Enum.reject(&is_nil/1)
+  defp trim_samples(samples, cache_time_ns) when cache_time_ns == 0,
+    do: [List.last(samples)] |> Enum.reject(&is_nil/1)
 
   defp trim_samples(samples, cache_time_ns) do
     case List.last(samples) do
-      nil -> []
-      latest -> Enum.filter(samples, fn sample -> latest.stamp_ns - sample.stamp_ns <= cache_time_ns end)
+      nil ->
+        []
+
+      latest ->
+        Enum.filter(samples, fn sample -> latest.stamp_ns - sample.stamp_ns <= cache_time_ns end)
     end
   end
 

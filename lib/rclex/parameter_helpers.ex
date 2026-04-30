@@ -296,7 +296,8 @@ defmodule Rclex.ParameterHelpers do
 
   def gen_set_parameters_atomically_response_struct(successful, reason \\ "") do
     response = struct(Rclex.Pkgs.RclInterfaces.Srv.SetParametersAtomically.Response)
-    %{response | result: %{successful: successful, reason: reason}}
+    result = struct(Rclex.Pkgs.RclInterfaces.Msg.SetParametersResult)
+    %{response | result: %{result | successful: successful, reason: reason}}
   end
 
   def gen_list_parameters_response_struct(names, prefixes) do

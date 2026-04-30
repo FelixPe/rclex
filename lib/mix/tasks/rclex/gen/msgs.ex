@@ -179,7 +179,10 @@ defmodule Mix.Tasks.Rclex.Gen.Msgs do
         Enum.map(srv_types, fn type -> type <> "_Request" end) ++
         Enum.map(srv_types, fn type -> type <> "_Response" end)
 
-    msg_types = msg_types ++ msg_types_for_actions(action_types) ++ msg_types_for_rcl_interfaces()
+    msg_types =
+      msg_types ++
+        msg_types_for_actions(action_types) ++
+        msg_types_for_rcl_interfaces() ++ msg_types_for_tf2()
 
     ros2_message_type_map =
       Enum.reduce(msg_types, %{}, fn type, acc ->
@@ -341,6 +344,12 @@ defmodule Mix.Tasks.Rclex.Gen.Msgs do
       "rcl_interfaces/msg/ParameterType",
       "rcl_interfaces/msg/Log"
     ]
+  end
+
+  defp msg_types_for_tf2() do
+    # Always generated so the built-in TF helpers in `Rclex.Tf2` work without
+    # requiring users to add `tf2_msgs/msg/TFMessage` to their config.
+    ["tf2_msgs/msg/TFMessage"]
   end
 
   defp msg_types_for_actions([]) do

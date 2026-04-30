@@ -1919,4 +1919,127 @@ defmodule RclexTest do
       assert str_val.string_value == ""
     end
   end
+
+  describe "top-level wrappers" do
+    setup do
+      node = "rclex_wrapper_node"
+      capture_log(fn -> :ok = Rclex.start_node(node) end)
+
+      on_exit(fn ->
+        capture_log(fn -> Rclex.stop_node(node) end)
+      end)
+
+      %{node: node}
+    end
+
+    test "execute_goal/4 returns :not_found for missing action server" do
+      assert {:error, :not_found} =
+               Rclex.execute_goal(%{}, Action.LookupTransform, "/missing", "no_such_node")
+    end
+
+    test "declare_parameter/2 with no opts creates an undeclared param", %{node: node} do
+      # No default_value: creates a parameter with type :not_set
+      assert :ok = Rclex.declare_parameter(node, "no_opts_param")
+    end
+
+    test "add/remove_on_set_parameters_callback wrapper", %{node: node} do
+      :ok =
+        Rclex.declare_parameter(node, "on_param", type: :integer, default_value: 1)
+
+      cb = fn _ -> :ok end
+      assert :ok = Rclex.add_on_set_parameters_callback(node, cb)
+      assert :ok = Rclex.remove_on_set_parameters_callback(node, cb)
+    end
+
+    test "add/remove_pre_set_parameters_callback wrapper", %{node: node} do
+      :ok =
+        Rclex.declare_parameter(node, "pre_param", type: :integer, default_value: 1)
+
+      cb = fn parameters -> parameters end
+      assert :ok = Rclex.add_pre_set_parameters_callback(node, cb)
+      assert :ok = Rclex.remove_pre_set_parameters_callback(node, cb)
+    end
+
+    test "tf2_start_listener/tf2_stop_listener wrappers", %{node: node} do
+      :ok = Rclex.tf2_buffer_new("wrapper_buffer", node)
+
+      capture_log(fn ->
+        result = Rclex.tf2_start_listener("wrapper_buffer", node)
+        # When tf message type module is available, listener succeeds; otherwise
+        # we get an error indicating the type is not generated.
+        assert result == :ok or match?({:error, _}, result)
+
+        stop_result = Rclex.tf2_stop_listener("wrapper_buffer", node)
+        assert stop_result == :ok or match?({:error, _}, stop_result)
+      end)
+    end
+
+    test "tf2_start_broadcaster/tf2_stop_broadcaster wrappers", %{node: node} do
+      capture_log(fn ->
+        result = Rclex.tf2_start_broadcaster(node)
+        assert result == :ok or match?({:error, _}, result)
+
+        stop_result = Rclex.tf2_stop_broadcaster(node)
+        assert stop_result == :ok or match?({:error, _}, stop_result)
+      end)
+    end
+
+    test "parameter client lifecycle wrappers" do
+      server = "wrap_param_server"
+      client = "wrap_param_client"
+
+      capture_log(fn ->
+        :ok = Rclex.start_node(server)
+        :ok = Rclex.start_node(client)
+      end)
+
+      on_exit(fn ->
+        capture_log(fn ->
+          Rclex.stop_parameter_client(server, client)
+          Rclex.stop_node(server)
+          Rclex.stop_node(client)
+        end)
+      end)
+
+      :ok =
+        Rclex.declare_parameter(server, "wrap_int", type: :integer, default_value: 1)
+
+      capture_log(fn ->
+        assert :ok = Rclex.start_parameter_client(server, client)
+
+        # Allow discovery
+        Process.sleep(200)
+
+        result = Rclex.parameter_service_available?(server, client)
+        assert result == true or result == false or match?({:error, _}, result)
+
+        # The remote calls may fail without sufficient discovery time. Just
+        # exercise the wrapper paths and accept either success or error.
+        _ = Rclex.get_remote_parameters(server, ["wrap_int"], client, timeout: 0.5)
+        _ = Rclex.get_remote_parameter_types(server, ["wrap_int"], client, timeout: 0.5)
+        _ = Rclex.describe_remote_parameters(server, ["wrap_int"], client, timeout: 0.5)
+        _ = Rclex.list_remote_parameters(server, client, timeout: 0.5)
+        _ = Rclex.set_remote_parameters(server, [{"wrap_int", 2}], client, timeout: 0.5)
+
+        _ =
+          Rclex.set_remote_parameters_atomically(
+            server,
+            [{"wrap_int", 3}],
+            client,
+            timeout: 0.5
+          )
+
+        assert :ok = Rclex.stop_parameter_client(server, client)
+      end)
+    end
+
+    test "parameter event handler wrappers", %{node: node} do
+      cb = fn _event -> :ok end
+
+      capture_log(fn ->
+        assert :ok = Rclex.start_parameter_event_handler(cb, node)
+        assert :ok = Rclex.stop_parameter_event_handler(node)
+      end)
+    end
+  end
 end

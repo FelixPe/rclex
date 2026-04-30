@@ -484,7 +484,7 @@ defmodule Rclex.ParameterServer do
         parameter_type_to_ros2(type)
       end)
 
-    gen_get_parameter_types_response_struct(type_ints)
+    gen_get_parameter_types_response_struct(:erlang.list_to_binary(type_ints))
   end
 
   # Parameter management callbacks

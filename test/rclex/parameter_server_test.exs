@@ -1583,10 +1583,10 @@ defmodule Rclex.ParameterServerTest do
       response = ParameterServer.handle_get_parameter_types(request, node_name, namespace)
 
       assert %GetParameterTypes.Response{types: types} = response
-      assert length(types) == 4
+      assert byte_size(types) == 4
 
       # Check returned types (as ROS2 integer constants)
-      [bool_type, int_type, string_type, not_set_type] = types
+      <<bool_type, int_type, string_type, not_set_type>> = types
       assert bool_type == ParameterType.parameter_bool()
       assert int_type == ParameterType.parameter_integer()
       assert string_type == ParameterType.parameter_string()

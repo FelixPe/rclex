@@ -217,6 +217,97 @@ data: Hello World from Rclex!
 ---
 ```
 
+## Using Rclex from Livebook
+
+Rclex is a NIF whose C sources are partly *generated* from the message/service/action
+types you declare in application config. With a few extra steps the same workflow
+works inside a [Livebook](https://livebook.dev) notebook via `Mix.install/2`.
+
+### 1. Start Livebook with the ROS 2 environment sourced
+
+The `Makefile` requires `ROS_DISTRO`, and the NIF links against libraries under
+`/opt/ros/<distro>/lib`. These must be visible to the shell that launches Livebook,
+because `Mix.install` inherits its environment when invoking `make`:
+
+```
+source /opt/ros/humble/setup.bash
+livebook server
+```
+
+If Livebook is started from a desktop launcher or a systemd unit, wrap it so the
+same `source` happens first — otherwise compilation halts with
+`ROS_DISTRO is not defined`.
+
+### 2. Install Rclex with the type config
+
+`mix rclex.gen` reads `Application.get_env(:rclex, :ros2_message_types, ...)` etc.
+With `Mix.install/2`, supply that via the `:config` option, just like
+`config/config.exs`:
+
+```elixir
+Mix.install(
+  [
+    {:rclex, github: "FelixPe/rclex"}
+  ],
+  config: [
+    rclex: [
+      ros2_message_types: ["std_msgs/msg/String", "geometry_msgs/msg/Twist"],
+      ros2_service_types: ["std_srvs/srv/SetBool"],
+      ros2_action_types: ["tf2_msgs/action/LookupTransform"]
+    ]
+  ]
+)
+```
+
+After this cell runs, `deps/rclex` exists inside the `Mix.install` build directory
+and the NIF has been built — but only with the *base* C sources. The message
+types you listed have not been generated yet.
+
+### 3. Run `mix rclex.gen` and reload Rclex
+
+`Mix.Tasks.Rclex.Gen` detects when it runs as a dependency and writes generated
+files into `deps/rclex/src/pkgs/...` and `deps/rclex/lib/rclex/pkgs/...`, then
+force-recompiles the NIF with the new sources. In the **next cell**:
+
+```elixir
+Mix.Task.run("rclex.gen", [])
+
+# Reload so the freshly generated Rclex.Pkgs.* modules are picked up.
+Application.stop(:rclex)
+Application.unload(:rclex)
+Application.ensure_all_started(:rclex)
+```
+
+You can now use the API normally:
+
+```elixir
+alias Rclex.Pkgs.StdMsgs
+
+Rclex.start_node("livebook_talker")
+Rclex.start_publisher(StdMsgs.Msg.String, "/chatter", "livebook_talker")
+
+Rclex.publish(
+  struct(StdMsgs.Msg.String, %{data: "Hello from Livebook!"}),
+  "/chatter",
+  "livebook_talker"
+)
+```
+
+### Notes
+
+- Run `Mix.install/2` and `Mix.Task.run("rclex.gen", [])` in **separate cells**.
+  Triggering `deps.compile --force` from inside the same cell that is still
+  finalizing `Mix.install` can deadlock the compile lock.
+- If you change the configured types, edit the `:config` map, reconnect the
+  notebook runtime, and rerun both cells. `Mix.install` invalidates its cache
+  when the config map changes.
+- The dynamic loader needs `/opt/ros/<distro>/lib` on `LD_LIBRARY_PATH` at BEAM
+  start time, which is why sourcing `setup.bash` *before* launching Livebook
+  (step 1) matters more than any `system_env` set inside the notebook.
+- On non-host targets (e.g. Nerves) the generator looks under
+  `rootfs_overlay/opt/ros/$ROS_DISTRO`; for Livebook on a workstation, leave
+  `MIX_TARGET` unset so it defaults to `host`.
+
 ## Enhance devepoment experience
 
 This section describes the information mainly for developers.
