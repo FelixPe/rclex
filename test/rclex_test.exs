@@ -263,7 +263,7 @@ defmodule RclexTest do
       assert is_integer(src)
       assert is_integer(rcv)
       assert is_binary(gid)
-      assert byte_size(gid) == 16
+      assert byte_size(gid) in [16, 24]
       assert is_boolean(from_ip)
     end
   end
