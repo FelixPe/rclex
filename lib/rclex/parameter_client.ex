@@ -25,22 +25,24 @@ defmodule Rclex.ParameterClient do
   alias Rclex.QoS
   alias Rclex.ParameterHelpers
 
-  alias Rclex.Pkgs.RclInterfaces.Srv.{
-    GetParameters,
-    SetParameters,
-    SetParametersAtomically,
-    ListParameters,
-    DescribeParameters,
-    GetParameterTypes
-  }
+  # NOTE: RCL interfaces service types are generated at build time by `mix rclex.gen`.
+  # To avoid creating a hard compile-time dependency on those generated modules,
+  # we use Module.concat to defer module resolution to runtime (matching the pattern
+  # used in Rclex.LifecycleNode).
+  @srv_get_parameters Module.concat([Rclex, Pkgs, RclInterfaces, Srv, GetParameters])
+  @srv_set_parameters Module.concat([Rclex, Pkgs, RclInterfaces, Srv, SetParameters])
+  @srv_set_parameters_atomically Module.concat([Rclex, Pkgs, RclInterfaces, Srv, SetParametersAtomically])
+  @srv_list_parameters Module.concat([Rclex, Pkgs, RclInterfaces, Srv, ListParameters])
+  @srv_describe_parameters Module.concat([Rclex, Pkgs, RclInterfaces, Srv, DescribeParameters])
+  @srv_get_parameter_types Module.concat([Rclex, Pkgs, RclInterfaces, Srv, GetParameterTypes])
 
   @services [
-    {GetParameters, "get_parameters"},
-    {SetParameters, "set_parameters"},
-    {SetParametersAtomically, "set_parameters_atomically"},
-    {ListParameters, "list_parameters"},
-    {DescribeParameters, "describe_parameters"},
-    {GetParameterTypes, "get_parameter_types"}
+    {@srv_get_parameters, "get_parameters"},
+    {@srv_set_parameters, "set_parameters"},
+    {@srv_set_parameters_atomically, "set_parameters_atomically"},
+    {@srv_list_parameters, "list_parameters"},
+    {@srv_describe_parameters, "describe_parameters"},
+    {@srv_get_parameter_types, "get_parameter_types"}
   ]
 
   @doc """
@@ -134,7 +136,7 @@ defmodule Rclex.ParameterClient do
     server_namespace = Keyword.get(opts, :server_namespace, "/")
     service_name = service_name(server_namespace, server_node_name, "get_parameters")
 
-    Client.service_server_available?(GetParameters, service_name, client_node_name, namespace)
+    Client.service_server_available?(@srv_get_parameters, service_name, client_node_name, namespace)
   end
 
   # ---- Get -----------------------------------------------------------------
@@ -161,17 +163,18 @@ defmodule Rclex.ParameterClient do
   def get_parameters(server_node_name, parameter_names, client_node_name, opts \\ [])
       when is_binary(server_node_name) and is_list(parameter_names) and
              is_binary(client_node_name) and is_list(opts) do
-    request = %GetParameters.Request{names: parameter_names}
+    request = struct(Module.concat(@srv_get_parameters, Request), %{names: parameter_names})
 
-    with {:ok, %GetParameters.Response{values: values}} <-
+    with {:ok, response} <-
            call(
-             GetParameters,
+             @srv_get_parameters,
              "get_parameters",
              request,
              server_node_name,
              client_node_name,
              opts
            ) do
+      values = Map.fetch!(response, :values)
       decoded =
         parameter_names
         |> Enum.zip(values)
@@ -198,17 +201,18 @@ defmodule Rclex.ParameterClient do
   def get_parameter_types(server_node_name, parameter_names, client_node_name, opts \\ [])
       when is_binary(server_node_name) and is_list(parameter_names) and
              is_binary(client_node_name) and is_list(opts) do
-    request = %GetParameterTypes.Request{names: parameter_names}
+    request = struct(Module.concat(@srv_get_parameter_types, Request), %{names: parameter_names})
 
-    with {:ok, %GetParameterTypes.Response{types: types}} <-
+    with {:ok, response} <-
            call(
-             GetParameterTypes,
+             @srv_get_parameter_types,
              "get_parameter_types",
              request,
              server_node_name,
              client_node_name,
              opts
            ) do
+      types = Map.fetch!(response, :types)
       {:ok, types}
     end
   end
@@ -228,17 +232,18 @@ defmodule Rclex.ParameterClient do
   def describe_parameters(server_node_name, parameter_names, client_node_name, opts \\ [])
       when is_binary(server_node_name) and is_list(parameter_names) and
              is_binary(client_node_name) and is_list(opts) do
-    request = %DescribeParameters.Request{names: parameter_names}
+    request = struct(Module.concat(@srv_describe_parameters, Request), %{names: parameter_names})
 
-    with {:ok, %DescribeParameters.Response{descriptors: descriptors}} <-
+    with {:ok, response} <-
            call(
-             DescribeParameters,
+             @srv_describe_parameters,
              "describe_parameters",
              request,
              server_node_name,
              client_node_name,
              opts
            ) do
+      descriptors = Map.fetch!(response, :descriptors)
       {:ok, descriptors}
     end
   end
@@ -265,17 +270,18 @@ defmodule Rclex.ParameterClient do
     prefixes = Keyword.get(opts, :prefixes, [])
     depth = Keyword.get(opts, :depth, 0)
 
-    request = %ListParameters.Request{prefixes: prefixes, depth: depth}
+    request = struct(Module.concat(@srv_list_parameters, Request), %{prefixes: prefixes, depth: depth})
 
-    with {:ok, %ListParameters.Response{result: result}} <-
+    with {:ok, response} <-
            call(
-             ListParameters,
+             @srv_list_parameters,
              "list_parameters",
              request,
              server_node_name,
              client_node_name,
              opts
            ) do
+      result = Map.fetch!(response, :result)
       {:ok, %{names: result.names, prefixes: result.prefixes}}
     end
   end
@@ -299,17 +305,18 @@ defmodule Rclex.ParameterClient do
   def set_parameters(server_node_name, parameters, client_node_name, opts \\ [])
       when is_binary(server_node_name) and is_list(parameters) and
              is_binary(client_node_name) and is_list(opts) do
-    request = %SetParameters.Request{parameters: build_parameter_structs(parameters)}
+    request = struct(Module.concat(@srv_set_parameters, Request), %{parameters: build_parameter_structs(parameters)})
 
-    with {:ok, %SetParameters.Response{results: results}} <-
+    with {:ok, response} <-
            call(
-             SetParameters,
+             @srv_set_parameters,
              "set_parameters",
              request,
              server_node_name,
              client_node_name,
              opts
            ) do
+      results = Map.fetch!(response, :results)
       {:ok, results}
     end
   end
@@ -329,17 +336,18 @@ defmodule Rclex.ParameterClient do
   def set_parameters_atomically(server_node_name, parameters, client_node_name, opts \\ [])
       when is_binary(server_node_name) and is_list(parameters) and
              is_binary(client_node_name) and is_list(opts) do
-    request = %SetParametersAtomically.Request{parameters: build_parameter_structs(parameters)}
+    request = struct(Module.concat(@srv_set_parameters_atomically, Request), %{parameters: build_parameter_structs(parameters)})
 
-    with {:ok, %SetParametersAtomically.Response{result: result}} <-
+    with {:ok, response} <-
            call(
-             SetParametersAtomically,
+             @srv_set_parameters_atomically,
              "set_parameters_atomically",
              request,
              server_node_name,
              client_node_name,
              opts
            ) do
+      result = Map.fetch!(response, :result)
       {:ok, result}
     end
   end

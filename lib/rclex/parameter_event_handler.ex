@@ -8,8 +8,13 @@ defmodule Rclex.ParameterEventHandler do
   name (e.g. `"/ns/node"`) and optionally by parameter name(s).
   """
 
-  alias Rclex.Pkgs.RclInterfaces.Msg.ParameterEvent
   alias Rclex.QoS
+
+  # NOTE: RCL interfaces message types are generated at build time by `mix rclex.gen`.
+  # To avoid creating a hard compile-time dependency on the generated ParameterEvent module,
+  # we use Module.concat to defer module resolution to runtime (matching the pattern
+  # used in Rclex.LifecycleNode).
+  @msg_parameter_event Module.concat([Rclex, Pkgs, RclInterfaces, Msg, ParameterEvent])
 
   @parameter_events_topic "/parameter_events"
 
@@ -31,7 +36,7 @@ defmodule Rclex.ParameterEventHandler do
   - `:qos` — defaults to `Rclex.QoS.profile_parameter_events/0`.
   """
   @spec start(
-          callback :: (ParameterEvent.t() -> any()),
+          callback :: (struct() -> any()),
           client_node_name :: String.t(),
           opts :: keyword()
         ) :: :ok | {:error, term()}
@@ -43,13 +48,13 @@ defmodule Rclex.ParameterEventHandler do
     qos = Keyword.get(opts, :qos, QoS.profile_parameter_events())
 
     wrapped =
-      fn %ParameterEvent{} = event ->
+      fn event ->
         if matches?(event, node_filter, parameter_filter), do: callback.(event), else: :ok
       end
 
     Rclex.start_subscription(
       wrapped,
-      ParameterEvent,
+      @msg_parameter_event,
       @parameter_events_topic,
       client_node_name,
       namespace: namespace,
@@ -65,25 +70,29 @@ defmodule Rclex.ParameterEventHandler do
       when is_binary(client_node_name) and is_list(opts) do
     namespace = Keyword.get(opts, :namespace, "/")
 
-    Rclex.stop_subscription(ParameterEvent, @parameter_events_topic, client_node_name,
+    Rclex.stop_subscription(@msg_parameter_event, @parameter_events_topic, client_node_name,
       namespace: namespace
     )
   end
 
-  defp matches?(%ParameterEvent{} = event, node_filter, parameter_filter) do
+  defp matches?(event, node_filter, parameter_filter) do
     matches_node?(event, node_filter) and matches_parameter?(event, parameter_filter)
   end
 
   defp matches_node?(_event, nil), do: true
-  defp matches_node?(%ParameterEvent{node: node}, node_filter), do: node == node_filter
+  defp matches_node?(event, node_filter), do: Map.fetch!(event, :node) == node_filter
 
   defp matches_parameter?(_event, nil), do: true
   defp matches_parameter?(_event, []), do: true
 
-  defp matches_parameter?(%ParameterEvent{} = event, names) when is_list(names) do
+  defp matches_parameter?(event, names) when is_list(names) do
+    new_parameters = Map.fetch!(event, :new_parameters) || []
+    changed_parameters = Map.fetch!(event, :changed_parameters) || []
+    deleted_parameters = Map.fetch!(event, :deleted_parameters) || []
+
     event_names =
-      (event.new_parameters ++ event.changed_parameters ++ event.deleted_parameters)
-      |> Enum.map(& &1.name)
+      (new_parameters ++ changed_parameters ++ deleted_parameters)
+      |> Enum.map(&Map.fetch!(&1, :name))
 
     Enum.any?(event_names, &(&1 in names))
   end
