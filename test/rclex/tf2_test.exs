@@ -535,8 +535,12 @@ defmodule Rclex.Tf2Test do
       :ok =
         Rclex.tf2_set_transform(
           "main",
-          stamped_transform("a", "b", 1, %{x: 0.0, y: 0.0, z: 0.0},
-            %{w: 1.0, x: 0.0, y: 0.0, z: 0.0}),
+          stamped_transform("a", "b", 1, %{x: 0.0, y: 0.0, z: 0.0}, %{
+            w: 1.0,
+            x: 0.0,
+            y: 0.0,
+            z: 0.0
+          }),
           "auth",
           "node"
         )
@@ -544,8 +548,12 @@ defmodule Rclex.Tf2Test do
       :ok =
         Rclex.tf2_set_transform(
           "main",
-          stamped_transform("a", "b", 3, %{x: 0.0, y: 0.0, z: 0.0},
-            %{w: :math.cos(half_angle), x: 0.0, y: 0.0, z: :math.sin(half_angle)}),
+          stamped_transform("a", "b", 3, %{x: 0.0, y: 0.0, z: 0.0}, %{
+            w: :math.cos(half_angle),
+            x: 0.0,
+            y: 0.0,
+            z: :math.sin(half_angle)
+          }),
           "auth",
           "node"
         )

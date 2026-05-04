@@ -56,6 +56,7 @@ defmodule Rclex.TimeTest do
 
     test "from_msg/2 builds a Time from a struct" do
       msg = %BI.Time{sec: 2, nanosec: 250_000_000}
+
       assert Time.from_msg(msg, :ros_time) ==
                %Time{nanoseconds: 2_250_000_000, clock_type: :ros_time}
     end

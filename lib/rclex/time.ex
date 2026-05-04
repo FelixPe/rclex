@@ -91,7 +91,10 @@ defmodule Rclex.Time do
 
   @doc "Compare two `Time` values; returns `:lt`, `:eq`, or `:gt`."
   @spec compare(t(), t()) :: :lt | :eq | :gt
-  def compare(%__MODULE__{clock_type: ct, nanoseconds: a}, %__MODULE__{clock_type: ct, nanoseconds: b}) do
+  def compare(%__MODULE__{clock_type: ct, nanoseconds: a}, %__MODULE__{
+        clock_type: ct,
+        nanoseconds: b
+      }) do
     cond do
       a < b -> :lt
       a > b -> :gt

@@ -9,6 +9,10 @@ defmodule Mix.Tasks.Rclex.Gen.Msgs do
   config :rclex, ros2_message_types: ["std_msgs/msg/String"]
   ```
 
+  If `ros2_message_types` is empty, built-in types required by Rclex
+  internals (for example parameter and lifecycle support) are still
+  generated.
+
   The task also generates the code for the request and response message types required by the services defined in
 
   ```
@@ -170,10 +174,6 @@ defmodule Mix.Tasks.Rclex.Gen.Msgs do
     srv_types = Application.get_env(:rclex, :ros2_service_types, [])
     action_types = Application.get_env(:rclex, :ros2_action_types, [])
 
-    if Enum.empty?(msg_types) do
-      Mix.raise("ros2_message_types is not specified in config.")
-    end
-
     msg_types =
       msg_types ++
         Enum.map(srv_types, fn type -> type <> "_Request" end) ++
@@ -260,12 +260,7 @@ defmodule Mix.Tasks.Rclex.Gen.Msgs do
   @doc false
   def show_types() do
     types = Application.get_env(:rclex, :ros2_message_types, [])
-
-    if Enum.empty?(types) do
-      Mix.raise("ros2_message_types is not specified in config.")
-    end
-
-    Mix.shell().info(Enum.join(types, " "))
+    Mix.shell().info(if(Enum.empty?(types), do: "(none configured)", else: Enum.join(types, " ")))
   end
 
   @doc false

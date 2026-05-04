@@ -41,8 +41,10 @@ defmodule Rclex.ClockTest do
       assert :ok = Clock.enable_ros_time_override(:test_ros)
       assert Clock.ros_time_override_active?(:test_ros)
       assert :ok = Clock.set_ros_time_override(:test_ros, Time.new(1_234_567_890, :ros_time))
+
       assert %Time{nanoseconds: 1_234_567_890, clock_type: :ros_time} =
                Clock.now(:test_ros)
+
       :ok = GenServer.stop(pid)
     end
 

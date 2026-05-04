@@ -68,11 +68,23 @@ defmodule Rclex.LifecycleNode do
   @msg_state Module.concat([Rclex, Pkgs, LifecycleMsgs, Msg, State])
   @msg_transition Module.concat([Rclex, Pkgs, LifecycleMsgs, Msg, Transition])
   @msg_transition_event Module.concat([Rclex, Pkgs, LifecycleMsgs, Msg, TransitionEvent])
-  @msg_transition_description Module.concat([Rclex, Pkgs, LifecycleMsgs, Msg, TransitionDescription])
+  @msg_transition_description Module.concat([
+                                Rclex,
+                                Pkgs,
+                                LifecycleMsgs,
+                                Msg,
+                                TransitionDescription
+                              ])
   @srv_change_state Module.concat([Rclex, Pkgs, LifecycleMsgs, Srv, ChangeState])
   @srv_get_state Module.concat([Rclex, Pkgs, LifecycleMsgs, Srv, GetState])
   @srv_get_available_states Module.concat([Rclex, Pkgs, LifecycleMsgs, Srv, GetAvailableStates])
-  @srv_get_available_transitions Module.concat([Rclex, Pkgs, LifecycleMsgs, Srv, GetAvailableTransitions])
+  @srv_get_available_transitions Module.concat([
+                                   Rclex,
+                                   Pkgs,
+                                   LifecycleMsgs,
+                                   Srv,
+                                   GetAvailableTransitions
+                                 ])
 
   @type user_state :: any()
   @type primary_state :: :unconfigured | :inactive | :active | :finalized
@@ -367,12 +379,20 @@ defmodule Rclex.LifecycleNode do
   defp transition_event_topic(node_name), do: "/#{node_name}/transition_event"
 
   defp register_transition_publisher(node_name, namespace) do
-    case Rclex.start_publisher(@msg_transition_event, transition_event_topic(node_name), node_name,
+    case Rclex.start_publisher(
+           @msg_transition_event,
+           transition_event_topic(node_name),
+           node_name,
            namespace: namespace
          ) do
-      :ok -> :ok
-      {:error, :already_started} -> :ok
-      {:error, reason} -> raise "lifecycle: failed to start transition publisher: #{inspect(reason)}"
+      :ok ->
+        :ok
+
+      {:error, :already_started} ->
+        :ok
+
+      {:error, reason} ->
+        raise "lifecycle: failed to start transition publisher: #{inspect(reason)}"
     end
   end
 
@@ -414,7 +434,9 @@ defmodule Rclex.LifecycleNode do
     handlers = %{
       "change_state" => fn req -> handle_change_state(req, me_node_name, me_ns) end,
       "get_state" => fn req -> handle_get_state(req, me_node_name, me_ns) end,
-      "get_available_states" => fn req -> handle_get_available_states(req, me_node_name, me_ns) end,
+      "get_available_states" => fn req ->
+        handle_get_available_states(req, me_node_name, me_ns)
+      end,
       "get_available_transitions" => fn req ->
         handle_get_available_transitions(req, me_node_name, me_ns)
       end,
@@ -427,7 +449,9 @@ defmodule Rclex.LifecycleNode do
       service_name = service_path(node_name, suffix)
       callback = Map.fetch!(handlers, suffix)
 
-      case Rclex.start_service(callback, srv_module, service_name, node_name, namespace: namespace) do
+      case Rclex.start_service(callback, srv_module, service_name, node_name,
+             namespace: namespace
+           ) do
         :ok -> :ok
         {:error, :already_started} -> :ok
         {:error, reason} -> raise "lifecycle: failed to start #{service_name}: #{inspect(reason)}"

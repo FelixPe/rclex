@@ -9,6 +9,9 @@ defmodule Mix.Tasks.Rclex.Gen.Action do
   config :rclex, ros2_action_types: ["tf2_msgs/action/LookupTransform"]
   ```
 
+  If `ros2_action_types` is empty, this task generates no action types and
+  keeps action support stubs in place.
+
   > #### Info {: .info }
   > Be careful, ros2 action type is case sensitive.
 
@@ -79,10 +82,6 @@ defmodule Mix.Tasks.Rclex.Gen.Action do
   @doc false
   def generate(to) when is_binary(to) do
     action_types = Application.get_env(:rclex, :ros2_action_types, [])
-
-    if Enum.empty?(action_types) do
-      Mix.raise("ros2_action_types is not specified in config.")
-    end
 
     for type <- action_types do
       [interfaces, interface_type, type_name] = String.split(type, "/")
@@ -160,12 +159,7 @@ defmodule Mix.Tasks.Rclex.Gen.Action do
   @doc false
   def show_types() do
     types = Application.get_env(:rclex, :ros2_action_types, [])
-
-    if Enum.empty?(types) do
-      Mix.raise("ros2_action_types is not specified in config.")
-    end
-
-    Mix.shell().info(Enum.join(types, " "))
+    Mix.shell().info(if(Enum.empty?(types), do: "(none configured)", else: Enum.join(types, " ")))
   end
 
   @doc false

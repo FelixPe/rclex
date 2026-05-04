@@ -156,7 +156,12 @@ defmodule Rclex.Tf2 do
 
     with {:ok, _} <- fetch_buffer(key) do
       deadline = deadline_ms(timeout_sec)
-      result = wait_until(deadline, :lookup, fn -> probe_can_transform(key, target_frame, source_frame, time_ns) end)
+
+      result =
+        wait_until(deadline, :lookup, fn ->
+          probe_can_transform(key, target_frame, source_frame, time_ns)
+        end)
+
       can_transform_result(result, return_debug_tuple)
     end
   end
@@ -410,7 +415,10 @@ defmodule Rclex.Tf2 do
 
   defp neighbors(buffer, frame, query_time_ns) do
     static_edges = Enum.flat_map(buffer.static, &static_edge_for_frame(&1, frame))
-    dynamic_edges = Enum.flat_map(buffer.dynamic, &dynamic_edge_for_frame(&1, frame, query_time_ns))
+
+    dynamic_edges =
+      Enum.flat_map(buffer.dynamic, &dynamic_edge_for_frame(&1, frame, query_time_ns))
+
     static_edges ++ dynamic_edges
   end
 

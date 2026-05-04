@@ -9,6 +9,10 @@ defmodule Mix.Tasks.Rclex.Gen.Srvs do
   config :rclex, ros2_service_types: ["std_srvs/srv/SetBool"]
   ```
 
+  If `ros2_service_types` is empty, built-in services required by Rclex
+  internals (for example parameter and lifecycle support) are still
+  generated.
+
   > #### Info {: .info }
   > Be careful, ros2 srv type is case sensitive.
 
@@ -79,10 +83,6 @@ defmodule Mix.Tasks.Rclex.Gen.Srvs do
   @doc false
   def generate(to) when is_binary(to) do
     srv_types = Application.get_env(:rclex, :ros2_service_types, [])
-
-    if Enum.empty?(srv_types) do
-      Mix.raise("ros2_service_types is not specified in config.")
-    end
 
     srv_types = srv_types ++ srv_types_for_rcl_interfaces() ++ srv_types_for_lifecycle()
 
@@ -180,12 +180,7 @@ defmodule Mix.Tasks.Rclex.Gen.Srvs do
   @doc false
   def show_types() do
     types = Application.get_env(:rclex, :ros2_service_types, [])
-
-    if Enum.empty?(types) do
-      Mix.raise("ros2_service_types is not specified in config.")
-    end
-
-    Mix.shell().info(Enum.join(types, " "))
+    Mix.shell().info(if(Enum.empty?(types), do: "(none configured)", else: Enum.join(types, " ")))
   end
 
   @doc false

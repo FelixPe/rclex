@@ -363,18 +363,22 @@ defmodule Rclex.ActionClient do
 
           response_struct = apply(response_type, :get!, [response_message])
 
-          {%{
-             request_struct: request_struct,
-             feedback_callback: feedback_callback,
-             accepted_callback: accepted_callback,
-             timer: timer
-           }, requests} =
-            Map.pop(requests, response_sequence_number, %{
-              request_struct: nil,
-              feedback_callback: nil,
-              accepted_callback: nil,
-              timer: nil
-            })
+          default_request = %{
+            request_struct: nil,
+            feedback_callback: nil,
+            accepted_callback: nil,
+            timer: nil
+          }
+
+          {request_data, requests} =
+            Map.pop(requests, response_sequence_number, default_request)
+
+          %{
+            request_struct: request_struct,
+            feedback_callback: feedback_callback,
+            accepted_callback: accepted_callback,
+            timer: timer
+          } = request_data
 
           if timer, do: Process.cancel_timer(timer)
 
