@@ -1,0 +1,102 @@
+<!-- livebook:{"persist_outputs":true} -->
+
+# Rclex — Parameters
+
+```elixir
+Mix.install(
+  [
+    {:rclex, github: "FelixPe/rclex"}
+  ],
+  config: [
+    rclex: [
+      ros2_message_types: ["std_msgs/msg/String"]
+    ]
+  ]
+)
+```
+
+## About
+
+Declare parameters on a node, read/write them locally, and inspect them
+remotely with `ros2 param`.
+
+Reference implementations:
+
+* C++ — [ros2/demos · `demo_nodes_cpp/parameters/set_and_get_parameters.cpp`](https://github.com/ros2/demos/blob/rolling/demo_nodes_cpp/src/parameters/set_and_get_parameters.cpp)
+* Python — [ros2/demos · `demo_nodes_py/parameters/set_parameters_callback.py`](https://github.com/ros2/demos/blob/rolling/demo_nodes_py/demo_nodes_py/parameters/set_parameters_callback.py)
+* See also [`parameter_client.md`](../parameter_client.md) for the remote
+  parameter-client API exposed by Rclex.
+
+Verify from another terminal:
+
+```sh
+ros2 param list /example/livebook_node
+ros2 param get /example/livebook_node my_int
+ros2 param set /example/livebook_node my_int 42
+```
+
+## Generate
+
+```elixir
+Mix.Task.run("rclex.gen", [])
+Application.stop(:rclex)
+Application.unload(:rclex)
+{:ok, _} = Application.ensure_all_started(:rclex)
+:ok
+```
+
+## Declare and read parameters
+
+```elixir
+Rclex.start_node("livebook_node", namespace: "/example")
+
+:ok =
+  Rclex.declare_parameter("livebook_node", "my_int",
+    namespace: "/example",
+    default_value: 7,
+    description: "An example integer parameter."
+  )
+
+:ok =
+  Rclex.declare_parameter("livebook_node", "my_string",
+    namespace: "/example",
+    default_value: "hello"
+  )
+
+{:ok, value} = Rclex.get_parameter("livebook_node", "my_int", namespace: "/example")
+IO.puts("my_int = #{inspect(value)}")
+```
+
+## Update from inside the notebook
+
+```elixir
+:ok =
+  Rclex.set_parameter("livebook_node", "my_int", 42,
+    namespace: "/example"
+  )
+
+{:ok, new_value} = Rclex.get_parameter("livebook_node", "my_int", namespace: "/example")
+IO.puts("my_int is now #{inspect(new_value)}")
+```
+
+## Watch for changes
+
+A second cell can subscribe to parameter-event notifications. The handler
+needs its own client node.
+
+```elixir
+Rclex.start_node("param_watcher")
+
+Rclex.start_parameter_event_handler(
+  fn event -> IO.inspect(event, label: "[param event]") end,
+  "param_watcher"
+)
+```
+
+## Cleanup
+
+```elixir
+Rclex.stop_parameter_event_handler("param_watcher")
+Rclex.stop_node("param_watcher")
+Rclex.stop_node("livebook_node", namespace: "/example")
+```

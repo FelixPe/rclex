@@ -1,0 +1,89 @@
+<!-- livebook:{"persist_outputs":true} -->
+
+# Rclex — Talker / Listener
+
+```elixir
+Mix.install(
+  [
+    {:rclex, github: "FelixPe/rclex"}
+  ],
+  config: [
+    rclex: [
+      ros2_message_types: ["std_msgs/msg/String"]
+    ]
+  ]
+)
+```
+
+## About
+
+The classic ROS 2 "Hello, world": one node publishes a `std_msgs/msg/String` on
+`/chatter`, another subscribes to it.
+
+Reference implementations:
+
+* C++ — [ros2/demos · `demo_nodes_cpp/topics/talker.cpp`](https://github.com/ros2/demos/blob/rolling/demo_nodes_cpp/src/topics/talker.cpp)
+  and [`listener.cpp`](https://github.com/ros2/demos/blob/rolling/demo_nodes_cpp/src/topics/listener.cpp)
+* Python — [ros2/demos · `demo_nodes_py/topics/talker.py`](https://github.com/ros2/demos/blob/rolling/demo_nodes_py/demo_nodes_py/topics/talker.py)
+  and [`listener.py`](https://github.com/ros2/demos/blob/rolling/demo_nodes_py/demo_nodes_py/topics/listener.py)
+
+You can verify it from another terminal with:
+
+```sh
+ros2 topic echo /chatter std_msgs/msg/String
+```
+
+## Generate the message types
+
+Run this in a separate cell after `Mix.install/2` has finished.
+
+```elixir
+Mix.Task.run("rclex.gen", [])
+
+Application.stop(:rclex)
+Application.unload(:rclex)
+{:ok, _} = Application.ensure_all_started(:rclex)
+
+alias Rclex.Pkgs.StdMsgs
+:ok
+```
+
+## Listener
+
+```elixir
+Rclex.start_node("livebook_listener")
+
+Rclex.start_subscription(
+  fn %StdMsgs.Msg.String{data: data} ->
+    IO.puts("[listener] heard: #{data}")
+  end,
+  StdMsgs.Msg.String,
+  "/chatter",
+  "livebook_listener"
+)
+```
+
+## Talker
+
+```elixir
+Rclex.start_node("livebook_talker")
+Rclex.start_publisher(StdMsgs.Msg.String, "/chatter", "livebook_talker")
+
+# Publish once a second from a Livebook process.
+Task.async(fn ->
+  for i <- 1..10 do
+    msg = struct(StdMsgs.Msg.String, %{data: "Hello world: #{i}"})
+    :ok = Rclex.publish(msg, "/chatter", "livebook_talker")
+    Process.sleep(1_000)
+  end
+end)
+```
+
+## Cleanup
+
+```elixir
+Rclex.stop_subscription(StdMsgs.Msg.String, "/chatter", "livebook_listener")
+Rclex.stop_publisher(StdMsgs.Msg.String, "/chatter", "livebook_talker")
+Rclex.stop_node("livebook_listener")
+Rclex.stop_node("livebook_talker")
+```

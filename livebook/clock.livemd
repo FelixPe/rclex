@@ -1,0 +1,79 @@
+<!-- livebook:{"persist_outputs":true} -->
+
+# Rclex — Clock, Time and Duration
+
+```elixir
+Mix.install(
+  [
+    {:rclex, github: "FelixPe/rclex"}
+  ]
+)
+```
+
+## About
+
+`Rclex.Clock` wraps `rcl_clock_t`. Three clock types are supported:
+
+* `:system_time` — wall clock; can jump.
+* `:steady_time` — monotonic; never goes backwards.
+* `:ros_time` — same as `:system_time` until you enable an override (e.g. for
+  bag playback or simulation).
+
+Reference implementations:
+
+* C++ — [`rclcpp::Clock`](https://github.com/ros2/rclcpp/blob/rolling/rclcpp/include/rclcpp/clock.hpp)
+  and [`rclcpp::Time` / `rclcpp::Duration`](https://github.com/ros2/rclcpp/blob/rolling/rclcpp/include/rclcpp/time.hpp)
+* Python — [`rclpy.clock`](https://github.com/ros2/rclpy/blob/rolling/rclpy/rclpy/clock.py),
+  [`rclpy.time`](https://github.com/ros2/rclpy/blob/rolling/rclpy/rclpy/time.py),
+  [`rclpy.duration`](https://github.com/ros2/rclpy/blob/rolling/rclpy/rclpy/duration.py)
+* Design — [Clock and Time in ROS 2](https://design.ros.org/articles/clock_and_time.html)
+
+## A system clock
+
+```elixir
+:ok = Rclex.start_clock(clock_type: :system_time)
+
+now = Rclex.now()
+IO.puts("system now: #{Rclex.Time.to_seconds(now)} s")
+IO.inspect(Rclex.Time.to_msg(now), label: "as builtin_interfaces/msg/Time")
+```
+
+## Time arithmetic
+
+```elixir
+alias Rclex.{Time, Duration}
+
+t0 = Rclex.now()
+Process.sleep(100)
+t1 = Rclex.now()
+
+dt = Time.sub(t1, t0)
+IO.puts("elapsed: #{Duration.to_seconds(dt) * 1000} ms")
+
+future = Time.add(t1, Duration.from_seconds(2.5))
+IO.puts("2.5 s from now: #{Time.to_seconds(future)} s")
+```
+
+## A ROS-time clock with manual override
+
+`:ros_time` clocks let you "drive" time manually — useful for replaying
+recorded data or simulating without a real `/clock` publisher.
+
+```elixir
+:ok = Rclex.start_clock(name: :sim_clock, clock_type: :ros_time)
+
+:ok = Rclex.Clock.enable(:sim_clock)
+
+# Pretend it is exactly 1700000000 s since the epoch.
+:ok = Rclex.Clock.set_ros_time_override(:sim_clock, 1_700_000_000_000_000_000)
+
+t = Rclex.now(:sim_clock)
+IO.puts("simulated now: #{Time.to_seconds(t)} s, clock_type: #{inspect(t.clock_type)}")
+```
+
+## Cleanup
+
+```elixir
+Rclex.stop_clock(:sim_clock)
+Rclex.stop_clock()
+```

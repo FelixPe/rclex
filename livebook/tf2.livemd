@@ -1,0 +1,312 @@
+<!-- livebook:{"persist_outputs":true} -->
+
+# Rclex — TF2 (transform broadcaster & listener)
+
+## Section
+
+```elixir
+Mix.install(
+  [
+    {:rclex, path: "/home/penzfel/Projects/rclex"}
+  ]
+)
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+Resolving Hex dependencies...
+Resolution completed in 0.01s
+New:
+  elixir_make 0.9.0
+  nimble_parsec 1.4.2
+* Getting elixir_make (Hex package)
+* Getting nimble_parsec (Hex package)
+==> elixir_make
+Compiling 8 files (.ex)
+Generated elixir_make app
+==> nimble_parsec
+Compiling 4 files (.ex)
+Generated nimble_parsec app
+==> rclex
+ERTS_INCLUDE_DIR is /usr/local/lib/erlang/erts-16.3/include
+ROS_DIR is /opt/ros/jazzy
+CFLAGS is -O2 -Wall -Wextra -pedantic -fPIC -Isrc
+Compiling /home/penzfel/.cache/mix/installs/ex-1.19.5-erl-16.3/SZiLyk4B-mZHYaLd1c8tjQ/_build/dev/lib/rclex/obj/allocator.o
+Compiling /home/penzfel/.cache/mix/installs/ex-1.19.5-erl-16.3/SZiLyk4B-mZHYaLd1c8tjQ/_build/dev/lib/rclex/obj/nif_funcs.o
+Compiling /home/penzfel/.cache/mix/installs/ex-1.19.5-erl-16.3/SZiLyk4B-mZHYaLd1c8tjQ/_build/dev/lib/rclex/obj/qos.o
+Compiling /home/penzfel/.cache/mix/installs/ex-1.19.5-erl-16.3/SZiLyk4B-mZHYaLd1c8tjQ/_build/dev/lib/rclex/obj/rcl_action_client.o
+Compiling /home/penzfel/.cache/mix/installs/ex-1.19.5-erl-16.3/SZiLyk4B-mZHYaLd1c8tjQ/_build/dev/lib/rclex/obj/rcl_action_server.o
+Compiling /home/penzfel/.cache/mix/installs/ex-1.19.5-erl-16.3/SZiLyk4B-mZHYaLd1c8tjQ/_build/dev/lib/rclex/obj/rcl_client.o
+Compiling /home/penzfel/.cache/mix/installs/ex-1.19.5-erl-16.3/SZiLyk4B-mZHYaLd1c8tjQ/_build/dev/lib/rclex/obj/rcl_clock.o
+Compiling /home/penzfel/.cache/mix/installs/ex-1.19.5-erl-16.3/SZiLyk4B-mZHYaLd1c8tjQ/_build/dev/lib/rclex/obj/rcl_graph.o
+Compiling /home/penzfel/.cache/mix/installs/ex-1.19.5-erl-16.3/SZiLyk4B-mZHYaLd1c8tjQ/_build/dev/lib/rclex/obj/rcl_init.o
+Compiling /home/penzfel/.cache/mix/installs/ex-1.19.5-erl-16.3/SZiLyk4B-mZHYaLd1c8tjQ/_build/dev/lib/rclex/obj/rcl_node.o
+Compiling /home/penzfel/.cache/mix/installs/ex-1.19.5-erl-16.3/SZiLyk4B-mZHYaLd1c8tjQ/_build/dev/lib/rclex/obj/rcl_publisher.o
+Compiling /home/penzfel/.cache/mix/installs/ex-1.19.5-erl-16.3/SZiLyk4B-mZHYaLd1c8tjQ/_build/dev/lib/rclex/obj/rcl_service.o
+Compiling /home/penzfel/.cache/mix/installs/ex-1.19.5-erl-16.3/SZiLyk4B-mZHYaLd1c8tjQ/_build/dev/lib/rclex/obj/rcl_subscription.o
+Compiling /home/penzfel/.cache/mix/installs/ex-1.19.5-erl-16.3/SZiLyk4B-mZHYaLd1c8tjQ/_build/dev/lib/rclex/obj/rcl_timer.o
+Compiling /home/penzfel/.cache/mix/installs/ex-1.19.5-erl-16.3/SZiLyk4B-mZHYaLd1c8tjQ/_build/dev/lib/rclex/obj/rcl_wait.o
+Compiling /home/penzfel/.cache/mix/installs/ex-1.19.5-erl-16.3/SZiLyk4B-mZHYaLd1c8tjQ/_build/dev/lib/rclex/obj/resource_types.o
+Compiling /home/penzfel/.cache/mix/installs/ex-1.19.5-erl-16.3/SZiLyk4B-mZHYaLd1c8tjQ/_build/dev/lib/rclex/obj/terms.o
+Compiling /home/penzfel/.cache/mix/installs/ex-1.19.5-erl-16.3/SZiLyk4B-mZHYaLd1c8tjQ/_build/dev/lib/rclex/obj/pkgs/action_msgs/msg/goal_info.o
+Compiling /home/penzfel/.cache/mix/installs/ex-1.19.5-erl-16.3/SZiLyk4B-mZHYaLd1c8tjQ/_build/dev/lib/rclex/obj/pkgs/action_msgs/msg/goal_status_array.o
+Compiling /home/penzfel/.cache/mix/installs/ex-1.19.5-erl-16.3/SZiLyk4B-mZHYaLd1c8tjQ/_build/dev/lib/rclex/obj/pkgs/action_msgs/msg/goal_status.o
+Compiling /home/penzfel/.cache/mix/installs/ex-1.19.5-erl-16.3/SZiLyk4B-mZHYaLd1c8tjQ/_build/dev/lib/rclex/obj/pkgs/builtin_interfaces/msg/duration.o
+Compiling /home/penzfel/.cache/mix/installs/ex-1.19.5-erl-16.3/SZiLyk4B-mZHYaLd1c8tjQ/_build/dev/lib/rclex/obj/pkgs/builtin_interfaces/msg/time.o
+Compiling /home/penzfel/.cache/mix/installs/ex-1.19.5-erl-16.3/SZiLyk4B-mZHYaLd1c8tjQ/_build/dev/lib/rclex/obj/pkgs/diagnostic_msgs/msg/diagnostic_status.o
+Compiling /home/penzfel/.cache/mix/installs/ex-1.19.5-erl-16.3/SZiLyk4B-mZHYaLd1c8tjQ/_build/dev/lib/rclex/obj/pkgs/diagnostic_msgs/msg/key_value.o
+Compiling /home/penzfel/.cache/mix/installs/ex-1.19.5-erl-16.3/SZiLyk4B-mZHYaLd1c8tjQ/_build/dev/lib/rclex/obj/pkgs/geometry_msgs/msg/point32.o
+Compiling /home/penzfel/.cache/mix/installs/ex-1.19.5-erl-16.3/SZiLyk4B-mZHYaLd1c8tjQ/_build/dev/lib/rclex/obj/pkgs/geometry_msgs/msg/quaternion.o
+Compiling /home/penzfel/.cache/mix/installs/ex-1.19.5-erl-16.3/SZiLyk4B-mZHYaLd1c8tjQ/_build/dev/lib/rclex/obj/pkgs/geometry_msgs/msg/transform.o
+Compiling /home/penzfel/.cache/mix/installs/ex-1.19.5-erl-16.3/SZiLyk4B-mZHYaLd1c8tjQ/_build/dev/lib/rclex/obj/pkgs/geometry_msgs/msg/transform_stamped.o
+Compiling /home/penzfel/.cache/mix/installs/ex-1.19.5-erl-16.3/SZiLyk4B-mZHYaLd1c8tjQ/_build/dev/lib/rclex/obj/pkgs/geometry_msgs/msg/twist.o
+Compiling /home/penzfel/.cache/mix/installs/ex-1.19.5-erl-16.3/SZiLyk4B-mZHYaLd1c8tjQ/_build/dev/lib/rclex/obj/pkgs/geometry_msgs/msg/vector3.o
+Compiling /home/penzfel/.cache/mix/installs/ex-1.19.5-erl-16.3/SZiLyk4B-mZHYaLd1c8tjQ/_build/dev/lib/rclex/obj/pkgs/lifecycle_msgs/msg/state.o
+Compiling /home/penzfel/.cache/mix/installs/ex-1.19.5-erl-16.3/SZiLyk4B-mZHYaLd1c8tjQ/_build/dev/lib/rclex/obj/pkgs/lifecycle_msgs/msg/transition.o
+Compiling /home/penzfel/.cache/mix/installs/ex-1.19.5-erl-16.3/SZiLyk4B-mZHYaLd1c8tjQ/_build/dev/lib/rclex/obj/pkgs/lifecycle_msgs/msg/transition_description.o
+Compiling /home/penzfel/.cache/mix/installs/ex-1.19.5-erl-16.3/SZiLyk4B-mZHYaLd1c8tjQ/_build/dev/lib/rclex/obj/pkgs/lifecycle_msgs/msg/transition_event.o
+Compiling /home/penzfel/.cache/mix/installs/ex-1.19.5-erl-16.3/SZiLyk4B-mZHYaLd1c8tjQ/_build/dev/lib/rclex/obj/pkgs/rcl_interfaces/msg/floating_point_range.o
+Compiling /home/penzfel/.cache/mix/installs/ex-1.19.5-erl-16.3/SZiLyk4B-mZHYaLd1c8tjQ/_build/dev/lib/rclex/obj/pkgs/rcl_interfaces/msg/integer_range.o
+Compiling /home/penzfel/.cache/mix/installs/ex-1.19.5-erl-16.3/SZiLyk4B-mZHYaLd1c8tjQ/_build/dev/lib/rclex/obj/pkgs/rcl_interfaces/msg/list_parameters_result.o
+Compiling /home/penzfel/.cache/mix/installs/ex-1.19.5-erl-16.3/SZiLyk4B-mZHYaLd1c8tjQ/_build/dev/lib/rclex/obj/pkgs/rcl_interfaces/msg/log.o
+Compiling /home/penzfel/.cache/mix/installs/ex-1.19.5-erl-16.3/SZiLyk4B-mZHYaLd1c8tjQ/_build/dev/lib/rclex/obj/pkgs/rcl_interfaces/msg/parameter.o
+Compiling /home/penzfel/.cache/mix/installs/ex-1.19.5-erl-16.3/SZiLyk4B-mZHYaLd1c8tjQ/_build/dev/lib/rclex/obj/pkgs/rcl_interfaces/msg/parameter_descriptor.o
+Compiling /home/penzfel/.cache/mix/installs/ex-1.19.5-erl-16.3/SZiLyk4B-mZHYaLd1c8tjQ/_build/dev/lib/rclex/obj/pkgs/rcl_interfaces/msg/parameter_event.o
+Compiling /home/penzfel/.cache/mix/installs/ex-1.19.5-erl-16.3/SZiLyk4B-mZHYaLd1c8tjQ/_build/dev/lib/rclex/obj/pkgs/rcl_interfaces/msg/parameter_event_descriptors.o
+Compiling /home/penzfel/.cache/mix/installs/ex-1.19.5-erl-16.3/SZiLyk4B-mZHYaLd1c8tjQ/_build/dev/lib/rclex/obj/pkgs/rcl_interfaces/msg/parameter_type.o
+Compiling /home/penzfel/.cache/mix/installs/ex-1.19.5-erl-16.3/SZiLyk4B-mZHYaLd1c8tjQ/_build/dev/lib/rclex/obj/pkgs/rcl_interfaces/msg/parameter_value.o
+Compiling /home/penzfel/.cache/mix/installs/ex-1.19.5-erl-16.3/SZiLyk4B-mZHYaLd1c8tjQ/_build/dev/lib/rclex/obj/pkgs/rcl_interfaces/msg/set_parameters_result.o
+Compiling /home/penzfel/.cache/mix/installs/ex-1.19.5-erl-16.3/SZiLyk4B-mZHYaLd1c8tjQ/_build/dev/lib/rclex/obj/pkgs/sensor_msgs/msg/channel_float32.o
+Compiling /home/penzfel/.cache/mix/installs/ex-1.19.5-erl-16.3/SZiLyk4B-mZHYaLd1c8tjQ/_build/dev/lib/rclex/obj/pkgs/sensor_msgs/msg/joint_state.o
+Compiling /home/penzfel/.cache/mix/installs/ex-1.19.5-erl-16.3/SZiLyk4B-mZHYaLd1c8tjQ/_build/dev/lib/rclex/obj/pkgs/sensor_msgs/msg/point_cloud.o
+Compiling /home/penzfel/.cache/mix/installs/ex-1.19.5-erl-16.3/SZiLyk4B-mZHYaLd1c8tjQ/_build/dev/lib/rclex/obj/pkgs/std_msgs/msg/empty.o
+Compiling /home/penzfel/.cache/mix/installs/ex-1.19.5-erl-16.3/SZiLyk4B-mZHYaLd1c8tjQ/_build/dev/lib/rclex/obj/pkgs/std_msgs/msg/header.o
+Compiling /home/penzfel/.cache/mix/installs/ex-1.19.5-erl-16.3/SZiLyk4B-mZHYaLd1c8tjQ/_build/dev/lib/rclex/obj/pkgs/std_msgs/msg/multi_array_dimension.o
+Compiling /home/penzfel/.cache/mix/installs/ex-1.19.5-erl-16.3/SZiLyk4B-mZHYaLd1c8tjQ/_build/dev/lib/rclex/obj/pkgs/std_msgs/msg/multi_array_layout.o
+Compiling /home/penzfel/.cache/mix/installs/ex-1.19.5-erl-16.3/SZiLyk4B-mZHYaLd1c8tjQ/_build/dev/lib/rclex/obj/pkgs/std_msgs/msg/string.o
+Compiling /home/penzfel/.cache/mix/installs/ex-1.19.5-erl-16.3/SZiLyk4B-mZHYaLd1c8tjQ/_build/dev/lib/rclex/obj/pkgs/std_msgs/msg/u_int32_multi_array.o
+Compiling /home/penzfel/.cache/mix/installs/ex-1.19.5-erl-16.3/SZiLyk4B-mZHYaLd1c8tjQ/_build/dev/lib/rclex/obj/pkgs/std_msgs/msg/u_int8_multi_array.o
+Compiling /home/penzfel/.cache/mix/installs/ex-1.19.5-erl-16.3/SZiLyk4B-mZHYaLd1c8tjQ/_build/dev/lib/rclex/obj/pkgs/tf2_msgs/msg/tf2_error.o
+Compiling /home/penzfel/.cache/mix/installs/ex-1.19.5-erl-16.3/SZiLyk4B-mZHYaLd1c8tjQ/_build/dev/lib/rclex/obj/pkgs/tf2_msgs/msg/tf_message.o
+Compiling /home/penzfel/.cache/mix/installs/ex-1.19.5-erl-16.3/SZiLyk4B-mZHYaLd1c8tjQ/_build/dev/lib/rclex/obj/pkgs/unique_identifier_msgs/msg/uuid.o
+Compiling /home/penzfel/.cache/mix/installs/ex-1.19.5-erl-16.3/SZiLyk4B-mZHYaLd1c8tjQ/_build/dev/lib/rclex/obj/pkgs/action_msgs/srv/cancel_goal__request.o
+Compiling /home/penzfel/.cache/mix/installs/ex-1.19.5-erl-16.3/SZiLyk4B-mZHYaLd1c8tjQ/_build/dev/lib/rclex/obj/pkgs/action_msgs/srv/cancel_goal__response.o
+Compiling /home/penzfel/.cache/mix/installs/ex-1.19.5-erl-16.3/SZiLyk4B-mZHYaLd1c8tjQ/_build/dev/lib/rclex/obj/pkgs/lifecycle_msgs/srv/change_state.o
+Compiling /home/penzfel/.cache/mix/installs/ex-1.19.5-erl-16.3/SZiLyk4B-mZHYaLd1c8tjQ/_build/dev/lib/rclex/obj/pkgs/lifecycle_msgs/srv/change_state__request.o
+Compiling /home/penzfel/.cache/mix/installs/ex-1.19.5-erl-16.3/SZiLyk4B-mZHYaLd1c8tjQ/_build/dev/lib/rclex/obj/pkgs/lifecycle_msgs/srv/change_state__response.o
+Compiling /home/penzfel/.cache/mix/installs/ex-1.19.5-erl-16.3/SZiLyk4B-mZHYaLd1c8tjQ/_build/dev/lib/rclex/obj/pkgs/lifecycle_msgs/srv/get_available_states.o
+Compiling /home/penzfel/.cache/mix/installs/ex-1.19.5-erl-16.3/SZiLyk4B-mZHYaLd1c8tjQ/_build/dev/lib/rclex/obj/pkgs/lifecycle_msgs/srv/get_available_states__request.o
+Compiling /home/penzfel/.cache/mix/installs/ex-1.19.5-erl-16.3/SZiLyk4B-mZHYaLd1c8tjQ/_build/dev/lib/rclex/obj/pkgs/lifecycle_msgs/srv/get_available_states__response.o
+Compiling /home/penzfel/.cache/mix/installs/ex-1.19.5-erl-16.3/SZiLyk4B-mZHYaLd1c8tjQ/_build/dev/lib/rclex/obj/pkgs/lifecycle_msgs/srv/get_available_transitions.o
+Compiling /home/penzfel/.cache/mix/installs/ex-1.19.5-erl-16.3/SZiLyk4B-mZHYaLd1c8tjQ/_build/dev/lib/rclex/obj/pkgs/lifecycle_msgs/srv/get_available_transitions__request.o
+Compiling /home/penzfel/.cache/mix/installs/ex-1.19.5-erl-16.3/SZiLyk4B-mZHYaLd1c8tjQ/_build/dev/lib/rclex/obj/pkgs/lifecycle_msgs/srv/get_available_transitions__response.o
+Compiling /home/penzfel/.cache/mix/installs/ex-1.19.5-erl-16.3/SZiLyk4B-mZHYaLd1c8tjQ/_build/dev/lib/rclex/obj/pkgs/lifecycle_msgs/srv/get_state.o
+Compiling /home/penzfel/.cache/mix/installs/ex-1.19.5-erl-16.3/SZiLyk4B-mZHYaLd1c8tjQ/_build/dev/lib/rclex/obj/pkgs/lifecycle_msgs/srv/get_state__request.o
+Compiling /home/penzfel/.cache/mix/installs/ex-1.19.5-erl-16.3/SZiLyk4B-mZHYaLd1c8tjQ/_build/dev/lib/rclex/obj/pkgs/lifecycle_msgs/srv/get_state__response.o
+Compiling /home/penzfel/.cache/mix/installs/ex-1.19.5-erl-16.3/SZiLyk4B-mZHYaLd1c8tjQ/_build/dev/lib/rclex/obj/pkgs/rcl_interfaces/srv/describe_parameters.o
+Compiling /home/penzfel/.cache/mix/installs/ex-1.19.5-erl-16.3/SZiLyk4B-mZHYaLd1c8tjQ/_build/dev/lib/rclex/obj/pkgs/rcl_interfaces/srv/describe_parameters__request.o
+Compiling /home/penzfel/.cache/mix/installs/ex-1.19.5-erl-16.3/SZiLyk4B-mZHYaLd1c8tjQ/_build/dev/lib/rclex/obj/pkgs/rcl_interfaces/srv/describe_parameters__response.o
+Compiling /home/penzfel/.cache/mix/installs/ex-1.19.5-erl-16.3/SZiLyk4B-mZHYaLd1c8tjQ/_build/dev/lib/rclex/obj/pkgs/rcl_interfaces/srv/get_parameters.o
+Compiling /home/penzfel/.cache/mix/installs/ex-1.19.5-erl-16.3/SZiLyk4B-mZHYaLd1c8tjQ/_build/dev/lib/rclex/obj/pkgs/rcl_interfaces/srv/get_parameters__request.o
+Compiling /home/penzfel/.cache/mix/installs/ex-1.19.5-erl-16.3/SZiLyk4B-mZHYaLd1c8tjQ/_build/dev/lib/rclex/obj/pkgs/rcl_interfaces/srv/get_parameters__response.o
+Compiling /home/penzfel/.cache/mix/installs/ex-1.19.5-erl-16.3/SZiLyk4B-mZHYaLd1c8tjQ/_build/dev/lib/rclex/obj/pkgs/rcl_interfaces/srv/get_parameter_types.o
+Compiling /home/penzfel/.cache/mix/installs/ex-1.19.5-erl-16.3/SZiLyk4B-mZHYaLd1c8tjQ/_build/dev/lib/rclex/obj/pkgs/rcl_interfaces/srv/get_parameter_types__request.o
+Compiling /home/penzfel/.cache/mix/installs/ex-1.19.5-erl-16.3/SZiLyk4B-mZHYaLd1c8tjQ/_build/dev/lib/rclex/obj/pkgs/rcl_interfaces/srv/get_parameter_types__response.o
+Compiling /home/penzfel/.cache/mix/installs/ex-1.19.5-erl-16.3/SZiLyk4B-mZHYaLd1c8tjQ/_build/dev/lib/rclex/obj/pkgs/rcl_interfaces/srv/list_parameters.o
+Compiling /home/penzfel/.cache/mix/installs/ex-1.19.5-erl-16.3/SZiLyk4B-mZHYaLd1c8tjQ/_build/dev/lib/rclex/obj/pkgs/rcl_interfaces/srv/list_parameters__request.o
+Compiling /home/penzfel/.cache/mix/installs/ex-1.19.5-erl-16.3/SZiLyk4B-mZHYaLd1c8tjQ/_build/dev/lib/rclex/obj/pkgs/rcl_interfaces/srv/list_parameters__response.o
+Compiling /home/penzfel/.cache/mix/installs/ex-1.19.5-erl-16.3/SZiLyk4B-mZHYaLd1c8tjQ/_build/dev/lib/rclex/obj/pkgs/rcl_interfaces/srv/set_parameters_atomically.o
+Compiling /home/penzfel/.cache/mix/installs/ex-1.19.5-erl-16.3/SZiLyk4B-mZHYaLd1c8tjQ/_build/dev/lib/rclex/obj/pkgs/rcl_interfaces/srv/set_parameters_atomically__request.o
+Compiling /home/penzfel/.cache/mix/installs/ex-1.19.5-erl-16.3/SZiLyk4B-mZHYaLd1c8tjQ/_build/dev/lib/rclex/obj/pkgs/rcl_interfaces/srv/set_parameters_atomically__response.o
+Compiling /home/penzfel/.cache/mix/installs/ex-1.19.5-erl-16.3/SZiLyk4B-mZHYaLd1c8tjQ/_build/dev/lib/rclex/obj/pkgs/rcl_interfaces/srv/set_parameters.o
+Compiling /home/penzfel/.cache/mix/installs/ex-1.19.5-erl-16.3/SZiLyk4B-mZHYaLd1c8tjQ/_build/dev/lib/rclex/obj/pkgs/rcl_interfaces/srv/set_parameters__request.o
+Compiling /home/penzfel/.cache/mix/installs/ex-1.19.5-erl-16.3/SZiLyk4B-mZHYaLd1c8tjQ/_build/dev/lib/rclex/obj/pkgs/rcl_interfaces/srv/set_parameters__response.o
+Compiling /home/penzfel/.cache/mix/installs/ex-1.19.5-erl-16.3/SZiLyk4B-mZHYaLd1c8tjQ/_build/dev/lib/rclex/obj/pkgs/std_srvs/srv/set_bool.o
+Compiling /home/penzfel/.cache/mix/installs/ex-1.19.5-erl-16.3/SZiLyk4B-mZHYaLd1c8tjQ/_build/dev/lib/rclex/obj/pkgs/std_srvs/srv/set_bool__request.o
+Compiling /home/penzfel/.cache/mix/installs/ex-1.19.5-erl-16.3/SZiLyk4B-mZHYaLd1c8tjQ/_build/dev/lib/rclex/obj/pkgs/std_srvs/srv/set_bool__response.o
+Compiling /home/penzfel/.cache/mix/installs/ex-1.19.5-erl-16.3/SZiLyk4B-mZHYaLd1c8tjQ/_build/dev/lib/rclex/obj/pkgs/tf2_msgs/action/lookup_transform.o
+Compiling /home/penzfel/.cache/mix/installs/ex-1.19.5-erl-16.3/SZiLyk4B-mZHYaLd1c8tjQ/_build/dev/lib/rclex/obj/pkgs/tf2_msgs/action/lookup_transform__feedback.o
+Compiling /home/penzfel/.cache/mix/installs/ex-1.19.5-erl-16.3/SZiLyk4B-mZHYaLd1c8tjQ/_build/dev/lib/rclex/obj/pkgs/tf2_msgs/action/lookup_transform__feedback_message.o
+Compiling /home/penzfel/.cache/mix/installs/ex-1.19.5-erl-16.3/SZiLyk4B-mZHYaLd1c8tjQ/_build/dev/lib/rclex/obj/pkgs/tf2_msgs/action/lookup_transform__get_result__request.o
+Compiling /home/penzfel/.cache/mix/installs/ex-1.19.5-erl-16.3/SZiLyk4B-mZHYaLd1c8tjQ/_build/dev/lib/rclex/obj/pkgs/tf2_msgs/action/lookup_transform__get_result__response.o
+Compiling /home/penzfel/.cache/mix/installs/ex-1.19.5-erl-16.3/SZiLyk4B-mZHYaLd1c8tjQ/_build/dev/lib/rclex/obj/pkgs/tf2_msgs/action/lookup_transform__goal.o
+Compiling /home/penzfel/.cache/mix/installs/ex-1.19.5-erl-16.3/SZiLyk4B-mZHYaLd1c8tjQ/_build/dev/lib/rclex/obj/pkgs/tf2_msgs/action/lookup_transform__result.o
+Compiling /home/penzfel/.cache/mix/installs/ex-1.19.5-erl-16.3/SZiLyk4B-mZHYaLd1c8tjQ/_build/dev/lib/rclex/obj/pkgs/tf2_msgs/action/lookup_transform__send_goal__request.o
+Compiling /home/penzfel/.cache/mix/installs/ex-1.19.5-erl-16.3/SZiLyk4B-mZHYaLd1c8tjQ/_build/dev/lib/rclex/obj/pkgs/tf2_msgs/action/lookup_transform__send_goal__response.o
+Linking /home/penzfel/.cache/mix/installs/ex-1.19.5-erl-16.3/SZiLyk4B-mZHYaLd1c8tjQ/_build/dev/lib/rclex/priv/rclex.so
+Compiling 140 files (.ex)
+Generated rclex app
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+:ok
+```
+
+> `tf2_msgs/msg/TFMessage` is auto-injected by Rclex's generator, so it does
+> not need to appear in `:ros2_message_types`.
+
+## About
+
+Broadcast a static transform between two frames and look it up from another
+node.
+
+Reference implementations (canonical TF2 tutorials):
+
+* C++ static broadcaster — [`geometry2/examples_tf2_cpp/src/static_broadcaster.cpp`](https://github.com/ros2/geometry2/blob/rolling/examples_tf2_cpp/src/static_broadcaster.cpp)
+* Python static broadcaster — [`geometry2/examples_tf2_py/examples_tf2_py/static_tf2_broadcaster.py`](https://github.com/ros2/geometry2/blob/rolling/examples_tf2_py/examples_tf2_py/static_tf2_broadcaster.py)
+* C++ listener — [`geometry2/examples_tf2_cpp/src/tf2_listener.cpp`](https://github.com/ros2/geometry2/blob/rolling/examples_tf2_cpp/src/tf2_listener.cpp)
+* Tutorials — [Writing a tf2 static broadcaster (C++)](https://docs.ros.org/en/rolling/Tutorials/Intermediate/Tf2/Writing-A-Tf2-Static-Broadcaster-Cpp.html)
+* Background — [`tf2.md`](../tf2.md) in this repo.
+
+Verify from another terminal with:
+
+```sh
+ros2 run tf2_ros tf2_echo world robot
+```
+
+## Generate (only needed if you have other types)
+
+```elixir
+Mix.Task.run("rclex.gen", [])
+Application.stop(:rclex)
+Application.unload(:rclex)
+{:ok, _} = Application.ensure_all_started(:rclex)
+
+alias Rclex.Pkgs.Tf2Msgs
+alias Rclex.Pkgs.GeometryMsgs
+:ok
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+** (Mix.Error) ros2_message_types is not specified in config.
+    (mix 1.19.5) lib/mix.ex:647: Mix.raise/2
+    (rclex 0.12.0) lib/mix/tasks/rclex/gen/msgs.ex:174: Mix.Tasks.Rclex.Gen.Msgs.generate/2
+    (rclex 0.12.0) lib/mix/tasks/rclex/gen.ex:74: Mix.Tasks.Rclex.Gen.run/1
+    (mix 1.19.5) lib/mix/task.ex:499: anonymous fn/3 in Mix.Task.run_task/5
+    #cell:2xgdvfv7ctn7pz4o:1: (file)
+```
+
+## Broadcaster
+
+```elixir
+Rclex.start_node("livebook_broadcaster")
+:ok = Rclex.tf2_start_broadcaster("livebook_broadcaster")
+
+# A static transform: world -> robot at (1, 2, 0), no rotation.
+ts = %Rclex.Pkgs.GeometryMsgs.Msg.TransformStamped{
+  header: %Rclex.Pkgs.StdMsgs.Msg.Header{
+    stamp: %Rclex.Pkgs.BuiltinInterfaces.Msg.Time{sec: 0, nanosec: 0},
+    frame_id: "world"
+  },
+  child_frame_id: "robot",
+  transform: %Rclex.Pkgs.GeometryMsgs.Msg.Transform{
+    translation: %Rclex.Pkgs.GeometryMsgs.Msg.Vector3{x: 1.0, y: 2.0, z: 0.0},
+    rotation: %Rclex.Pkgs.GeometryMsgs.Msg.Quaternion{x: 0.0, y: 0.0, z: 0.0, w: 1.0}
+  }
+}
+
+:ok = Rclex.tf2_broadcast_static(ts, "livebook_broadcaster")
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+:ok
+```
+
+## Listener
+
+```elixir
+Rclex.start_node("livebook_listener")
+:ok = Rclex.tf2_buffer_new("main", "livebook_listener")
+:ok = Rclex.tf2_start_listener("main", "livebook_listener")
+
+# Give the listener a moment to receive the static transform.
+Process.sleep(2000)
+
+case Rclex.tf2_lookup_transform("main", "world", "robot", 0, 1.0, "livebook_listener", []) do
+  {:ok, transform} -> IO.inspect(transform, label: "lookup")
+  {:error, reason} -> IO.puts("lookup failed: #{inspect(reason)}")
+end
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+** (MatchError) no match of right hand side value:
+
+    {:error, :buffer_already_exists}
+
+    (stdlib 7.3) erl_eval.erl:672: :erl_eval.expr/6
+    #cell:vsu7vypxgv6avowm:2: (file)
+```
+
+## Cleanup
+
+```elixir
+Rclex.tf2_stop_listener("main", "livebook_listener")
+Rclex.tf2_buffer_destroy("main", "livebook_listener")
+Rclex.tf2_stop_broadcaster("livebook_broadcaster")
+Rclex.stop_node("livebook_listener")
+Rclex.stop_node("livebook_broadcaster")
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+
+00:38:07.828 [debug] Elixir.Rclex.Subscription: :shutdown /livebook_listener
+
+00:38:07.828 [debug] Elixir.Rclex.Subscription: :shutdown /livebook_listener
+
+00:38:07.829 [debug] Elixir.Rclex.Publisher: :shutdown /livebook_broadcaster
+
+00:38:07.830 [debug] Elixir.Rclex.Publisher: :shutdown /livebook_broadcaster
+
+00:38:07.831 [debug] Elixir.Rclex.Service: :shutdown /livebook_listener
+
+00:38:07.831 [debug] Elixir.Rclex.Service: :shutdown /livebook_listener
+
+00:38:07.832 [debug] Elixir.Rclex.Service: :shutdown /livebook_listener
+
+00:38:07.832 [debug] Elixir.Rclex.Service: :shutdown /livebook_listener
+
+00:38:07.833 [debug] Elixir.Rclex.Service: :shutdown /livebook_listener
+
+00:38:07.834 [debug] Elixir.Rclex.Service: :shutdown /livebook_listener
+
+00:38:07.834 [debug] Elixir.Rclex.Publisher: :shutdown /livebook_listener
+
+00:38:07.835 [debug] Elixir.Rclex.Publisher: :shutdown /livebook_listener
+
+00:38:07.836 [debug] Elixir.Rclex.Node: :shutdown /livebook_listener
+
+00:38:07.836 [debug] Elixir.Rclex.Service: :shutdown /livebook_broadcaster
+
+00:38:07.837 [debug] Elixir.Rclex.Service: :shutdown /livebook_broadcaster
+
+00:38:07.837 [debug] Elixir.Rclex.Service: :shutdown /livebook_broadcaster
+
+00:38:07.837 [debug] Elixir.Rclex.Service: :shutdown /livebook_broadcaster
+
+00:38:07.838 [debug] Elixir.Rclex.Service: :shutdown /livebook_broadcaster
+
+00:38:07.838 [debug] Elixir.Rclex.Service: :shutdown /livebook_broadcaster
+
+00:38:07.838 [debug] Elixir.Rclex.Publisher: :shutdown /livebook_broadcaster
+
+00:38:07.839 [debug] Elixir.Rclex.Publisher: :shutdown /livebook_broadcaster
+
+00:38:07.839 [debug] Elixir.Rclex.Node: :shutdown /livebook_broadcaster
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+:ok
+```

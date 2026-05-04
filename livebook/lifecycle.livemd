@@ -1,0 +1,219 @@
+<!-- livebook:{"persist_outputs":true} -->
+
+# Rclex — Lifecycle (managed) node
+
+## Section
+
+```elixir
+Mix.install(
+  [
+    {:rclex, path: "/home/penzfel/Projects/rclex"}
+  ]
+)
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+==> rclex
+ERTS_INCLUDE_DIR is /usr/local/lib/erlang/erts-16.3/include
+ROS_DIR is /opt/ros/jazzy
+CFLAGS is -O2 -Wall -Wextra -pedantic -fPIC -Isrc
+make: Nothing to be done for 'all'.
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+:ok
+```
+
+> `lifecycle_msgs/*` is auto-injected by Rclex's generator, so it does not
+> need to appear in `:ros2_message_types` / `:ros2_service_types`.
+
+## About
+
+A managed node implements the [ROS 2 lifecycle design](https://design.ros.org/articles/node_lifecycle.html):
+the four primary states `unconfigured → inactive → active → finalized` plus
+the standard `change_state` / `get_state` services.
+
+Reference implementations:
+
+* C++ — [ros2/demos · `lifecycle/src/lifecycle_talker.cpp`](https://github.com/ros2/demos/blob/rolling/lifecycle/src/lifecycle_talker.cpp)
+  and [`lifecycle_listener.cpp`](https://github.com/ros2/demos/blob/rolling/lifecycle/src/lifecycle_listener.cpp)
+* Python — [ros2/demos · `lifecycle_py/lifecycle_py/talker.py`](https://github.com/ros2/demos/blob/rolling/lifecycle_py/lifecycle_py/talker.py)
+* Design doc — [Managed Nodes](https://design.ros.org/articles/node_lifecycle.html)
+* See also `Rclex.LifecycleNode` in this repo.
+
+Verify from another terminal:
+
+```sh
+ros2 lifecycle nodes
+ros2 lifecycle get /managed_talker
+ros2 lifecycle set /managed_talker configure
+ros2 lifecycle set /managed_talker activate
+```
+
+## Generate
+
+```elixir
+Mix.Task.run("rclex.gen", [])
+Application.stop(:rclex)
+Application.unload(:rclex)
+{:ok, _} = Application.ensure_all_started(:rclex)
+:ok
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+** (Mix.Error) ros2_message_types is not specified in config.
+    (mix 1.19.5) lib/mix.ex:647: Mix.raise/2
+    (rclex 0.12.0) lib/mix/tasks/rclex/gen/msgs.ex:174: Mix.Tasks.Rclex.Gen.Msgs.generate/2
+    (rclex 0.12.0) lib/mix/tasks/rclex/gen.ex:74: Mix.Tasks.Rclex.Gen.run/1
+    (mix 1.19.5) lib/mix/task.ex:499: anonymous fn/3 in Mix.Task.run_task/5
+    #cell:tcabl27auewd4y7s:1: (file)
+```
+
+## Define a managed node
+
+A `Rclex.LifecycleNode` is just a module that `use`s the behaviour and
+overrides any callbacks it cares about. Each callback returns
+`{:ok, user_state}`, `{:error, user_state}` (transition fails, stays in
+previous state), or `{:fatal, user_state}` (goes to `:finalized`).
+
+```elixir
+defmodule ManagedTalker do
+  use Rclex.LifecycleNode
+
+  @impl true
+  def on_configure(state) do
+    IO.puts("[managed] on_configure")
+    {:ok, Map.put(state, :configured, true)}
+  end
+
+  @impl true
+  def on_activate(state) do
+    IO.puts("[managed] on_activate — would start publishing now")
+    {:ok, Map.put(state, :active, true)}
+  end
+
+  @impl true
+  def on_deactivate(state) do
+    IO.puts("[managed] on_deactivate")
+    {:ok, Map.put(state, :active, false)}
+  end
+
+  @impl true
+  def on_cleanup(state) do
+    IO.puts("[managed] on_cleanup")
+    {:ok, Map.delete(state, :configured)}
+  end
+
+  @impl true
+  def on_shutdown(state) do
+    IO.puts("[managed] on_shutdown")
+    {:ok, state}
+  end
+end
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+{:module, ManagedTalker, <<70, 79, 82, 49, 0, 0, 15, ...>>, ...}
+```
+
+## Drive the state machine from the notebook
+
+```elixir
+:ok = Rclex.start_lifecycle_node(ManagedTalker, "managed_talker", user_state: %{})
+
+IO.puts("state = #{inspect(Rclex.lifecycle_get_state("managed_talker"))}")
+
+:ok = Rclex.lifecycle_change_state("managed_talker", :configure)
+IO.puts("state = #{inspect(Rclex.lifecycle_get_state("managed_talker"))}")
+
+:ok = Rclex.lifecycle_change_state("managed_talker", :activate)
+IO.puts("state = #{inspect(Rclex.lifecycle_get_state("managed_talker"))}")
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+state = :unconfigured
+[managed] on_configure
+state = :inactive
+[managed] on_activate — would start publishing now
+state = :active
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+:ok
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+[managed] on_deactivate
+[managed] on_cleanup
+```
+
+## Drive it from `ros2 lifecycle`
+
+While the cell above keeps the node alive, run from another terminal:
+
+```sh
+ros2 lifecycle get /managed_talker
+ros2 lifecycle set /managed_talker deactivate
+ros2 lifecycle set /managed_talker cleanup
+```
+
+## Cleanup
+
+```elixir
+Rclex.stop_lifecycle_node("managed_talker")
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+
+00:41:11.522 [debug] Elixir.Rclex.Service: :shutdown /managed_talker
+
+00:41:11.524 [debug] Elixir.Rclex.Service: :shutdown /managed_talker
+
+00:41:11.524 [debug] Elixir.Rclex.Service: :shutdown /managed_talker
+
+00:41:11.525 [debug] Elixir.Rclex.Service: :shutdown /managed_talker
+
+00:41:11.525 [debug] Elixir.Rclex.Service: :shutdown /managed_talker
+
+00:41:11.525 [debug] Elixir.Rclex.Publisher: :shutdown /managed_talker
+
+00:41:11.525 [debug] Elixir.Rclex.Service: :shutdown /managed_talker
+
+00:41:11.525 [debug] Elixir.Rclex.Service: :shutdown /managed_talker
+
+00:41:11.525 [debug] Elixir.Rclex.Service: :shutdown /managed_talker
+
+00:41:11.526 [debug] Elixir.Rclex.Service: :shutdown /managed_talker
+
+00:41:11.526 [debug] Elixir.Rclex.Service: :shutdown /managed_talker
+
+00:41:11.526 [debug] Elixir.Rclex.Service: :shutdown /managed_talker
+
+00:41:11.526 [debug] Elixir.Rclex.Publisher: :shutdown /managed_talker
+
+00:41:11.526 [debug] Elixir.Rclex.Publisher: :shutdown /managed_talker
+
+00:41:11.527 [debug] Elixir.Rclex.Node: :shutdown /managed_talker
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+:ok
+```

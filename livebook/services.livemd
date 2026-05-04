@@ -1,0 +1,103 @@
+<!-- livebook:{"persist_outputs":true} -->
+
+# Rclex — Services (server & client)
+
+```elixir
+Mix.install(
+  [
+    {:rclex, github: "FelixPe/rclex"}
+  ],
+  config: [
+    rclex: [
+      ros2_message_types: ["std_msgs/msg/String"],
+      ros2_service_types: ["std_srvs/srv/SetBool"]
+    ]
+  ]
+)
+```
+
+## About
+
+A `std_srvs/srv/SetBool` server that toggles an in-memory flag, and a client
+that calls it asynchronously.
+
+Reference implementations:
+
+* C++ — [ros2/demos · `demo_nodes_cpp/services/add_two_ints_server.cpp`](https://github.com/ros2/demos/blob/rolling/demo_nodes_cpp/src/services/add_two_ints_server.cpp)
+  and [`add_two_ints_client_async.cpp`](https://github.com/ros2/demos/blob/rolling/demo_nodes_cpp/src/services/add_two_ints_client_async.cpp)
+* Python — [ros2/demos · `demo_nodes_py/services/add_two_ints_server.py`](https://github.com/ros2/demos/blob/rolling/demo_nodes_py/demo_nodes_py/services/add_two_ints_server.py)
+  and [`add_two_ints_client_async.py`](https://github.com/ros2/demos/blob/rolling/demo_nodes_py/demo_nodes_py/services/add_two_ints_client_async.py)
+
+Test from another terminal:
+
+```sh
+ros2 service call /set_bool std_srvs/srv/SetBool "{data: true}"
+```
+
+## Generate
+
+```elixir
+Mix.Task.run("rclex.gen", [])
+Application.stop(:rclex)
+Application.unload(:rclex)
+{:ok, _} = Application.ensure_all_started(:rclex)
+
+alias Rclex.Pkgs.StdSrvs
+:ok
+```
+
+## Server
+
+```elixir
+Rclex.start_node("livebook_server")
+
+Rclex.start_service(
+  fn %StdSrvs.Srv.SetBool.Request{data: enable} ->
+    IO.puts("[server] received #{inspect(enable)}")
+
+    %StdSrvs.Srv.SetBool.Response{
+      success: true,
+      message: if(enable, do: "enabled", else: "disabled")
+    }
+  end,
+  StdSrvs.Srv.SetBool,
+  "/set_bool",
+  "livebook_server"
+)
+```
+
+## Client
+
+`start_client/5` takes a callback that fires when a response arrives.
+
+```elixir
+Rclex.start_node("livebook_client")
+
+Rclex.start_client(
+  fn %StdSrvs.Srv.SetBool.Response{} = response ->
+    IO.puts("[client] response: #{inspect(response)}")
+  end,
+  StdSrvs.Srv.SetBool,
+  "/set_bool",
+  "livebook_client"
+)
+
+# Give the server a moment to be discovered.
+Process.sleep(500)
+
+:ok =
+  Rclex.call_async(
+    %StdSrvs.Srv.SetBool.Request{data: true},
+    "/set_bool",
+    "livebook_client"
+  )
+```
+
+## Cleanup
+
+```elixir
+Rclex.stop_client(StdSrvs.Srv.SetBool, "/set_bool", "livebook_client")
+Rclex.stop_service(StdSrvs.Srv.SetBool, "/set_bool", "livebook_server")
+Rclex.stop_node("livebook_client")
+Rclex.stop_node("livebook_server")
+```
