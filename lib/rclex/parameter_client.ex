@@ -32,12 +32,12 @@ defmodule Rclex.ParameterClient do
   @srv_get_parameters Module.concat([Rclex, Pkgs, RclInterfaces, Srv, GetParameters])
   @srv_set_parameters Module.concat([Rclex, Pkgs, RclInterfaces, Srv, SetParameters])
   @srv_set_parameters_atomically Module.concat([
-                                    Rclex,
-                                    Pkgs,
-                                    RclInterfaces,
-                                    Srv,
-                                    SetParametersAtomically
-                                  ])
+                                   Rclex,
+                                   Pkgs,
+                                   RclInterfaces,
+                                   Srv,
+                                   SetParametersAtomically
+                                 ])
   @srv_list_parameters Module.concat([Rclex, Pkgs, RclInterfaces, Srv, ListParameters])
   @srv_describe_parameters Module.concat([Rclex, Pkgs, RclInterfaces, Srv, DescribeParameters])
   @srv_get_parameter_types Module.concat([Rclex, Pkgs, RclInterfaces, Srv, GetParameterTypes])
