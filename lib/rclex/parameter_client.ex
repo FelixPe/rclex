@@ -35,6 +35,8 @@ defmodule Rclex.ParameterClient do
   @srv_list_parameters Module.concat([Rclex, Pkgs, RclInterfaces, Srv, ListParameters])
   @srv_describe_parameters Module.concat([Rclex, Pkgs, RclInterfaces, Srv, DescribeParameters])
   @srv_get_parameter_types Module.concat([Rclex, Pkgs, RclInterfaces, Srv, GetParameterTypes])
+  @msg_parameter Module.concat([Rclex, Pkgs, RclInterfaces, Msg, Parameter])
+  @msg_parameter_value Module.concat([Rclex, Pkgs, RclInterfaces, Msg, ParameterValue])
 
   @services [
     {@srv_get_parameters, "get_parameters"},
@@ -380,10 +382,10 @@ defmodule Rclex.ParameterClient do
 
   defp build_parameter_structs(parameters) do
     Enum.map(parameters, fn
-      %Rclex.Pkgs.RclInterfaces.Msg.Parameter{} = p ->
+      p when is_struct(p, @msg_parameter) ->
         p
 
-      {name, %Rclex.Pkgs.RclInterfaces.Msg.ParameterValue{} = value} ->
+      {name, value} when is_struct(value, @msg_parameter_value) ->
         ParameterHelpers.gen_parameter_struct(name, value)
 
       {name, value} ->
