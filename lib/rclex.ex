@@ -42,6 +42,23 @@ defmodule Rclex do
   @typedoc "ROS2 message type to communicate a parameter's descriptor"
   @type parameter_descriptor_struct :: %{}
 
+  @typedoc "ROS2 parameter message shape used in parameter event payloads."
+  @type parameter_event_parameter :: %{
+      :__struct__ => Rclex.Pkgs.RclInterfaces.Msg.Parameter,
+          :name => String.t(),
+          optional(atom()) => any()
+        }
+
+  @typedoc "ROS2 parameter event message shape delivered to parameter event callbacks."
+  @type parameter_event :: %{
+      :__struct__ => Rclex.Pkgs.RclInterfaces.Msg.ParameterEvent,
+          :node => String.t(),
+          :new_parameters => [parameter_event_parameter()],
+          :changed_parameters => [parameter_event_parameter()],
+          :deleted_parameters => [parameter_event_parameter()],
+          optional(atom()) => any()
+        }
+
   @doc """
   Start a ROS node. The name of the node must not be `nil` and cannot coincide with another node of the same name.
   Node names must follow these rules:
@@ -1807,8 +1824,7 @@ defmodule Rclex do
   """
   @doc section: :parameter_client
   @spec start_parameter_event_handler(
-          callback ::
-            (Rclex.Pkgs.RclInterfaces.Msg.ParameterEvent.t() -> any()),
+      callback :: (parameter_event() -> any()),
           client_node_name :: String.t(),
           opts :: keyword()
         ) :: :ok | {:error, term()}

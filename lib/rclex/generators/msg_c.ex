@@ -1,5 +1,6 @@
 defmodule Rclex.Generators.MsgC do
   @moduledoc false
+  @dialyzer {:nowarn_function, get_deps_types: 3}
 
   alias Rclex.Generators.Util
   alias Rclex.Parsers.TypeParser
