@@ -36,7 +36,7 @@ defmodule Rclex.ParameterEventHandler do
   - `:qos` — defaults to `Rclex.QoS.profile_parameter_events/0`.
   """
   @spec start(
-      callback :: (Rclex.parameter_event() -> any()),
+          callback :: (Rclex.parameter_event() -> any()),
           client_node_name :: String.t(),
           opts :: keyword()
         ) :: :ok | {:error, term()}

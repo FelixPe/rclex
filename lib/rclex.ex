@@ -44,14 +44,14 @@ defmodule Rclex do
 
   @typedoc "ROS2 parameter message shape used in parameter event payloads."
   @type parameter_event_parameter :: %{
-      :__struct__ => Rclex.Pkgs.RclInterfaces.Msg.Parameter,
+          :__struct__ => Rclex.Pkgs.RclInterfaces.Msg.Parameter,
           :name => String.t(),
           optional(atom()) => any()
         }
 
   @typedoc "ROS2 parameter event message shape delivered to parameter event callbacks."
   @type parameter_event :: %{
-      :__struct__ => Rclex.Pkgs.RclInterfaces.Msg.ParameterEvent,
+          :__struct__ => Rclex.Pkgs.RclInterfaces.Msg.ParameterEvent,
           :node => String.t(),
           :new_parameters => [parameter_event_parameter()],
           :changed_parameters => [parameter_event_parameter()],
@@ -1824,7 +1824,7 @@ defmodule Rclex do
   """
   @doc section: :parameter_client
   @spec start_parameter_event_handler(
-      callback :: (parameter_event() -> any()),
+          callback :: (parameter_event() -> any()),
           client_node_name :: String.t(),
           opts :: keyword()
         ) :: :ok | {:error, term()}
