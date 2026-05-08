@@ -96,7 +96,7 @@ ERL_NIF_TERM nif_rcl_action_client_init(ErlNifEnv *env, int argc, const ERL_NIF_
 
   rc = rcl_action_client_init(&action_client, node_p, ts_p, action_name, &action_client_options);
   if (rc != RCL_RET_OK)
-    return raise_with_message(env, __FILE__, __LINE__, rcutils_get_error_string().str);
+    return raise_with_safe_message(env, __FILE__, __LINE__, rc);
 
   rcl_action_client_t *obj =
       enif_alloc_resource(rt_rcl_action_client_t, sizeof(rcl_action_client_t));
@@ -123,7 +123,7 @@ ERL_NIF_TERM nif_rcl_action_client_fini(ErlNifEnv *env, int argc, const ERL_NIF_
   rcl_ret_t rc;
   rc = rcl_action_client_fini(action_client_p, node_p);
   if (rc != RCL_RET_OK)
-    return raise_with_message(env, __FILE__, __LINE__, rcutils_get_error_string().str);
+    return raise_with_safe_message(env, __FILE__, __LINE__, rc);
 
   return atom_ok;
 }
@@ -150,7 +150,7 @@ ERL_NIF_TERM nif_rcl_action_take_cancel_response(ErlNifEnv *env, int argc,
   if (rc == RCL_RET_OK)
     return enif_make_tuple2(env, atom_ok, enif_make_int64(env, sequence_number));
   if (rc == RCL_RET_CLIENT_TAKE_FAILED) return atom_action_client_take_failed;
-  return raise_with_message(env, __FILE__, __LINE__, rcutils_get_error_string().str);
+  return raise_with_safe_message(env, __FILE__, __LINE__, rc);
 }
 
 ERL_NIF_TERM nif_rcl_action_take_feedback(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
@@ -171,7 +171,7 @@ ERL_NIF_TERM nif_rcl_action_take_feedback(ErlNifEnv *env, int argc, const ERL_NI
 
   if (rc == RCL_RET_OK) return atom_ok;
   if (rc == RCL_RET_CLIENT_TAKE_FAILED) return atom_action_client_take_failed;
-  return raise_with_message(env, __FILE__, __LINE__, rcutils_get_error_string().str);
+  return raise_with_safe_message(env, __FILE__, __LINE__, rc);
 }
 
 ERL_NIF_TERM nif_rcl_action_take_goal_response(ErlNifEnv *env, int argc,
@@ -196,7 +196,7 @@ ERL_NIF_TERM nif_rcl_action_take_goal_response(ErlNifEnv *env, int argc,
   if (rc == RCL_RET_OK)
     return enif_make_tuple2(env, atom_ok, enif_make_int64(env, sequence_number));
   if (rc == RCL_RET_CLIENT_TAKE_FAILED) return atom_action_client_take_failed;
-  return raise_with_message(env, __FILE__, __LINE__, rcutils_get_error_string().str);
+  return raise_with_safe_message(env, __FILE__, __LINE__, rc);
 }
 
 ERL_NIF_TERM nif_rcl_action_take_result_response(ErlNifEnv *env, int argc,
@@ -221,7 +221,7 @@ ERL_NIF_TERM nif_rcl_action_take_result_response(ErlNifEnv *env, int argc,
   if (rc == RCL_RET_OK)
     return enif_make_tuple2(env, atom_ok, enif_make_int64(env, sequence_number));
   if (rc == RCL_RET_CLIENT_TAKE_FAILED) return atom_action_client_take_failed;
-  return raise_with_message(env, __FILE__, __LINE__, rcutils_get_error_string().str);
+  return raise_with_safe_message(env, __FILE__, __LINE__, rc);
 }
 
 ERL_NIF_TERM nif_rcl_action_take_status(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
@@ -244,15 +244,15 @@ ERL_NIF_TERM nif_rcl_action_take_status(ErlNifEnv *env, int argc, const ERL_NIF_
   else if (rc == RCL_RET_CLIENT_TAKE_FAILED)
     return atom_action_client_take_failed;
   else if (rc == RCL_RET_INVALID_ARGUMENT)
-    return raise_with_message(env, __FILE__, __LINE__, rcutils_get_error_string().str);
+    return raise_with_safe_message(env, __FILE__, __LINE__, rc);
   else if (rc == RCL_RET_ACTION_CLIENT_INVALID)
-    return raise_with_message(env, __FILE__, __LINE__, rcutils_get_error_string().str);
+    return raise_with_safe_message(env, __FILE__, __LINE__, rc);
   else if (rc == RCL_RET_BAD_ALLOC)
-    return raise_with_message(env, __FILE__, __LINE__, rcutils_get_error_string().str);
+    return raise_with_safe_message(env, __FILE__, __LINE__, rc);
   else if (rc == RCL_RET_ERROR)
-    return raise_with_message(env, __FILE__, __LINE__, rcutils_get_error_string().str);
+    return raise_with_safe_message(env, __FILE__, __LINE__, rc);
   else
-    return raise_with_message(env, __FILE__, __LINE__, rcutils_get_error_string().str);
+    return raise_with_safe_message(env, __FILE__, __LINE__, rc);
 }
 
 ERL_NIF_TERM nif_rcl_action_send_cancel_request(ErlNifEnv *env, int argc,
@@ -626,7 +626,7 @@ ERL_NIF_TERM nif_rcl_action_server_is_available(ErlNifEnv *env, int argc,
   bool is_available;
   rc = rcl_action_server_is_available(node_p, action_client_p, &is_available);
   if (rc != RCL_RET_OK)
-    return raise_with_message(env, __FILE__, __LINE__, rcutils_get_error_string().str);
+    return raise_with_safe_message(env, __FILE__, __LINE__, rc);
 
   if (is_available)
     return atom_true;

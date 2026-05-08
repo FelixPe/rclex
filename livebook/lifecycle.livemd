@@ -15,16 +15,6 @@ Mix.install(
 <!-- livebook:{"output":true} -->
 
 ```
-==> rclex
-ERTS_INCLUDE_DIR is /usr/local/lib/erlang/erts-16.3/include
-ROS_DIR is /opt/ros/jazzy
-CFLAGS is -O2 -Wall -Wextra -pedantic -fPIC -Isrc
-make: Nothing to be done for 'all'.
-```
-
-<!-- livebook:{"output":true} -->
-
-```
 :ok
 ```
 
@@ -67,12 +57,16 @@ Application.unload(:rclex)
 <!-- livebook:{"output":true} -->
 
 ```
-** (Mix.Error) ros2_message_types is not specified in config.
-    (mix 1.19.5) lib/mix.ex:647: Mix.raise/2
-    (rclex 0.12.0) lib/mix/tasks/rclex/gen/msgs.ex:174: Mix.Tasks.Rclex.Gen.Msgs.generate/2
-    (rclex 0.12.0) lib/mix/tasks/rclex/gen.ex:74: Mix.Tasks.Rclex.Gen.run/1
-    (mix 1.19.5) lib/mix/task.ex:499: anonymous fn/3 in Mix.Task.run_task/5
-    #cell:tcabl27auewd4y7s:1: (file)
+
+22:12:10.571 [debug] Elixir.Rclex.Context: :shutdown
+
+22:12:10.572 [notice] Application rclex exited: :stopped
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+:ok
 ```
 
 ## Define a managed node
@@ -154,13 +148,6 @@ state = :active
 :ok
 ```
 
-<!-- livebook:{"output":true} -->
-
-```
-[managed] on_deactivate
-[managed] on_cleanup
-```
-
 ## Drive it from `ros2 lifecycle`
 
 While the cell above keeps the node alive, run from another terminal:
@@ -181,35 +168,35 @@ Rclex.stop_lifecycle_node("managed_talker")
 
 ```
 
-00:41:11.522 [debug] Elixir.Rclex.Service: :shutdown /managed_talker
+22:13:01.044 [debug] Elixir.Rclex.Service: :shutdown /managed_talker
 
-00:41:11.524 [debug] Elixir.Rclex.Service: :shutdown /managed_talker
+22:13:01.044 [debug] Elixir.Rclex.Service: :shutdown /managed_talker
 
-00:41:11.524 [debug] Elixir.Rclex.Service: :shutdown /managed_talker
+22:13:01.045 [debug] Elixir.Rclex.Service: :shutdown /managed_talker
 
-00:41:11.525 [debug] Elixir.Rclex.Service: :shutdown /managed_talker
+22:13:01.046 [debug] Elixir.Rclex.Service: :shutdown /managed_talker
 
-00:41:11.525 [debug] Elixir.Rclex.Service: :shutdown /managed_talker
+22:13:01.046 [debug] Elixir.Rclex.Service: :shutdown /managed_talker
 
-00:41:11.525 [debug] Elixir.Rclex.Publisher: :shutdown /managed_talker
+22:13:01.047 [debug] Elixir.Rclex.Publisher: :shutdown /managed_talker
 
-00:41:11.525 [debug] Elixir.Rclex.Service: :shutdown /managed_talker
+22:13:01.048 [debug] Elixir.Rclex.Service: :shutdown /managed_talker
 
-00:41:11.525 [debug] Elixir.Rclex.Service: :shutdown /managed_talker
+22:13:01.048 [debug] Elixir.Rclex.Service: :shutdown /managed_talker
 
-00:41:11.525 [debug] Elixir.Rclex.Service: :shutdown /managed_talker
+22:13:01.048 [debug] Elixir.Rclex.Service: :shutdown /managed_talker
 
-00:41:11.526 [debug] Elixir.Rclex.Service: :shutdown /managed_talker
+22:13:01.049 [debug] Elixir.Rclex.Service: :shutdown /managed_talker
 
-00:41:11.526 [debug] Elixir.Rclex.Service: :shutdown /managed_talker
+22:13:01.049 [debug] Elixir.Rclex.Service: :shutdown /managed_talker
 
-00:41:11.526 [debug] Elixir.Rclex.Service: :shutdown /managed_talker
+22:13:01.050 [debug] Elixir.Rclex.Service: :shutdown /managed_talker
 
-00:41:11.526 [debug] Elixir.Rclex.Publisher: :shutdown /managed_talker
+22:13:01.050 [debug] Elixir.Rclex.Publisher: :shutdown /managed_talker
 
-00:41:11.526 [debug] Elixir.Rclex.Publisher: :shutdown /managed_talker
+22:13:01.051 [debug] Elixir.Rclex.Publisher: :shutdown /managed_talker
 
-00:41:11.527 [debug] Elixir.Rclex.Node: :shutdown /managed_talker
+22:13:01.051 [debug] Elixir.Rclex.Node: :shutdown /managed_talker
 ```
 
 <!-- livebook:{"output":true} -->

@@ -50,7 +50,7 @@ ERL_NIF_TERM nif_rcl_publisher_init(ErlNifEnv *env, int argc, const ERL_NIF_TERM
   publisher_options.qos                     = qos;
 
   rc = rcl_publisher_init(&publisher, node_p, ts_p, topic_name, &publisher_options);
-  if (rc != RCL_RET_OK) return raise(env, __FILE__, __LINE__);
+  if (rc != RCL_RET_OK) return raise_with_safe_message(env, __FILE__, __LINE__, rc);
 
   rcl_publisher_t *obj = enif_alloc_resource(rt_rcl_publisher_t, sizeof(rcl_publisher_t));
   *obj                 = publisher;
@@ -75,7 +75,7 @@ ERL_NIF_TERM nif_rcl_publisher_fini(ErlNifEnv *env, int argc, const ERL_NIF_TERM
 
   rcl_ret_t rc;
   rc = rcl_publisher_fini(publisher_p, node_p);
-  if (rc != RCL_RET_OK) return raise(env, __FILE__, __LINE__);
+  if (rc != RCL_RET_OK) return raise_with_safe_message(env, __FILE__, __LINE__, rc);
 
   return atom_ok;
 }
@@ -95,7 +95,7 @@ ERL_NIF_TERM nif_rcl_publish(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]
     return enif_make_badarg(env);
 
   rc = rcl_publish(publisher_p, *ros_message_pp, NULL);
-  if (rc != RCL_RET_OK) return raise(env, __FILE__, __LINE__);
+  if (rc != RCL_RET_OK) return raise_with_safe_message(env, __FILE__, __LINE__, rc);
 
   return atom_ok;
 }

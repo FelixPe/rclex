@@ -58,7 +58,7 @@ ERL_NIF_TERM nif_rcl_subscription_init(ErlNifEnv *env, int argc, const ERL_NIF_T
   subscription_options.qos                        = qos;
 
   rc = rcl_subscription_init(&subscription, node_p, ts_p, topic_name, &subscription_options);
-  if (rc != RCL_RET_OK) return raise(env, __FILE__, __LINE__);
+  if (rc != RCL_RET_OK) return raise_with_safe_message(env, __FILE__, __LINE__, rc);
 
   rcl_subscription_t *obj = enif_alloc_resource(rt_rcl_subscription_t, sizeof(rcl_subscription_t));
   *obj                    = subscription;
@@ -83,7 +83,7 @@ ERL_NIF_TERM nif_rcl_subscription_fini(ErlNifEnv *env, int argc, const ERL_NIF_T
 
   rcl_ret_t rc;
   rc = rcl_subscription_fini(subscription_p, node_p);
-  if (rc != RCL_RET_OK) return raise(env, __FILE__, __LINE__);
+  if (rc != RCL_RET_OK) return raise_with_safe_message(env, __FILE__, __LINE__, rc);
 
   return atom_ok;
 }
@@ -125,7 +125,7 @@ ERL_NIF_TERM nif_rcl_take_with_info(ErlNifEnv *env, int argc, const ERL_NIF_TERM
   rmw_message_info_t info = rmw_get_zero_initialized_message_info();
   rc                      = rcl_take(subscription_p, *ros_message_pp, &info, NULL);
   if (rc == RCL_RET_SUBSCRIPTION_TAKE_FAILED) return subscription_take_failed;
-  if (rc != RCL_RET_OK) return raise(env, __FILE__, __LINE__);
+  if (rc != RCL_RET_OK) return raise_with_safe_message(env, __FILE__, __LINE__, rc);
 
   ERL_NIF_TERM gid_bin;
   unsigned char *gid_data = enif_make_new_binary(env, RMW_GID_STORAGE_SIZE, &gid_bin);
@@ -183,7 +183,7 @@ ERL_NIF_TERM nif_rcl_subscription_set_on_new_message_callback(ErlNifEnv *env, in
   rcl_ret_t rc;
   rc = rcl_subscription_set_on_new_message_callback(subscription_p, new_message_callback,
                                                     (const void *)pid_p);
-  if (rc != RCL_RET_OK) return raise(env, __FILE__, __LINE__);
+  if (rc != RCL_RET_OK) return raise_with_safe_message(env, __FILE__, __LINE__, rc);
 
   return enif_make_resource(env, pid_p);
 }
@@ -203,7 +203,7 @@ ERL_NIF_TERM nif_rcl_subscription_clear_message_callback(ErlNifEnv *env, int arg
 
   rcl_ret_t rc;
   rc = rcl_subscription_set_on_new_message_callback(subscription_p, NULL, NULL);
-  if (rc != RCL_RET_OK) return raise(env, __FILE__, __LINE__);
+  if (rc != RCL_RET_OK) return raise_with_safe_message(env, __FILE__, __LINE__, rc);
 
   enif_release_resource(pid_p);
 

@@ -58,7 +58,7 @@ ERL_NIF_TERM nif_rcl_service_init(ErlNifEnv *env, int argc, const ERL_NIF_TERM a
   service_options.qos                   = qos;
 
   rc = rcl_service_init(&service, node_p, ts_p, service_name, &service_options);
-  if (rc != RCL_RET_OK) return raise(env, __FILE__, __LINE__);
+  if (rc != RCL_RET_OK) return raise_with_safe_message(env, __FILE__, __LINE__, rc);
 
   rcl_service_t *obj = enif_alloc_resource(rt_rcl_service_t, sizeof(rcl_service_t));
   *obj               = service;
@@ -83,7 +83,7 @@ ERL_NIF_TERM nif_rcl_service_fini(ErlNifEnv *env, int argc, const ERL_NIF_TERM a
 
   rcl_ret_t rc;
   rc = rcl_service_fini(service_p, node_p);
-  if (rc != RCL_RET_OK) return raise(env, __FILE__, __LINE__);
+  if (rc != RCL_RET_OK) return raise_with_safe_message(env, __FILE__, __LINE__, rc);
 
   return atom_ok;
 }
@@ -115,7 +115,7 @@ ERL_NIF_TERM nif_rcl_take_request_with_info(ErlNifEnv *env, int argc, const ERL_
   } else if (rc == RCL_RET_SERVICE_TAKE_FAILED) {
     return atom_service_take_failed;
   } else {
-    return raise(env, __FILE__, __LINE__);
+    return raise_with_safe_message(env, __FILE__, __LINE__, rc);
   }
 }
 
@@ -138,7 +138,7 @@ ERL_NIF_TERM nif_rcl_send_response(ErlNifEnv *env, int argc, const ERL_NIF_TERM 
     return enif_make_badarg(env);
 
   rc = rcl_send_response(service_p, &(response_header_p->request_id), *ros_message_pp);
-  if (rc != RCL_RET_OK) return raise(env, __FILE__, __LINE__);
+  if (rc != RCL_RET_OK) return raise_with_safe_message(env, __FILE__, __LINE__, rc);
 
   return atom_ok;
 }
@@ -169,7 +169,7 @@ ERL_NIF_TERM nif_rcl_service_set_on_new_request_callback(ErlNifEnv *env, int arg
   rcl_ret_t rc;
   rc =
       rcl_service_set_on_new_request_callback(service_p, new_request_callback, (const void *)pid_p);
-  if (rc != RCL_RET_OK) return raise(env, __FILE__, __LINE__);
+  if (rc != RCL_RET_OK) return raise_with_safe_message(env, __FILE__, __LINE__, rc);
 
   return enif_make_resource(env, pid_p);
 }
@@ -189,7 +189,7 @@ ERL_NIF_TERM nif_rcl_service_clear_request_callback(ErlNifEnv *env, int argc,
 
   rcl_ret_t rc;
   rc = rcl_service_set_on_new_request_callback(service_p, NULL, NULL);
-  if (rc != RCL_RET_OK) return raise(env, __FILE__, __LINE__);
+  if (rc != RCL_RET_OK) return raise_with_safe_message(env, __FILE__, __LINE__, rc);
 
   enif_release_resource(pid_p);
 

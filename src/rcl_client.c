@@ -54,7 +54,7 @@ ERL_NIF_TERM nif_rcl_client_init(ErlNifEnv *env, int argc, const ERL_NIF_TERM ar
   client_options.qos                  = qos;
 
   rc = rcl_client_init(&client, node_p, ts_p, service_name, &client_options);
-  if (rc != RCL_RET_OK) return raise(env, __FILE__, __LINE__);
+  if (rc != RCL_RET_OK) return raise_with_safe_message(env, __FILE__, __LINE__, rc);
 
   rcl_client_t *obj = enif_alloc_resource(rt_rcl_client_t, sizeof(rcl_client_t));
   *obj              = client;
@@ -79,7 +79,7 @@ ERL_NIF_TERM nif_rcl_client_fini(ErlNifEnv *env, int argc, const ERL_NIF_TERM ar
 
   rcl_ret_t rc;
   rc = rcl_client_fini(client_p, node_p);
-  if (rc != RCL_RET_OK) return raise(env, __FILE__, __LINE__);
+  if (rc != RCL_RET_OK) return raise_with_safe_message(env, __FILE__, __LINE__, rc);
 
   return atom_ok;
 }
@@ -128,7 +128,7 @@ ERL_NIF_TERM nif_rcl_send_request(ErlNifEnv *env, int argc, const ERL_NIF_TERM a
   if (rc == RCL_RET_OK)
     return enif_make_tuple2(env, atom_ok, enif_make_int64(env, sequence_number));
   else
-    return raise(env, __FILE__, __LINE__);
+    return raise_with_safe_message(env, __FILE__, __LINE__, rc);
 }
 
 static void new_response_callback(const void *user_data, size_t number_of_events) {
@@ -157,7 +157,7 @@ ERL_NIF_TERM nif_rcl_client_set_on_new_response_callback(ErlNifEnv *env, int arg
   rcl_ret_t rc;
   rc =
       rcl_client_set_on_new_response_callback(client_p, new_response_callback, (const void *)pid_p);
-  if (rc != RCL_RET_OK) return raise(env, __FILE__, __LINE__);
+  if (rc != RCL_RET_OK) return raise_with_safe_message(env, __FILE__, __LINE__, rc);
 
   return enif_make_resource(env, pid_p);
 }
@@ -177,7 +177,7 @@ ERL_NIF_TERM nif_rcl_client_clear_response_callback(ErlNifEnv *env, int argc,
 
   rcl_ret_t rc;
   rc = rcl_client_set_on_new_response_callback(client_p, NULL, NULL);
-  if (rc != RCL_RET_OK) return raise(env, __FILE__, __LINE__);
+  if (rc != RCL_RET_OK) return raise_with_safe_message(env, __FILE__, __LINE__, rc);
 
   enif_release_resource(pid_p);
 
