@@ -26,7 +26,6 @@ defmodule Rclex.Client do
 
     case GenServer.whereis(name(service_type, service_name, name, namespace)) do
       nil -> {:error, :not_found}
-      {_atom, _node} -> raise("should not happen")
       pid -> GenServer.call(pid, {:call, request})
     end
   end
@@ -55,9 +54,6 @@ defmodule Rclex.Client do
     case GenServer.whereis(name(service_type, service_name, node_name, namespace)) do
       nil ->
         {:error, :not_found}
-
-      {_atom, _node} ->
-        raise("should not happen")
 
       pid ->
         ref = make_ref()
@@ -94,7 +90,6 @@ defmodule Rclex.Client do
   def service_server_available?(service_type, service_name, name, namespace \\ "/") do
     case GenServer.whereis(name(service_type, service_name, name, namespace)) do
       nil -> {:error, :not_found}
-      {_atom, _node} -> raise("should not happen")
       pid -> GenServer.call(pid, {:service_server_available})
     end
   end

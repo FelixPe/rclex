@@ -10,7 +10,7 @@ defmodule Rclex.Generators.UtilTest do
     assert Util.templates_dir_path(:srv) =~ "priv/templates/rclex.gen.srvs"
 
     assert_raise RuntimeError, "ros2 interface type not supported", fn ->
-      Util.templates_dir_path(:unknown)
+      Util.templates_dir_path(String.to_atom("unknown"))
     end
   end
 

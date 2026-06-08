@@ -26,7 +26,6 @@ defmodule Rclex.ActionServer do
   def execute_goal(goal_info, action_type, action_name, name, namespace) do
     case GenServer.whereis(name(action_type, action_name, name, namespace)) do
       nil -> {:error, :not_found}
-      {_atom, _node} -> raise("should not happen")
       pid -> GenServer.call(pid, {:execute_goal, goal_info})
     end
   end
@@ -34,7 +33,6 @@ defmodule Rclex.ActionServer do
   def publish_feedback(goal_id, feedback, action_type, action_name, name, namespace \\ "/") do
     case GenServer.whereis(name(action_type, action_name, name, namespace)) do
       nil -> {:error, :not_found}
-      {_atom, _node} -> raise("should not happen")
       pid -> GenServer.cast(pid, {:publish_feedback, goal_id, feedback})
     end
   end

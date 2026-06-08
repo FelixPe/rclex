@@ -1,8 +1,6 @@
 defmodule Rclex.Graph do
   @moduledoc false
 
-  require Logger
-
   alias Rclex.Nif
 
   def count_publishers(node, topic_name) do

@@ -19,8 +19,6 @@ defmodule Rclex.ParameterClient do
   - `~/get_parameter_types`
   """
 
-  require Logger
-
   alias Rclex.Client
   alias Rclex.QoS
   alias Rclex.ParameterHelpers

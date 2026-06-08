@@ -46,9 +46,6 @@ defmodule Rclex.ActionClient do
       nil ->
         {:error, :not_found}
 
-      {_atom, _node} ->
-        raise("should not happen")
-
       pid ->
         GenServer.call(pid, {:send_goal_async, goal, uuid, feedback_callback, accepted_callback})
     end
@@ -68,7 +65,6 @@ defmodule Rclex.ActionClient do
 
     case GenServer.whereis(name(action_type, action_name, name, namespace)) do
       nil -> {:error, :not_found}
-      {_atom, _node} -> raise("should not happen")
       pid -> GenServer.call(pid, {:cancel_goal_async, uuid, cancel_callback})
     end
   end
@@ -87,7 +83,6 @@ defmodule Rclex.ActionClient do
 
     case GenServer.whereis(name(action_type, action_name, name, namespace)) do
       nil -> {:error, :not_found}
-      {_atom, _node} -> raise("should not happen")
       pid -> GenServer.call(pid, {:get_result_async, uuid, result_callback})
     end
   end
@@ -95,7 +90,6 @@ defmodule Rclex.ActionClient do
   def action_server_available?(action_type, action_name, name, namespace \\ "/") do
     case GenServer.whereis(name(action_type, action_name, name, namespace)) do
       nil -> {:error, :not_found}
-      {_atom, _node} -> raise("should not happen")
       pid -> GenServer.call(pid, {:action_server_available})
     end
   end
