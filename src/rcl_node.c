@@ -100,8 +100,7 @@ ERL_NIF_TERM nif_rcl_node_get_domain_id(ErlNifEnv *env, int argc, const ERL_NIF_
   rcl_ret_t rc;
   size_t domain_id;
   rc = rcl_node_get_domain_id(node_p, &domain_id);
-  if (rc != RCL_RET_OK)
-    return raise_with_safe_message(env, __FILE__, __LINE__, rc);
+  if (rc != RCL_RET_OK) return raise_with_safe_message(env, __FILE__, __LINE__, rc);
 
   return enif_make_uint(env, domain_id);
 }
@@ -204,8 +203,7 @@ ERL_NIF_TERM nif_node_start_waitset_thread(ErlNifEnv *env, int argc, const ERL_N
     return enif_make_badarg(env);
 
   thread_ctx_t *ctx_p = (thread_ctx_t *)enif_alloc_resource(rt_thread_ctx_t, sizeof(thread_ctx_t));
-  if (ctx_p == NULL)
-    return raise_with_safe_message(env, __FILE__, __LINE__, RCL_RET_BAD_ALLOC);
+  if (ctx_p == NULL) return raise_with_safe_message(env, __FILE__, __LINE__, RCL_RET_BAD_ALLOC);
 
   if (!enif_self(env, &ctx_p->pid)) return raise(env, __FILE__, __LINE__);
 
@@ -219,8 +217,7 @@ ERL_NIF_TERM nif_node_start_waitset_thread(ErlNifEnv *env, int argc, const ERL_N
   rcl_ret_t rc;
 
   rc = rcl_guard_condition_init(&ctx_p->exit_condition, context_p, guard_condition_options);
-  if (rc != RCL_RET_OK)
-    return raise_with_safe_message(env, __FILE__, __LINE__, rc);
+  if (rc != RCL_RET_OK) return raise_with_safe_message(env, __FILE__, __LINE__, rc);
 
   ctx_p->wait_condition = *guard_condition_p;
 
@@ -245,8 +242,7 @@ ERL_NIF_TERM nif_node_stop_waitset_thread(ErlNifEnv *env, int argc, const ERL_NI
   rcl_ret_t rc;
 
   rc = rcl_trigger_guard_condition(&ctx_p->exit_condition);
-  if (rc != RCL_RET_OK)
-    return raise_with_safe_message(env, __FILE__, __LINE__, rc);
+  if (rc != RCL_RET_OK) return raise_with_safe_message(env, __FILE__, __LINE__, rc);
 
   void *exit_value;
   int errno = enif_thread_join(ctx_p->tid, &exit_value);
@@ -254,8 +250,7 @@ ERL_NIF_TERM nif_node_stop_waitset_thread(ErlNifEnv *env, int argc, const ERL_NI
   enif_thread_opts_destroy(ctx_p->opts_p);
 
   rc = rcl_guard_condition_fini(&ctx_p->exit_condition);
-  if (rc != RCL_RET_OK)
-    return raise_with_safe_message(env, __FILE__, __LINE__, rc);
+  if (rc != RCL_RET_OK) return raise_with_safe_message(env, __FILE__, __LINE__, rc);
 
   if (errno != 0) {
     return raise_with_message(env, __FILE__, __LINE__, "joining thread failed");

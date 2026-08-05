@@ -1,7 +1,7 @@
 #include <erl_nif.h>
+#include <rcutils/error_handling.h>
 #include <stdio.h>
 #include <string.h>
-#include <rcutils/error_handling.h>
 
 extern ERL_NIF_TERM atom_ok;
 extern ERL_NIF_TERM atom_error;

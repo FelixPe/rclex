@@ -159,8 +159,7 @@ ERL_NIF_TERM nif_rcl_action_accept_new_goal(ErlNifEnv *env, int argc, const ERL_
 
   rcl_action_goal_handle_t *goal_handle_p =
       rcl_action_accept_new_goal(action_server_p, *goal_info_message_pp);
-  if (goal_handle_p == NULL)
-    return raise_with_safe_message(env, __FILE__, __LINE__, RCL_RET_ERROR);
+  if (goal_handle_p == NULL) return raise_with_safe_message(env, __FILE__, __LINE__, RCL_RET_ERROR);
 
   rcl_action_goal_handle_t *obj =
       enif_alloc_resource(rt_rcl_action_goal_handle_t, sizeof(rcl_action_goal_handle_t));
@@ -293,8 +292,7 @@ ERL_NIF_TERM nif_rcl_action_process_cancel_request(ErlNifEnv *env, int argc,
   rcl_ret_t rc_fini;
   rc_fini = rcl_action_cancel_response_fini(cancel_response_p);
   enif_free(cancel_response_p);
-  if (rc_fini != RCL_RET_OK)
-    return raise_with_safe_message(env, __FILE__, __LINE__, rc_fini);
+  if (rc_fini != RCL_RET_OK) return raise_with_safe_message(env, __FILE__, __LINE__, rc_fini);
   if (rc != RCL_RET_OK) {
     return raise_with_safe_message(env, __FILE__, __LINE__, rc);
   }
@@ -765,8 +763,7 @@ ERL_NIF_TERM nif_rcl_action_goal_handle_fini(ErlNifEnv *env, int argc, const ERL
 
   rcl_ret_t rc;
   rc = rcl_action_goal_handle_fini(goal_handle_p);
-  if (rc != RCL_RET_OK)
-    return raise_with_safe_message(env, __FILE__, __LINE__, rc);
+  if (rc != RCL_RET_OK) return raise_with_safe_message(env, __FILE__, __LINE__, rc);
 
   return atom_ok;
 }
@@ -795,8 +792,7 @@ ERL_NIF_TERM nif_rcl_action_update_goal_state(ErlNifEnv *env, int argc, const ER
 
   rcl_ret_t rc;
   rc = rcl_action_update_goal_state(goal_handle_p, goal_event);
-  if (rc != RCL_RET_OK)
-    return raise_with_safe_message(env, __FILE__, __LINE__, rc);
+  if (rc != RCL_RET_OK) return raise_with_safe_message(env, __FILE__, __LINE__, rc);
 
   return atom_ok;
 }
@@ -815,8 +811,7 @@ ERL_NIF_TERM nif_rcl_action_goal_handle_get_info(ErlNifEnv *env, int argc,
 
   rcl_ret_t rc;
   rc = rcl_action_goal_handle_get_info(goal_handle_p, *goal_info_message_pp);
-  if (rc != RCL_RET_OK)
-    return raise_with_safe_message(env, __FILE__, __LINE__, rc);
+  if (rc != RCL_RET_OK) return raise_with_safe_message(env, __FILE__, __LINE__, rc);
 
   return atom_ok;
 }
@@ -832,8 +827,7 @@ ERL_NIF_TERM nif_rcl_action_goal_handle_get_status(ErlNifEnv *env, int argc,
   rcl_action_goal_state_t status;
   rcl_ret_t rc;
   rc = rcl_action_goal_handle_get_status(goal_handle_p, &status);
-  if (rc != RCL_RET_OK)
-    return raise_with_safe_message(env, __FILE__, __LINE__, rc);
+  if (rc != RCL_RET_OK) return raise_with_safe_message(env, __FILE__, __LINE__, rc);
 
   return enif_make_int(env, status);
 }
