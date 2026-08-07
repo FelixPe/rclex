@@ -14,8 +14,12 @@
 #include <stddef.h>
 
 ERL_NIF_TERM new_response;
+ERL_NIF_TERM client_take_failed;
 
-void make_client_atoms(ErlNifEnv *env) { new_response = enif_make_atom(env, "new_response"); }
+void make_client_atoms(ErlNifEnv *env) {
+  new_response        = enif_make_atom(env, "new_response");
+  client_take_failed  = enif_make_atom(env, "client_take_failed");
+}
 
 ERL_NIF_TERM nif_rcl_client_init(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
   if (argc != 4) return enif_make_badarg(env);
@@ -104,7 +108,7 @@ ERL_NIF_TERM nif_rcl_take_response_with_info(ErlNifEnv *env, int argc, const ERL
 
   if (rc == RCL_RET_OK)
     return enif_make_tuple2(env, atom_ok, enif_make_int64(env, sequence_number));
-  if (rc == RCL_RET_CLIENT_TAKE_FAILED) return atom_error;
+  if (rc == RCL_RET_CLIENT_TAKE_FAILED) return client_take_failed;
   return raise(env, __FILE__, __LINE__);
 }
 

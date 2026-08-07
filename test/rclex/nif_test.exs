@@ -596,6 +596,22 @@ defmodule Rclex.NifTest do
         Nif.rcl_client_init!(node, type_support, ~c"set_test_bool", qos)
       end
     end
+
+    test "rcl_take_response_with_info!/2 returns :client_take_failed on empty queue", %{
+      node: node,
+      type_support: type_support,
+      qos: qos
+    } do
+      client = Nif.rcl_client_init!(node, type_support, ~c"/set_test_bool", qos)
+      response_message = Rclex.Pkgs.StdSrvs.Srv.SetBool.Response.create!()
+
+      try do
+        assert Nif.rcl_take_response_with_info!(client, response_message) == :client_take_failed
+      after
+        :ok = Rclex.Pkgs.StdSrvs.Srv.SetBool.Response.destroy!(response_message)
+        :ok = Nif.rcl_client_fini!(client, node)
+      end
+    end
   end
 
   describe "wait_set" do

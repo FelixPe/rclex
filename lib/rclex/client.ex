@@ -246,9 +246,9 @@ defmodule Rclex.Client do
 
               requests
 
-            :error ->
-              Logger.error(
-                "Client on node #{state.namespace}#{state.name} failed to take response from service #{state.service_name}."
+            :client_take_failed ->
+              Logger.debug(
+                "Client on node #{state.namespace}#{state.name} found no response to take from service #{state.service_name}."
               )
 
               requests
