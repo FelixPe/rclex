@@ -15,7 +15,8 @@
 #include <stddef.h>
 #include <string.h>
 
-static bool parse_ros_args(ErlNifEnv *env, ERL_NIF_TERM list_term, int *argc_out, char ***argv_out) {
+static bool parse_ros_args(ErlNifEnv *env, ERL_NIF_TERM list_term, int *argc_out,
+                           char ***argv_out) {
   unsigned int length;
   if (!enif_get_list_length(env, list_term, &length)) return false;
 
@@ -33,21 +34,24 @@ static bool parse_ros_args(ErlNifEnv *env, ERL_NIF_TERM list_term, int *argc_out
 
   for (unsigned int i = 0; i < length; i++) {
     if (!enif_get_list_cell(env, tail, &head, &tail)) {
-      for (unsigned int j = 0; j < i; j++) enif_free(argv[j]);
+      for (unsigned int j = 0; j < i; j++)
+        enif_free(argv[j]);
       enif_free(argv);
       return false;
     }
 
     ErlNifBinary bin;
     if (!enif_inspect_iolist_as_binary(env, head, &bin)) {
-      for (unsigned int j = 0; j < i; j++) enif_free(argv[j]);
+      for (unsigned int j = 0; j < i; j++)
+        enif_free(argv[j]);
       enif_free(argv);
       return false;
     }
 
     argv[i] = enif_alloc(bin.size + 1);
     if (argv[i] == NULL) {
-      for (unsigned int j = 0; j < i; j++) enif_free(argv[j]);
+      for (unsigned int j = 0; j < i; j++)
+        enif_free(argv[j]);
       enif_free(argv);
       return false;
     }
@@ -114,10 +118,11 @@ ERL_NIF_TERM nif_rcl_node_init(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv
   rcl_node_options_t node_options = rcl_node_get_default_options();
   node_options.allocator          = get_nif_allocator();
 
-  int ros_argc = 0;
+  int ros_argc    = 0;
   char **ros_argv = NULL;
 
-  if (argc == 4 && !parse_ros_args(env, argv[3], &ros_argc, &ros_argv)) return enif_make_badarg(env);
+  if (argc == 4 && !parse_ros_args(env, argv[3], &ros_argc, &ros_argv))
+    return enif_make_badarg(env);
 
   if (ros_argc > 0) {
     rc = rcl_parse_arguments(ros_argc, (const char *const *)ros_argv, node_options.allocator,
@@ -125,8 +130,7 @@ ERL_NIF_TERM nif_rcl_node_init(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv
     free_ros_args(ros_argc, ros_argv);
     if (rc != RCL_RET_OK) {
       rcl_ret_t fini_rc = rcl_node_options_fini(&node_options);
-      if (fini_rc != RCL_RET_OK) {
-      }
+      ignore_unused(fini_rc);
       return raise(env, __FILE__, __LINE__);
     }
   }
@@ -134,8 +138,7 @@ ERL_NIF_TERM nif_rcl_node_init(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv
   rc = rcl_node_init(&node, name, namespace, context_p, &node_options);
   if (rc != RCL_RET_OK) {
     rcl_ret_t fini_rc = rcl_node_options_fini(&node_options);
-    if (fini_rc != RCL_RET_OK) {
-    }
+    ignore_unused(fini_rc);
     return raise(env, __FILE__, __LINE__);
   }
 

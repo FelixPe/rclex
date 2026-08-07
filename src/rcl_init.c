@@ -12,7 +12,8 @@
 #include <stddef.h>
 #include <string.h>
 
-static bool parse_ros_args(ErlNifEnv *env, ERL_NIF_TERM list_term, int *argc_out, char ***argv_out) {
+static bool parse_ros_args(ErlNifEnv *env, ERL_NIF_TERM list_term, int *argc_out,
+                           char ***argv_out) {
   unsigned int length;
   if (!enif_get_list_length(env, list_term, &length)) return false;
 
@@ -30,21 +31,24 @@ static bool parse_ros_args(ErlNifEnv *env, ERL_NIF_TERM list_term, int *argc_out
 
   for (unsigned int i = 0; i < length; i++) {
     if (!enif_get_list_cell(env, tail, &head, &tail)) {
-      for (unsigned int j = 0; j < i; j++) enif_free(argv[j]);
+      for (unsigned int j = 0; j < i; j++)
+        enif_free(argv[j]);
       enif_free(argv);
       return false;
     }
 
     ErlNifBinary bin;
     if (!enif_inspect_iolist_as_binary(env, head, &bin)) {
-      for (unsigned int j = 0; j < i; j++) enif_free(argv[j]);
+      for (unsigned int j = 0; j < i; j++)
+        enif_free(argv[j]);
       enif_free(argv);
       return false;
     }
 
     argv[i] = enif_alloc(bin.size + 1);
     if (argv[i] == NULL) {
-      for (unsigned int j = 0; j < i; j++) enif_free(argv[j]);
+      for (unsigned int j = 0; j < i; j++)
+        enif_free(argv[j]);
       enif_free(argv);
       return false;
     }
@@ -69,10 +73,11 @@ static void free_ros_args(int argc, char **argv) {
 ERL_NIF_TERM nif_rcl_init(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
   if (argc != 0 && argc != 1) return enif_make_badarg(env);
 
-  int ros_argc     = 0;
-  char **ros_argv  = NULL;
+  int ros_argc    = 0;
+  char **ros_argv = NULL;
 
-  if (argc == 1 && !parse_ros_args(env, argv[0], &ros_argc, &ros_argv)) return enif_make_badarg(env);
+  if (argc == 1 && !parse_ros_args(env, argv[0], &ros_argc, &ros_argv))
+    return enif_make_badarg(env);
 
   rcl_ret_t rc;
   rcl_init_options_t init_options = rcl_get_zero_initialized_init_options();

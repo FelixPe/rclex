@@ -26,7 +26,9 @@ defmodule Rclex.RosArgs do
     runtime_pairs = normalize_remappings(runtime_remappings)
 
     runtime_sources = runtime_pairs |> Enum.map(&elem(&1, 0)) |> MapSet.new()
-    config_without_overridden = Enum.reject(config_pairs, fn {source, _target} -> source in runtime_sources end)
+
+    config_without_overridden =
+      Enum.reject(config_pairs, fn {source, _target} -> source in runtime_sources end)
 
     config_without_overridden ++ runtime_pairs
   end

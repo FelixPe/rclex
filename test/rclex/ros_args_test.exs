@@ -40,7 +40,10 @@ defmodule Rclex.RosArgsTest do
   end
 
   test "node_ros_args/1 gives runtime remappings precedence over config" do
-    Application.put_env(:rclex, :ros2_remappings, [{"/from", "/from_config"}, {"/other", "/other_config"}])
+    Application.put_env(:rclex, :ros2_remappings, [
+      {"/from", "/from_config"},
+      {"/other", "/other_config"}
+    ])
 
     assert RosArgs.node_ros_args(remappings: [{"/from", "/from_runtime"}]) ==
              ["--ros-args", "-r", "/other:=/other_config", "-r", "/from:=/from_runtime"]

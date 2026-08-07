@@ -17,8 +17,8 @@ ERL_NIF_TERM new_response;
 ERL_NIF_TERM client_take_failed;
 
 void make_client_atoms(ErlNifEnv *env) {
-  new_response        = enif_make_atom(env, "new_response");
-  client_take_failed  = enif_make_atom(env, "client_take_failed");
+  new_response       = enif_make_atom(env, "new_response");
+  client_take_failed = enif_make_atom(env, "client_take_failed");
 }
 
 ERL_NIF_TERM nif_rcl_client_init(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
