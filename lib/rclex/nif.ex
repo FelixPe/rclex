@@ -28,11 +28,19 @@ defmodule Rclex.Nif do
     :erlang.nif_error(:nif_not_loaded)
   end
 
+  def rcl_init!(_ros_args) do
+    :erlang.nif_error(:nif_not_loaded)
+  end
+
   def rcl_fini!(_context) do
     :erlang.nif_error(:nif_not_loaded)
   end
 
   def rcl_node_init!(_context, _name, _namespace) do
+    :erlang.nif_error(:nif_not_loaded)
+  end
+
+  def rcl_node_init!(_context, _name, _namespace, _ros_args) do
     :erlang.nif_error(:nif_not_loaded)
   end
 

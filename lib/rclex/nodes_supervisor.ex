@@ -11,7 +11,7 @@ defmodule Rclex.NodesSupervisor do
     __MODULE__
   end
 
-  def start_child(context, name, namespace \\ "/", graph_change_callback \\ nil) do
+  def start_child(context, name, namespace \\ "/", graph_change_callback \\ nil, ros_args \\ []) do
     DynamicSupervisor.start_child(
       name(),
       {Rclex.NodeSupervisor,
@@ -19,7 +19,8 @@ defmodule Rclex.NodesSupervisor do
          context: context,
          name: name,
          namespace: namespace,
-         graph_change_callback: graph_change_callback
+         graph_change_callback: graph_change_callback,
+         ros_args: ros_args
        ]}
     )
   end

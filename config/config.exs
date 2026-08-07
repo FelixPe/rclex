@@ -14,6 +14,8 @@ config :rclex,
     "action_msgs/msg/GoalInfo"
   ],
   ros2_directories: [],
+  ros2_remappings: [],
+  ros2_ros_args: [],
   ros2_service_types: [
     "std_srvs/srv/SetBool"
   ],

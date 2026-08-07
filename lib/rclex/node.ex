@@ -289,8 +289,9 @@ defmodule Rclex.Node do
     name = Keyword.fetch!(args, :name)
     namespace = Keyword.fetch!(args, :namespace)
     graph_change_callback = Keyword.get(args, :graph_change_callback)
+    ros_args = Keyword.get(args, :ros_args, [])
 
-    node = Nif.rcl_node_init!(context, ~c"#{name}", ~c"#{namespace}")
+    node = Nif.rcl_node_init!(context, ~c"#{name}", ~c"#{namespace}", ros_args)
 
     wait_thread =
       if graph_change_callback do

@@ -10,11 +10,69 @@
 #include <rcl/init_options.h>
 #include <rcl/types.h>
 #include <stddef.h>
+#include <string.h>
+
+static bool parse_ros_args(ErlNifEnv *env, ERL_NIF_TERM list_term, int *argc_out, char ***argv_out) {
+  unsigned int length;
+  if (!enif_get_list_length(env, list_term, &length)) return false;
+
+  if (length == 0) {
+    *argc_out = 0;
+    *argv_out = NULL;
+    return true;
+  }
+
+  char **argv = enif_alloc(sizeof(char *) * length);
+  if (argv == NULL) return false;
+
+  ERL_NIF_TERM head;
+  ERL_NIF_TERM tail = list_term;
+
+  for (unsigned int i = 0; i < length; i++) {
+    if (!enif_get_list_cell(env, tail, &head, &tail)) {
+      for (unsigned int j = 0; j < i; j++) enif_free(argv[j]);
+      enif_free(argv);
+      return false;
+    }
+
+    ErlNifBinary bin;
+    if (!enif_inspect_iolist_as_binary(env, head, &bin)) {
+      for (unsigned int j = 0; j < i; j++) enif_free(argv[j]);
+      enif_free(argv);
+      return false;
+    }
+
+    argv[i] = enif_alloc(bin.size + 1);
+    if (argv[i] == NULL) {
+      for (unsigned int j = 0; j < i; j++) enif_free(argv[j]);
+      enif_free(argv);
+      return false;
+    }
+
+    memcpy(argv[i], bin.data, bin.size);
+    argv[i][bin.size] = '\0';
+  }
+
+  *argc_out = (int)length;
+  *argv_out = argv;
+  return true;
+}
+
+static void free_ros_args(int argc, char **argv) {
+  if (argv == NULL) return;
+  for (int i = 0; i < argc; i++) {
+    enif_free(argv[i]);
+  }
+  enif_free(argv);
+}
 
 ERL_NIF_TERM nif_rcl_init(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
-  ignore_unused(argv);
+  if (argc != 0 && argc != 1) return enif_make_badarg(env);
 
-  if (argc != 0) return enif_make_badarg(env);
+  int ros_argc     = 0;
+  char **ros_argv  = NULL;
+
+  if (argc == 1 && !parse_ros_args(env, argv[0], &ros_argc, &ros_argv)) return enif_make_badarg(env);
 
   rcl_ret_t rc;
   rcl_init_options_t init_options = rcl_get_zero_initialized_init_options();
@@ -24,7 +82,8 @@ ERL_NIF_TERM nif_rcl_init(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
   rc = rcl_init_options_init(&init_options, allocator);
   if (rc != RCL_RET_OK) return raise(env, __FILE__, __LINE__);
 
-  rc = rcl_init(0, NULL, &init_options, &context);
+  rc = rcl_init(ros_argc, (const char *const *)ros_argv, &init_options, &context);
+  free_ros_args(ros_argc, ros_argv);
   if (rc != RCL_RET_OK) return raise(env, __FILE__, __LINE__);
 
   rc = rcl_init_options_fini(&init_options);

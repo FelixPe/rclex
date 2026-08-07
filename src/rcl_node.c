@@ -3,6 +3,7 @@
 #include "resource_types.h"
 #include "terms.h"
 #include <erl_nif.h>
+#include <rcl/arguments.h>
 #include <rcl/context.h>
 #include <rcl/node.h>
 #include <rcl/node_options.h>
@@ -12,6 +13,61 @@
 #include <rmw/validate_namespace.h>
 #include <rmw/validate_node_name.h>
 #include <stddef.h>
+#include <string.h>
+
+static bool parse_ros_args(ErlNifEnv *env, ERL_NIF_TERM list_term, int *argc_out, char ***argv_out) {
+  unsigned int length;
+  if (!enif_get_list_length(env, list_term, &length)) return false;
+
+  if (length == 0) {
+    *argc_out = 0;
+    *argv_out = NULL;
+    return true;
+  }
+
+  char **argv = enif_alloc(sizeof(char *) * length);
+  if (argv == NULL) return false;
+
+  ERL_NIF_TERM head;
+  ERL_NIF_TERM tail = list_term;
+
+  for (unsigned int i = 0; i < length; i++) {
+    if (!enif_get_list_cell(env, tail, &head, &tail)) {
+      for (unsigned int j = 0; j < i; j++) enif_free(argv[j]);
+      enif_free(argv);
+      return false;
+    }
+
+    ErlNifBinary bin;
+    if (!enif_inspect_iolist_as_binary(env, head, &bin)) {
+      for (unsigned int j = 0; j < i; j++) enif_free(argv[j]);
+      enif_free(argv);
+      return false;
+    }
+
+    argv[i] = enif_alloc(bin.size + 1);
+    if (argv[i] == NULL) {
+      for (unsigned int j = 0; j < i; j++) enif_free(argv[j]);
+      enif_free(argv);
+      return false;
+    }
+
+    memcpy(argv[i], bin.data, bin.size);
+    argv[i][bin.size] = '\0';
+  }
+
+  *argc_out = (int)length;
+  *argv_out = argv;
+  return true;
+}
+
+static void free_ros_args(int argc, char **argv) {
+  if (argv == NULL) return;
+  for (int i = 0; i < argc; i++) {
+    enif_free(argv[i]);
+  }
+  enif_free(argv);
+}
 
 ERL_NIF_TERM atom_new_graph_event;
 ERL_NIF_TERM atom_exit;
@@ -23,7 +79,7 @@ void make_node_atoms(ErlNifEnv *env) {
 }
 
 ERL_NIF_TERM nif_rcl_node_init(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
-  if (argc != 3) return enif_make_badarg(env);
+  if (argc != 3 && argc != 4) return enif_make_badarg(env);
 
   rcl_context_t *context_p;
   if (!enif_get_resource(env, argv[0], rt_rcl_context_t, (void **)&context_p))
@@ -58,8 +114,30 @@ ERL_NIF_TERM nif_rcl_node_init(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv
   rcl_node_options_t node_options = rcl_node_get_default_options();
   node_options.allocator          = get_nif_allocator();
 
+  int ros_argc = 0;
+  char **ros_argv = NULL;
+
+  if (argc == 4 && !parse_ros_args(env, argv[3], &ros_argc, &ros_argv)) return enif_make_badarg(env);
+
+  if (ros_argc > 0) {
+    rc = rcl_parse_arguments(ros_argc, (const char *const *)ros_argv, node_options.allocator,
+                             &node_options.arguments);
+    free_ros_args(ros_argc, ros_argv);
+    if (rc != RCL_RET_OK) {
+      rcl_ret_t fini_rc = rcl_node_options_fini(&node_options);
+      if (fini_rc != RCL_RET_OK) {
+      }
+      return raise(env, __FILE__, __LINE__);
+    }
+  }
+
   rc = rcl_node_init(&node, name, namespace, context_p, &node_options);
-  if (rc != RCL_RET_OK) return raise(env, __FILE__, __LINE__);
+  if (rc != RCL_RET_OK) {
+    rcl_ret_t fini_rc = rcl_node_options_fini(&node_options);
+    if (fini_rc != RCL_RET_OK) {
+    }
+    return raise(env, __FILE__, __LINE__);
+  }
 
   rc = rcl_node_options_fini(&node_options);
   if (rc != RCL_RET_OK) return raise(env, __FILE__, __LINE__);
