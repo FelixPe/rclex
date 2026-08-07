@@ -88,70 +88,66 @@ defmodule RclexTest do
     end
 
     test "start_node/2 applies node-level remappings" do
-      capture_log(fn ->
-        node = "remap_node"
-        from_topic = "/chatter"
-        mapped_topic = "/chatter_mapped"
-        me = self()
+      node = "remap_node"
+      from_topic = "/chatter"
+      mapped_topic = "/chatter_mapped"
+      me = self()
 
-        :ok = Rclex.start_node(node, remappings: [{from_topic, mapped_topic}])
+      :ok = Rclex.start_node(node, remappings: [{from_topic, mapped_topic}])
 
-        on_exit(fn ->
-          capture_log(fn -> Rclex.stop_node(node) end)
-        end)
-
-        :ok = Rclex.start_publisher(StdMsgs.Msg.String, from_topic, node)
-
-        :ok =
-          Rclex.start_subscription(
-            fn msg -> send(me, {:remapped_msg, msg}) end,
-            StdMsgs.Msg.String,
-            mapped_topic,
-            node
-          )
-
-        message = struct(StdMsgs.Msg.String, %{data: "hello remap"})
-        :ok = Rclex.publish(message, from_topic, node)
-        assert_receive {:remapped_msg, ^message}, 2_000
+      on_exit(fn ->
+        capture_log(fn -> Rclex.stop_node(node) end)
       end)
+
+      :ok = Rclex.start_publisher(StdMsgs.Msg.String, from_topic, node)
+
+      :ok =
+        Rclex.start_subscription(
+          fn msg -> send(me, {:remapped_msg, msg}) end,
+          StdMsgs.Msg.String,
+          mapped_topic,
+          node
+        )
+
+      message = struct(StdMsgs.Msg.String, %{data: "hello remap"})
+      :ok = Rclex.publish(message, from_topic, node)
+      assert_receive {:remapped_msg, ^message}, 2_000
     end
 
     test "start_node/2 uses config remappings as defaults" do
-      capture_log(fn ->
-        node = "config_remap_node"
-        from_topic = "/config_chatter"
-        mapped_topic = "/config_chatter_mapped"
-        me = self()
+      node = "config_remap_node"
+      from_topic = "/config_chatter"
+      mapped_topic = "/config_chatter_mapped"
+      me = self()
 
-        old_remappings = Application.get_env(:rclex, :ros2_remappings)
+      old_remappings = Application.get_env(:rclex, :ros2_remappings)
 
-        Application.put_env(:rclex, :ros2_remappings, [{from_topic, mapped_topic}])
+      Application.put_env(:rclex, :ros2_remappings, [{from_topic, mapped_topic}])
 
-        on_exit(fn ->
-          if is_nil(old_remappings) do
-            Application.delete_env(:rclex, :ros2_remappings)
-          else
-            Application.put_env(:rclex, :ros2_remappings, old_remappings)
-          end
+      on_exit(fn ->
+        if is_nil(old_remappings) do
+          Application.delete_env(:rclex, :ros2_remappings)
+        else
+          Application.put_env(:rclex, :ros2_remappings, old_remappings)
+        end
 
-          capture_log(fn -> Rclex.stop_node(node) end)
-        end)
-
-        :ok = Rclex.start_node(node)
-        :ok = Rclex.start_publisher(StdMsgs.Msg.String, from_topic, node)
-
-        :ok =
-          Rclex.start_subscription(
-            fn msg -> send(me, {:config_remapped_msg, msg}) end,
-            StdMsgs.Msg.String,
-            mapped_topic,
-            node
-          )
-
-        message = struct(StdMsgs.Msg.String, %{data: "hello config remap"})
-        :ok = Rclex.publish(message, from_topic, node)
-        assert_receive {:config_remapped_msg, ^message}, 2_000
+        capture_log(fn -> Rclex.stop_node(node) end)
       end)
+
+      :ok = Rclex.start_node(node)
+      :ok = Rclex.start_publisher(StdMsgs.Msg.String, from_topic, node)
+
+      :ok =
+        Rclex.start_subscription(
+          fn msg -> send(me, {:config_remapped_msg, msg}) end,
+          StdMsgs.Msg.String,
+          mapped_topic,
+          node
+        )
+
+      message = struct(StdMsgs.Msg.String, %{data: "hello config remap"})
+      :ok = Rclex.publish(message, from_topic, node)
+      assert_receive {:config_remapped_msg, ^message}, 2_000
     end
   end
 

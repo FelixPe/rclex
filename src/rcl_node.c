@@ -130,7 +130,8 @@ ERL_NIF_TERM nif_rcl_node_init(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv
     free_ros_args(ros_argc, ros_argv);
     if (rc != RCL_RET_OK) {
       rcl_ret_t fini_rc = rcl_node_options_fini(&node_options);
-      ignore_unused(fini_rc);
+      if (fini_rc != RCL_RET_OK) {
+      }
       return raise(env, __FILE__, __LINE__);
     }
   }
@@ -138,7 +139,8 @@ ERL_NIF_TERM nif_rcl_node_init(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv
   rc = rcl_node_init(&node, name, namespace, context_p, &node_options);
   if (rc != RCL_RET_OK) {
     rcl_ret_t fini_rc = rcl_node_options_fini(&node_options);
-    ignore_unused(fini_rc);
+    if (fini_rc != RCL_RET_OK) {
+    }
     return raise(env, __FILE__, __LINE__);
   }
 
