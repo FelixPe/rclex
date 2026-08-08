@@ -7,7 +7,7 @@ typedef struct {
   ErlNifTid tid;
   ErlNifPid pid;
   rcl_context_t context;
-  rcl_guard_condition_t wait_condition;
+  const rcl_guard_condition_t *wait_condition_p;
   rcl_guard_condition_t exit_condition;
 } thread_ctx_t;
 

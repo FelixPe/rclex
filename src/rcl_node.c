@@ -202,10 +202,10 @@ ERL_NIF_TERM nif_rcl_node_get_graph_guard_condition(ErlNifEnv *env, int argc,
   if (guard_condition_p == NULL)
     return raise_with_safe_message(env, __FILE__, __LINE__, RCL_RET_ERROR);
 
-  rcl_guard_condition_t *obj =
-      enif_alloc_resource(rt_rcl_guard_condition_t, sizeof(rcl_guard_condition_t));
+  const rcl_guard_condition_t **obj =
+      enif_alloc_resource(rt_rcl_guard_condition_t, sizeof(*obj));
 
-  *obj              = *guard_condition_p;
+  *obj              = guard_condition_p;
   ERL_NIF_TERM term = enif_make_resource(env, obj);
   enif_release_resource(obj);
   return term;
@@ -231,7 +231,7 @@ static void *graph_guard_waiter(void *arg) {
   while (!got_exit_signal) {
     rc = rcl_wait_set_clear(&wait_set);
 
-    rc = rcl_wait_set_add_guard_condition(&wait_set, &ctx_p->wait_condition, &index_event);
+    rc = rcl_wait_set_add_guard_condition(&wait_set, ctx_p->wait_condition_p, &index_event);
     if (rc != RCL_RET_OK) {
       msg = enif_make_tuple(env, 2, atom_error, atom_adding_to_waitset_failed);
       enif_send(NULL, &ctx_p->pid, env, msg);
@@ -281,8 +281,8 @@ ERL_NIF_TERM nif_node_start_waitset_thread(ErlNifEnv *env, int argc, const ERL_N
     return enif_make_badarg(env);
   if (!rcl_context_is_valid(context_p)) return raise(env, __FILE__, __LINE__);
 
-  rcl_guard_condition_t *guard_condition_p;
-  if (!enif_get_resource(env, argv[1], rt_rcl_guard_condition_t, (void **)&guard_condition_p))
+  const rcl_guard_condition_t **guard_condition_pp;
+  if (!enif_get_resource(env, argv[1], rt_rcl_guard_condition_t, (void **)&guard_condition_pp))
     return enif_make_badarg(env);
 
   thread_ctx_t *ctx_p = (thread_ctx_t *)enif_alloc_resource(rt_thread_ctx_t, sizeof(thread_ctx_t));
@@ -302,7 +302,7 @@ ERL_NIF_TERM nif_node_start_waitset_thread(ErlNifEnv *env, int argc, const ERL_N
   rc = rcl_guard_condition_init(&ctx_p->exit_condition, context_p, guard_condition_options);
   if (rc != RCL_RET_OK) return raise_with_safe_message(env, __FILE__, __LINE__, rc);
 
-  ctx_p->wait_condition = *guard_condition_p;
+  ctx_p->wait_condition_p = *guard_condition_pp;
 
   int errno = enif_thread_create("node_guard_thread", &(ctx_p->tid), &graph_guard_waiter, ctx_p,
                                  ctx_p->opts_p);
