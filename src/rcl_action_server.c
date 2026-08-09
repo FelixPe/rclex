@@ -161,10 +161,9 @@ ERL_NIF_TERM nif_rcl_action_accept_new_goal(ErlNifEnv *env, int argc, const ERL_
       rcl_action_accept_new_goal(action_server_p, *goal_info_message_pp);
   if (goal_handle_p == NULL) return raise_with_safe_message(env, __FILE__, __LINE__, RCL_RET_ERROR);
 
-  rcl_action_goal_handle_t *obj =
-      enif_alloc_resource(rt_rcl_action_goal_handle_t, sizeof(rcl_action_goal_handle_t));
-  *obj = *goal_handle_p; // A flat copy is working here, because the goal_handle is just containing
-                         // a reference to the actual implementation
+    rcl_action_goal_handle_t **obj =
+      enif_alloc_resource(rt_rcl_action_goal_handle_t, sizeof(*obj));
+    *obj = goal_handle_p;
   ERL_NIF_TERM term = enif_make_resource(env, obj);
   enif_release_resource(obj);
 
@@ -362,9 +361,9 @@ ERL_NIF_TERM nif_rcl_action_server_get_goal_handles(ErlNifEnv *env, int argc,
   unsigned int i;
   ERL_NIF_TERM *goal_handles_terms = enif_alloc(num_goals * sizeof(ERL_NIF_TERM));
   for (i = 0; i < num_goals; i++) {
-    rcl_action_goal_handle_t *obj =
-        enif_alloc_resource(rt_rcl_action_goal_handle_t, sizeof(rcl_action_goal_handle_t));
-    *obj                  = *goal_handles[i];
+    rcl_action_goal_handle_t **obj =
+        enif_alloc_resource(rt_rcl_action_goal_handle_t, sizeof(*obj));
+    *obj                  = goal_handles[i];
     goal_handles_terms[i] = enif_make_resource(env, obj);
     enif_release_resource(obj);
   }
@@ -757,12 +756,12 @@ ERL_NIF_TERM nif_rcl_action_server_clear_result_service_callback(ErlNifEnv *env,
 ERL_NIF_TERM nif_rcl_action_goal_handle_fini(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
   if (argc != 1) return enif_make_badarg(env);
 
-  rcl_action_goal_handle_t *goal_handle_p;
-  if (!enif_get_resource(env, argv[0], rt_rcl_action_goal_handle_t, (void **)&goal_handle_p))
+  rcl_action_goal_handle_t **goal_handle_pp;
+  if (!enif_get_resource(env, argv[0], rt_rcl_action_goal_handle_t, (void **)&goal_handle_pp))
     return enif_make_badarg(env);
 
   rcl_ret_t rc;
-  rc = rcl_action_goal_handle_fini(goal_handle_p);
+  rc = rcl_action_goal_handle_fini(*goal_handle_pp);
   if (rc != RCL_RET_OK) return raise_with_safe_message(env, __FILE__, __LINE__, rc);
 
   return atom_ok;
@@ -771,8 +770,8 @@ ERL_NIF_TERM nif_rcl_action_goal_handle_fini(ErlNifEnv *env, int argc, const ERL
 ERL_NIF_TERM nif_rcl_action_update_goal_state(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
   if (argc != 2) return enif_make_badarg(env);
 
-  rcl_action_goal_handle_t *goal_handle_p;
-  if (!enif_get_resource(env, argv[0], rt_rcl_action_goal_handle_t, (void **)&goal_handle_p))
+  rcl_action_goal_handle_t **goal_handle_pp;
+  if (!enif_get_resource(env, argv[0], rt_rcl_action_goal_handle_t, (void **)&goal_handle_pp))
     return enif_make_badarg(env);
 
   rcl_action_goal_event_t goal_event;
@@ -791,7 +790,7 @@ ERL_NIF_TERM nif_rcl_action_update_goal_state(ErlNifEnv *env, int argc, const ER
   }
 
   rcl_ret_t rc;
-  rc = rcl_action_update_goal_state(goal_handle_p, goal_event);
+  rc = rcl_action_update_goal_state(*goal_handle_pp, goal_event);
   if (rc != RCL_RET_OK) return raise_with_safe_message(env, __FILE__, __LINE__, rc);
 
   return atom_ok;
@@ -801,8 +800,8 @@ ERL_NIF_TERM nif_rcl_action_goal_handle_get_info(ErlNifEnv *env, int argc,
                                                  const ERL_NIF_TERM argv[]) {
   if (argc != 2) return enif_make_badarg(env);
 
-  rcl_action_goal_handle_t *goal_handle_p;
-  if (!enif_get_resource(env, argv[0], rt_rcl_action_goal_handle_t, (void **)&goal_handle_p))
+  rcl_action_goal_handle_t **goal_handle_pp;
+  if (!enif_get_resource(env, argv[0], rt_rcl_action_goal_handle_t, (void **)&goal_handle_pp))
     return enif_make_badarg(env);
 
   rcl_action_goal_info_t **goal_info_message_pp;
@@ -810,7 +809,7 @@ ERL_NIF_TERM nif_rcl_action_goal_handle_get_info(ErlNifEnv *env, int argc,
     return enif_make_badarg(env);
 
   rcl_ret_t rc;
-  rc = rcl_action_goal_handle_get_info(goal_handle_p, *goal_info_message_pp);
+  rc = rcl_action_goal_handle_get_info(*goal_handle_pp, *goal_info_message_pp);
   if (rc != RCL_RET_OK) return raise_with_safe_message(env, __FILE__, __LINE__, rc);
 
   return atom_ok;
@@ -820,13 +819,13 @@ ERL_NIF_TERM nif_rcl_action_goal_handle_get_status(ErlNifEnv *env, int argc,
                                                    const ERL_NIF_TERM argv[]) {
   if (argc != 1) return enif_make_badarg(env);
 
-  rcl_action_goal_handle_t *goal_handle_p;
-  if (!enif_get_resource(env, argv[0], rt_rcl_action_goal_handle_t, (void **)&goal_handle_p))
+  rcl_action_goal_handle_t **goal_handle_pp;
+  if (!enif_get_resource(env, argv[0], rt_rcl_action_goal_handle_t, (void **)&goal_handle_pp))
     return enif_make_badarg(env);
 
   rcl_action_goal_state_t status;
   rcl_ret_t rc;
-  rc = rcl_action_goal_handle_get_status(goal_handle_p, &status);
+  rc = rcl_action_goal_handle_get_status(*goal_handle_pp, &status);
   if (rc != RCL_RET_OK) return raise_with_safe_message(env, __FILE__, __LINE__, rc);
 
   return enif_make_int(env, status);
@@ -836,11 +835,11 @@ ERL_NIF_TERM nif_rcl_action_goal_handle_is_active(ErlNifEnv *env, int argc,
                                                   const ERL_NIF_TERM argv[]) {
   if (argc != 1) return enif_make_badarg(env);
 
-  rcl_action_goal_handle_t *goal_handle_p;
-  if (!enif_get_resource(env, argv[0], rt_rcl_action_goal_handle_t, (void **)&goal_handle_p))
+  rcl_action_goal_handle_t **goal_handle_pp;
+  if (!enif_get_resource(env, argv[0], rt_rcl_action_goal_handle_t, (void **)&goal_handle_pp))
     return enif_make_badarg(env);
 
-  bool active = rcl_action_goal_handle_is_active(goal_handle_p);
+  bool active = rcl_action_goal_handle_is_active(*goal_handle_pp);
 
   if (active)
     return atom_true;
@@ -852,11 +851,11 @@ ERL_NIF_TERM nif_rcl_action_goal_handle_is_cancelable(ErlNifEnv *env, int argc,
                                                       const ERL_NIF_TERM argv[]) {
   if (argc != 1) return enif_make_badarg(env);
 
-  rcl_action_goal_handle_t *goal_handle_p;
-  if (!enif_get_resource(env, argv[0], rt_rcl_action_goal_handle_t, (void **)&goal_handle_p))
+  rcl_action_goal_handle_t **goal_handle_pp;
+  if (!enif_get_resource(env, argv[0], rt_rcl_action_goal_handle_t, (void **)&goal_handle_pp))
     return enif_make_badarg(env);
 
-  bool active = rcl_action_goal_handle_is_cancelable(goal_handle_p);
+  bool active = rcl_action_goal_handle_is_cancelable(*goal_handle_pp);
 
   if (active)
     return atom_true;
@@ -868,11 +867,11 @@ ERL_NIF_TERM nif_rcl_action_goal_handle_is_valid(ErlNifEnv *env, int argc,
                                                  const ERL_NIF_TERM argv[]) {
   if (argc != 1) return enif_make_badarg(env);
 
-  rcl_action_goal_handle_t *goal_handle_p;
-  if (!enif_get_resource(env, argv[0], rt_rcl_action_goal_handle_t, (void **)&goal_handle_p))
+  rcl_action_goal_handle_t **goal_handle_pp;
+  if (!enif_get_resource(env, argv[0], rt_rcl_action_goal_handle_t, (void **)&goal_handle_pp))
     return enif_make_badarg(env);
 
-  bool active = rcl_action_goal_handle_is_valid(goal_handle_p);
+  bool active = rcl_action_goal_handle_is_valid(*goal_handle_pp);
 
   if (active)
     return atom_true;
