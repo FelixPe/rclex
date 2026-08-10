@@ -53,7 +53,10 @@ defmodule Rclex.GraphMonitorTest do
 
       supervisor_pid = GenServer.whereis(NodeSupervisor.name("stop_test"))
       children = Supervisor.which_children(supervisor_pid)
-      {GraphMonitor, monitor_pid, _, _} = Enum.find(children, fn {m, _, _, _} -> m == GraphMonitor end)
+
+      {GraphMonitor, monitor_pid, _, _} =
+        Enum.find(children, fn {m, _, _, _} -> m == GraphMonitor end)
+
       ref = Process.monitor(monitor_pid)
 
       capture_log(fn -> :ok = Rclex.stop_node("stop_test") end)
@@ -77,7 +80,8 @@ defmodule Rclex.GraphMonitorTest do
       :ok = Rclex.start_node("watcher2", graph_monitor: true)
       :ok = Rclex.start_node("leaver")
 
-      assert_receive {:telemetry, [:rclex, :graph, :node_joined], _, %{node_name: "leaver"}}, 5_000
+      assert_receive {:telemetry, [:rclex, :graph, :node_joined], _, %{node_name: "leaver"}},
+                     5_000
 
       capture_log(fn -> :ok = Rclex.stop_node("leaver") end)
 
@@ -117,7 +121,9 @@ defmodule Rclex.GraphMonitorTest do
       :ok = Rclex.start_node("topic_watcher2", graph_monitor: true)
       :ok = Rclex.start_publisher(StdMsgs.Msg.String, "/gm_chatter2", "topic_watcher2")
 
-      assert_receive {:telemetry, [:rclex, :graph, :topic_joined], _, %{topic_name: "/gm_chatter2"}}, 5_000
+      assert_receive {:telemetry, [:rclex, :graph, :topic_joined], _,
+                      %{topic_name: "/gm_chatter2"}},
+                     5_000
 
       :ok = Rclex.stop_publisher(StdMsgs.Msg.String, "/gm_chatter2", "topic_watcher2")
 
@@ -127,7 +133,14 @@ defmodule Rclex.GraphMonitorTest do
 
     test "emits service_joined when a service server is added" do
       :ok = Rclex.start_node("service_watcher", graph_monitor: true)
-      :ok = Rclex.start_service(fn _req -> nil end, StdSrvs.Srv.SetBool, "/gm_set_bool", "service_watcher")
+
+      :ok =
+        Rclex.start_service(
+          fn _req -> nil end,
+          StdSrvs.Srv.SetBool,
+          "/gm_set_bool",
+          "service_watcher"
+        )
 
       assert_receive {:telemetry, [:rclex, :graph, :service_joined], %{count: 1}, metadata}, 5_000
       assert metadata.service_name == "/gm_set_bool"
@@ -154,7 +167,9 @@ defmodule Rclex.GraphMonitorTest do
       # wait until GraphMonitor has processed the graph_changed and updated its snapshot
       assert_receive {:joined, "oe_target"}, 5_000
 
-      :ok = GraphMonitor.on_entity("oe_watcher", {:node, "oe_target", "/"}, fn -> send(me, :fired) end)
+      :ok =
+        GraphMonitor.on_entity("oe_watcher", {:node, "oe_target", "/"}, fn -> send(me, :fired) end)
+
       assert_receive :fired
     end
 
@@ -162,7 +177,9 @@ defmodule Rclex.GraphMonitorTest do
       me = self()
       :ok = Rclex.start_node("oe_watcher2", graph_monitor: true)
 
-      :ok = GraphMonitor.on_entity("oe_watcher2", {:node, "oe_late", "/"}, fn -> send(me, :fired) end)
+      :ok =
+        GraphMonitor.on_entity("oe_watcher2", {:node, "oe_late", "/"}, fn -> send(me, :fired) end)
+
       refute_receive :fired, 200
 
       :ok = Rclex.start_node("oe_late")
@@ -173,7 +190,9 @@ defmodule Rclex.GraphMonitorTest do
       me = self()
       :ok = Rclex.start_node("oe_watcher3", graph_monitor: true)
 
-      :ok = GraphMonitor.on_entity("oe_watcher3", {:topic, "/oe_topic"}, fn -> send(me, :fired) end)
+      :ok =
+        GraphMonitor.on_entity("oe_watcher3", {:topic, "/oe_topic"}, fn -> send(me, :fired) end)
+
       refute_receive :fired, 200
 
       :ok = Rclex.start_publisher(StdMsgs.Msg.String, "/oe_topic", "oe_watcher3")
@@ -184,10 +203,16 @@ defmodule Rclex.GraphMonitorTest do
       me = self()
       :ok = Rclex.start_node("oe_watcher4", graph_monitor: true)
 
-      :ok = GraphMonitor.on_entity("oe_watcher4", {:service, "/oe_service"}, fn -> send(me, :fired) end)
+      :ok =
+        GraphMonitor.on_entity("oe_watcher4", {:service, "/oe_service"}, fn ->
+          send(me, :fired)
+        end)
+
       refute_receive :fired, 200
 
-      :ok = Rclex.start_service(fn _req -> nil end, StdSrvs.Srv.SetBool, "/oe_service", "oe_watcher4")
+      :ok =
+        Rclex.start_service(fn _req -> nil end, StdSrvs.Srv.SetBool, "/oe_service", "oe_watcher4")
+
       assert_receive :fired, 5_000
     end
   end

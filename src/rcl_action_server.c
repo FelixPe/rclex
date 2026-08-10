@@ -161,10 +161,9 @@ ERL_NIF_TERM nif_rcl_action_accept_new_goal(ErlNifEnv *env, int argc, const ERL_
       rcl_action_accept_new_goal(action_server_p, *goal_info_message_pp);
   if (goal_handle_p == NULL) return raise_with_safe_message(env, __FILE__, __LINE__, RCL_RET_ERROR);
 
-    rcl_action_goal_handle_t **obj =
-      enif_alloc_resource(rt_rcl_action_goal_handle_t, sizeof(*obj));
-    *obj = goal_handle_p;
-  ERL_NIF_TERM term = enif_make_resource(env, obj);
+  rcl_action_goal_handle_t **obj = enif_alloc_resource(rt_rcl_action_goal_handle_t, sizeof(*obj));
+  *obj                           = goal_handle_p;
+  ERL_NIF_TERM term              = enif_make_resource(env, obj);
   enif_release_resource(obj);
 
   return enif_make_tuple2(env, atom_ok, term);
@@ -361,10 +360,9 @@ ERL_NIF_TERM nif_rcl_action_server_get_goal_handles(ErlNifEnv *env, int argc,
   unsigned int i;
   ERL_NIF_TERM *goal_handles_terms = enif_alloc(num_goals * sizeof(ERL_NIF_TERM));
   for (i = 0; i < num_goals; i++) {
-    rcl_action_goal_handle_t **obj =
-        enif_alloc_resource(rt_rcl_action_goal_handle_t, sizeof(*obj));
-    *obj                  = goal_handles[i];
-    goal_handles_terms[i] = enif_make_resource(env, obj);
+    rcl_action_goal_handle_t **obj = enif_alloc_resource(rt_rcl_action_goal_handle_t, sizeof(*obj));
+    *obj                           = goal_handles[i];
+    goal_handles_terms[i]          = enif_make_resource(env, obj);
     enif_release_resource(obj);
   }
 

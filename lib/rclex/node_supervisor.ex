@@ -34,8 +34,14 @@ defmodule Rclex.NodeSupervisor do
 
         combined =
           case Keyword.get(args, :graph_change_callback) do
-            nil -> notify
-            user_cb -> fn -> user_cb.(); notify.() end
+            nil ->
+              notify
+
+            user_cb ->
+              fn ->
+                user_cb.()
+                notify.()
+              end
           end
 
         Keyword.put(args, :graph_change_callback, combined)
@@ -44,7 +50,10 @@ defmodule Rclex.NodeSupervisor do
       end
 
     children = [{Node, args}, {EntitiesSupervisor, args}]
-    children = if start_parameter_server, do: children ++ [{ParameterServer, args}], else: children
+
+    children =
+      if start_parameter_server, do: children ++ [{ParameterServer, args}], else: children
+
     children = if graph_monitor, do: children ++ [{GraphMonitor, args}], else: children
 
     Supervisor.init(children, strategy: :one_for_all)

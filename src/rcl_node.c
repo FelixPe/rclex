@@ -202,8 +202,7 @@ ERL_NIF_TERM nif_rcl_node_get_graph_guard_condition(ErlNifEnv *env, int argc,
   if (guard_condition_p == NULL)
     return raise_with_safe_message(env, __FILE__, __LINE__, RCL_RET_ERROR);
 
-  const rcl_guard_condition_t **obj =
-      enif_alloc_resource(rt_rcl_guard_condition_t, sizeof(*obj));
+  const rcl_guard_condition_t **obj = enif_alloc_resource(rt_rcl_guard_condition_t, sizeof(*obj));
 
   *obj              = guard_condition_p;
   ERL_NIF_TERM term = enif_make_resource(env, obj);
