@@ -55,7 +55,8 @@ defmodule Rclex.MixProject do
       {:benchee, "~> 1.0", only: :dev},
       {:nimble_parsec, "~> 1.4"},
       {:mix_test_watch, "~> 1.3", only: [:dev, :test], runtime: false},
-      {:ex_doc, "~> 0.38", only: :dev, runtime: false}
+      {:ex_doc, "~> 0.38", only: :dev, runtime: false},
+      {:telemetry, "~> 1.0", optional: true}
     ]
   end
 

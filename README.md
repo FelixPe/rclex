@@ -75,10 +75,57 @@ Currently, the Rclex API allows for the following:
 3. Create service servers and service clients
 4. Create action servers and action clients
 5. Basic Parameters support on nodes
+6. Optional graph monitoring via telemetry events
 
 You can find the API documentation at [https://hexdocs.pm/rclex](https://hexdocs.pm/rclex).
 
 Please refer [rclex/rclex_examples](https://github.com/rclex/rclex_examples) for the examples of usage along with the sample code.
+
+## Graph Monitor
+
+`Rclex.GraphMonitor` is an optional GenServer that watches the ROS 2 graph guard
+condition for a node and emits `:telemetry` events whenever nodes join or leave
+the graph.
+
+### Enabling
+
+Pass `graph_monitor: true` when starting a node:
+
+```elixir
+Rclex.start_node("my_node", graph_monitor: true)
+```
+
+Add `:telemetry` to your project dependencies in `mix.exs`:
+
+```elixir
+{:telemetry, "~> 1.0"}
+```
+
+### Telemetry events
+
+| Event | Measurements | Metadata |
+|---|---|---|
+| `[:rclex, :graph, :node_joined]` | `%{count: 1}` | `%{node_name: String.t(), node_namespace: String.t()}` |
+| `[:rclex, :graph, :node_left]`   | `%{count: 1}` | `%{node_name: String.t(), node_namespace: String.t()}` |
+
+### Attaching a handler
+
+```elixir
+:telemetry.attach_many(
+  "my-graph-handler",
+  [
+    [:rclex, :graph, :node_joined],
+    [:rclex, :graph, :node_left]
+  ],
+  fn event, _measurements, metadata, _config ->
+    IO.puts("#{inspect(event)}: #{metadata.node_namespace}#{metadata.node_name}")
+  end,
+  nil
+)
+```
+
+`graph_monitor: true` is independent of `:graph_change_callback`. Both options can
+be set on the same node at the same time.
 
 ## Todos
 

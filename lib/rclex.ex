@@ -70,6 +70,7 @@ defmodule Rclex do
 
   - #{@namespace_doc}
   - `:graph_change_callback` is called on every change of the ROS2 graph. The callback function is expected to have zero parameters. To gain insight into the ROS2 graph, use the [graph access functions](#graph).
+  - `:graph_monitor` if `true`, starts `Rclex.GraphMonitor` for this node, which emits `:telemetry` events (`[:rclex, :graph, :node_joined]` / `[:rclex, :graph, :node_left]`) on graph changes. Requires `:telemetry` in your project deps. Defaults to `false`.
   - `:remappings` remaps topic/service/action names for this node. Entries must be `{source, target}` tuples.
   - `:ros_args` additional ROS-specific CLI arguments for this node.
 
@@ -86,6 +87,7 @@ defmodule Rclex do
           opts :: [
             namespace: String.t(),
             graph_change_callback: function(),
+            graph_monitor: boolean(),
             remappings: [{String.t(), String.t()}],
             ros_args: [String.t()]
           ]
@@ -95,6 +97,7 @@ defmodule Rclex do
     context = Rclex.Context.get()
     namespace = Keyword.get(opts, :namespace, "/")
     graph_change_callback = Keyword.get(opts, :graph_change_callback)
+    graph_monitor = Keyword.get(opts, :graph_monitor, false)
     ros_args = Rclex.RosArgs.node_ros_args(opts)
 
     case Rclex.NodesSupervisor.start_child(
@@ -102,7 +105,8 @@ defmodule Rclex do
            name,
            namespace,
            graph_change_callback,
-           ros_args
+           ros_args,
+           graph_monitor
          ) do
       {:ok, _pid} -> :ok
       {:error, {:already_started, _pid}} -> {:error, :already_started}

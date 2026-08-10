@@ -5,6 +5,7 @@ defmodule Rclex.NodeSupervisor do
 
   alias Rclex.Node
   alias Rclex.EntitiesSupervisor
+  alias Rclex.GraphMonitor
   alias Rclex.ParameterServer
 
   def start_link(args) do
@@ -22,20 +23,29 @@ defmodule Rclex.NodeSupervisor do
 
   def init(args) do
     start_parameter_server = Keyword.get(args, :start_parameter_server, true)
+    graph_monitor = Keyword.get(args, :graph_monitor, false)
+    node_name = Keyword.fetch!(args, :name)
+    namespace = Keyword.fetch!(args, :namespace)
 
-    children =
-      if start_parameter_server do
-        [
-          {Node, args},
-          {EntitiesSupervisor, args},
-          {ParameterServer, args}
-        ]
+    args =
+      if graph_monitor do
+        monitor_name = GraphMonitor.name(node_name, namespace)
+        notify = fn -> GenServer.cast(monitor_name, :graph_changed) end
+
+        combined =
+          case Keyword.get(args, :graph_change_callback) do
+            nil -> notify
+            user_cb -> fn -> user_cb.(); notify.() end
+          end
+
+        Keyword.put(args, :graph_change_callback, combined)
       else
-        [
-          {Node, args},
-          {EntitiesSupervisor, args}
-        ]
+        args
       end
+
+    children = [{Node, args}, {EntitiesSupervisor, args}]
+    children = if start_parameter_server, do: children ++ [{ParameterServer, args}], else: children
+    children = if graph_monitor, do: children ++ [{GraphMonitor, args}], else: children
 
     Supervisor.init(children, strategy: :one_for_all)
   end
