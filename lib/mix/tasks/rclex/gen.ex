@@ -98,9 +98,18 @@ defmodule Mix.Tasks.Rclex.Gen do
     if Mix.Project.config()[:app] == :rclex do
       Mix.Task.rerun("compile.elixir_make")
     else
-      Mix.Task.rerun("deps.compile", ["rclex", "--force"])
+      case System.cmd("mix", ["deps.compile" | dependency_compile_args()],
+             stderr_to_stdout: true,
+             into: IO.stream(:stdio, :line)
+           ) do
+        {_, 0} -> :ok
+        {_, status} -> Mix.raise("failed to compile Rclex dependency (exit status #{status})")
+      end
     end
   end
+
+  @doc false
+  def dependency_compile_args, do: ["rclex"]
 
   def rclex_dir_path!() do
     cond do
