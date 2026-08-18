@@ -40,7 +40,6 @@ defmodule Rclex.GraphMonitor do
   """
 
   use GenServer
-  require Logger
   alias Rclex.Node
 
   @typedoc "Identifies a ROS graph entity to watch."
@@ -87,6 +86,22 @@ defmodule Rclex.GraphMonitor do
     GenServer.call(name(node_name, namespace), {:on_entity, entity_spec, callback})
   end
 
+  @doc """
+  Return the current graph snapshot maintained by the monitor.
+
+  The snapshot is a map with keys `:nodes`, `:topics`, `:services`, and
+  `:actions`, each being a `MapSet` of the currently known graph entities.
+
+  ### opts
+
+  - `:namespace` — namespace of the *monitor* node. Defaults to `"/"`.
+  """
+  @spec get_snapshot(monitor_node_name :: String.t(), opts :: [namespace: String.t()]) :: map()
+  def get_snapshot(node_name, opts \\ []) do
+    namespace = Keyword.get(opts, :namespace, "/")
+    GenServer.call(name(node_name, namespace), :get_snapshot)
+  end
+
   # callbacks
 
   @doc false
@@ -108,6 +123,11 @@ defmodule Rclex.GraphMonitor do
       end
 
     {:reply, :ok, new_state}
+  end
+
+  @doc false
+  def handle_call(:get_snapshot, _from, state) do
+    {:reply, state.snapshot, state}
   end
 
   @doc false
@@ -145,30 +165,34 @@ defmodule Rclex.GraphMonitor do
     }
   end
 
+  @doc false
+  def telemetry_available? do
+    telemetry_module = Application.get_env(:rclex, :telemetry_module, :telemetry)
+    Code.ensure_loaded?(telemetry_module) and function_exported?(telemetry_module, :execute, 3)
+  end
+
   defp emit_telemetry(diff) do
-    if Code.ensure_loaded?(:telemetry) do
+    if telemetry_available?() do
       emit_node_telemetry(diff)
       emit_topic_telemetry(diff)
       emit_service_telemetry(diff)
       emit_action_telemetry(diff)
     else
-      Logger.warning(
-        "Rclex.GraphMonitor: telemetry not available; add {:telemetry, \"~> 1.0\"} to your deps"
-      )
+      :ok
     end
   end
 
   defp emit_node_telemetry(diff) do
     for {n, ns} <- diff.nodes_joined,
         do:
-          :telemetry.execute([:rclex, :graph, :node_joined], %{count: 1}, %{
+          emit_telemetry([:rclex, :graph, :node_joined], %{count: 1}, %{
             node_name: n,
             node_namespace: ns
           })
 
     for {n, ns} <- diff.nodes_left,
         do:
-          :telemetry.execute([:rclex, :graph, :node_left], %{count: 1}, %{
+          emit_telemetry([:rclex, :graph, :node_left], %{count: 1}, %{
             node_name: n,
             node_namespace: ns
           })
@@ -177,14 +201,14 @@ defmodule Rclex.GraphMonitor do
   defp emit_topic_telemetry(diff) do
     for {n, t} <- diff.topics_joined,
         do:
-          :telemetry.execute([:rclex, :graph, :topic_joined], %{count: 1}, %{
+          emit_telemetry([:rclex, :graph, :topic_joined], %{count: 1}, %{
             topic_name: n,
             topic_types: t
           })
 
     for {n, t} <- diff.topics_left,
         do:
-          :telemetry.execute([:rclex, :graph, :topic_left], %{count: 1}, %{
+          emit_telemetry([:rclex, :graph, :topic_left], %{count: 1}, %{
             topic_name: n,
             topic_types: t
           })
@@ -193,14 +217,14 @@ defmodule Rclex.GraphMonitor do
   defp emit_service_telemetry(diff) do
     for {n, t} <- diff.services_joined,
         do:
-          :telemetry.execute([:rclex, :graph, :service_joined], %{count: 1}, %{
+          emit_telemetry([:rclex, :graph, :service_joined], %{count: 1}, %{
             service_name: n,
             service_types: t
           })
 
     for {n, t} <- diff.services_left,
         do:
-          :telemetry.execute([:rclex, :graph, :service_left], %{count: 1}, %{
+          emit_telemetry([:rclex, :graph, :service_left], %{count: 1}, %{
             service_name: n,
             service_types: t
           })
@@ -209,14 +233,14 @@ defmodule Rclex.GraphMonitor do
   defp emit_action_telemetry(diff) do
     for {n, t} <- diff.actions_joined,
         do:
-          :telemetry.execute([:rclex, :graph, :action_joined], %{count: 1}, %{
+          emit_telemetry([:rclex, :graph, :action_joined], %{count: 1}, %{
             action_name: n,
             action_types: t
           })
 
     for {n, t} <- diff.actions_left,
         do:
-          :telemetry.execute([:rclex, :graph, :action_left], %{count: 1}, %{
+          emit_telemetry([:rclex, :graph, :action_left], %{count: 1}, %{
             action_name: n,
             action_types: t
           })
@@ -253,4 +277,11 @@ defmodule Rclex.GraphMonitor do
 
   defp entity_in_joined?({:action, name}, diff),
     do: Enum.any?(diff.actions_joined, fn {n, _} -> n == name end)
+
+  # Conditionally emit telemetry if the :telemetry module is available
+  defp emit_telemetry(event, measurements, metadata) do
+    if Code.ensure_loaded?(:telemetry) do
+      apply(:telemetry, :execute, [event, measurements, metadata])
+    end
+  end
 end

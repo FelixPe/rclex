@@ -65,6 +65,52 @@ defmodule Rclex.GraphMonitorTest do
     end
   end
 
+  describe "telemetry availability" do
+    test "returns false when the configured telemetry module is unavailable" do
+      old_module = Application.get_env(:rclex, :telemetry_module)
+      Application.put_env(:rclex, :telemetry_module, :rclex_missing_telemetry)
+
+      on_exit(fn ->
+        if is_nil(old_module) do
+          Application.delete_env(:rclex, :telemetry_module)
+        else
+          Application.put_env(:rclex, :telemetry_module, old_module)
+        end
+      end)
+
+      refute GraphMonitor.telemetry_available?()
+    end
+
+    test "does not warn when the configured telemetry module is unavailable" do
+      old_module = Application.get_env(:rclex, :telemetry_module)
+      Application.put_env(:rclex, :telemetry_module, :rclex_missing_telemetry)
+      me = self()
+
+      on_exit(fn ->
+        if is_nil(old_module) do
+          Application.delete_env(:rclex, :telemetry_module)
+        else
+          Application.put_env(:rclex, :telemetry_module, old_module)
+        end
+      end)
+
+      log =
+        capture_log(fn ->
+          :ok = Rclex.start_node("warn_watcher", graph_monitor: true)
+
+          :ok =
+            GraphMonitor.on_entity("warn_watcher", {:node, "warn_joiner", "/"}, fn ->
+              send(me, :entity_seen)
+            end)
+
+          :ok = Rclex.start_node("warn_joiner")
+          assert_receive :entity_seen, 5_000
+        end)
+
+      refute log =~ "telemetry not available"
+    end
+  end
+
   describe "node telemetry" do
     setup [:attach_all_events]
 
