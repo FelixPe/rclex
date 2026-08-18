@@ -103,10 +103,31 @@ defmodule Mix.Tasks.Rclex.Gen do
   end
 
   def rclex_dir_path!() do
-    if Mix.Project.config()[:app] == :rclex do
-      File.cwd!()
-    else
-      Path.join(File.cwd!(), "deps/rclex")
+    cond do
+      Mix.Project.config()[:app] == :rclex ->
+        File.cwd!()
+
+      path = rclex_dep_path() ->
+        path
+
+      true ->
+        Path.join(File.cwd!(), "deps/rclex")
+    end
+  end
+
+  # Returns the expanded absolute path when rclex is declared as a path dep,
+  # nil for hex / git dependencies.
+  defp rclex_dep_path do
+    Mix.Project.config()
+    |> Keyword.get(:deps, [])
+    |> Enum.find_value(fn
+      {:rclex, opts} when is_list(opts) -> Keyword.get(opts, :path)
+      {:rclex, _version, opts} when is_list(opts) -> Keyword.get(opts, :path)
+      _ -> nil
+    end)
+    |> case do
+      nil -> nil
+      path -> Path.expand(path)
     end
   end
 end
