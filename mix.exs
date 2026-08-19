@@ -2,7 +2,7 @@ defmodule Rclex.MixProject do
   use Mix.Project
 
   @description """
-  ROS 2 Client Library for Elixir.
+  Experimental ROS 2 Client Library for Elixir.
   """
 
   @app :rclex
@@ -28,7 +28,7 @@ defmodule Rclex.MixProject do
       description: @description,
       package: package(),
       # for ex_doc
-      name: "Rclex",
+      name: "Rclex (Experimental)",
       docs: docs()
     ]
   end
