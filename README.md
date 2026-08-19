@@ -1,12 +1,12 @@
-[![Hex version](https://img.shields.io/hexpm/v/rclex.svg "Hex version")](https://hex.pm/packages/rclex)
-[![API docs](https://img.shields.io/hexpm/v/rclex.svg?label=hexdocs "API docs")](https://hexdocs.pm/rclex/readme.html)
-[![License](https://img.shields.io/hexpm/l/rclex.svg)](https://github.com/rclex/rclex/blob/main/LICENSE)
+[![Hex version](https://img.shields.io/hexpm/v/rclex.svg "Hex version")](https://hex.pm/packages/rclex_experimental)
+[![API docs](https://img.shields.io/hexpm/v/rclex.svg?label=hexdocs "API docs")](https://hexdocs.pm/rclex_experimental/readme.html)
+[![License](https://img.shields.io/hexpm/l/rclex.svg)](https://github.com/FelixPe/rclex/blob/main/LICENSE)
 [![ci-latest](https://github.com/FelixPe/rclex/actions/workflows/ci-latest.yml/badge.svg)](https://github.com/FelixPe/rclex/actions/workflows/ci-latest.yml)
 [![ci-all_version](https://github.com/FelixPe/rclex/actions/workflows/ci-all_version.yml/badge.svg)](https://github.com/FelixPe/rclex/actions/workflows/ci-all_version.yml)
 
 [日本語のREADME](README_ja.md)
 
-# Rclex
+# Rclex (Experimental)
 
 Rclex is a ROS 2 client library for the functional language [Elixir](https://elixir-lang.org/).
 
@@ -16,6 +16,8 @@ uses the ROS 2 common hierarchy.
 Additionally, publisher-subscriber (PubSub) communication between nodes and associated callback functions are executed as Erlang lightweight processes.
 This enables the creation of and communication between a large number of fault-tolerant
 nodes while suppressing memory load.
+
+This library is **experimental** and intended for evaluating new features. For the stable release, see [Rclex](https://hex.pm/packages/rclex).
 
 ## What is ROS 2
 

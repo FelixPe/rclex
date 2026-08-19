@@ -7,7 +7,7 @@ defmodule Rclex.MixProject do
 
   @app :rclex
   @version "0.12.0"
-  @source_url "https://github.com/rclex/rclex"
+  @source_url "https://github.com/FelixPe/rclex"
 
   def project do
     [
@@ -65,7 +65,7 @@ defmodule Rclex.MixProject do
 
   defp package() do
     %{
-      name: "#{@app}",
+      name: "#{@app}_experimental",
       files: [
         "lib",
         "priv",
