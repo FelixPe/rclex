@@ -167,12 +167,12 @@ defmodule Rclex do
 
   ### Examples
 
-      iex> Rclex.get_entities(entity_type: :publisher)
+        iex> Rclex.get_local_entities(entity_type: :publisher)
       [%{name: "node", namespace: "/", type: StdMsgs.Msg.String,
          entity_type: :publisher, entity_name: "/chatter"}]
   """
   @doc section: :node
-  @spec get_entities(
+  @spec get_local_entities(
           opts :: [
             name: String.t(),
             namespace: String.t(),
@@ -190,8 +190,8 @@ defmodule Rclex do
             entity_name: String.t()
           }
         ]
-  def get_entities(opts \\ []) when is_list(opts) do
-    Rclex.EntitiesSupervisor.get_entities(opts)
+  def get_local_entities(opts \\ []) when is_list(opts) do
+    Rclex.EntitiesSupervisor.get_local_entities(opts)
   end
 
   @doc """

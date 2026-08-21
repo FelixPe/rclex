@@ -14,7 +14,7 @@ defmodule Rclex.EntitiesSupervisor do
     {:global, {:entities_supervisor, name, namespace}}
   end
 
-  def get_entities(opts \\ []) when is_list(opts) do
+  def get_local_entities(opts \\ []) when is_list(opts) do
     entity_pids = entity_pids()
 
     :global.registered_names()

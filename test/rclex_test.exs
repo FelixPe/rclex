@@ -1322,7 +1322,7 @@ defmodule RclexTest do
       }
     end
 
-    test "get_entities/1 returns locally supervised communication entities", %{
+    test "get_local_entities/1 returns locally supervised communication entities", %{
       name: name,
       topic_name: topic_name,
       service_type: service_type,
@@ -1330,7 +1330,7 @@ defmodule RclexTest do
       action_type: action_type,
       action_name: action_name
     } do
-      entities = Rclex.get_entities()
+      entities = Rclex.get_local_entities()
 
       assert_entity(entities, name, StdMsgs.Msg.String, :publisher, topic_name)
       assert_entity(entities, name, StdMsgs.Msg.String, :subscription, topic_name)
@@ -1340,9 +1340,9 @@ defmodule RclexTest do
       assert_entity(entities, name, action_type, :action_client, action_name)
     end
 
-    test "get_entities/1 filters by name, namespace, type, and entity type", %{name: name} do
+    test "get_local_entities/1 filters by name, namespace, type, and entity type", %{name: name} do
       entities =
-        Rclex.get_entities(
+        Rclex.get_local_entities(
           name: name,
           namespace: "/",
           type: StdMsgs.Msg.String,
