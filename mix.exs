@@ -6,7 +6,7 @@ defmodule Rclex.MixProject do
   """
 
   @app :rclex
-  @version "0.12.3"
+  @version "0.12.4"
   @source_url "https://github.com/FelixPe/rclex"
 
   def project do
