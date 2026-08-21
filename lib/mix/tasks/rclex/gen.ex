@@ -98,30 +98,52 @@ defmodule Mix.Tasks.Rclex.Gen do
     if Mix.Project.config()[:app] == :rclex do
       Mix.Task.rerun("compile.elixir_make")
     else
-      case System.cmd("mix", ["deps.compile" | dependency_compile_args()],
-             stderr_to_stdout: true,
-             into: IO.stream(:stdio, :line)
-           ) do
-        {_, 0} -> :ok
-        {_, status} -> Mix.raise("failed to compile Rclex dependency (exit status #{status})")
-      end
+      recompile_dependency_in_project!()
     end
   end
 
   @doc false
   def dependency_compile_args, do: ["rclex"]
 
+  defp recompile_dependency_in_project! do
+    rclex_dir = rclex_dir_path!()
+
+    Mix.Project.in_project(:rclex, rclex_dir, fn _module ->
+      Mix.Task.reenable("compile")
+      Mix.Task.run("compile", ["--force"])
+    end)
+
+    :ok
+  rescue
+    error ->
+      Mix.raise(
+        "failed to compile Rclex dependency at #{rclex_dir_path!()}: #{Exception.message(error)}"
+      )
+  end
+
   def rclex_dir_path!() do
     cond do
       Mix.Project.config()[:app] == :rclex ->
         File.cwd!()
 
+      path = deps_path_from_project() ->
+        path
+
       path = rclex_dep_path() ->
         path
 
+      path = rclex_loaded_dep_path() ->
+        path
+
       true ->
-        Path.join(File.cwd!(), "deps/rclex")
+        Mix.raise("unable to resolve rclex dependency path for code generation")
     end
+  end
+
+  defp deps_path_from_project do
+    Mix.Project.deps_paths()[:rclex]
+  rescue
+    _ -> nil
   end
 
   # Returns the expanded absolute path when rclex is declared as a path dep,
@@ -137,6 +159,53 @@ defmodule Mix.Tasks.Rclex.Gen do
     |> case do
       nil -> nil
       path -> Path.expand(path)
+    end
+  end
+
+  defp rclex_loaded_dep_path do
+    app_dir = rclex_app_dir()
+
+    candidates =
+      [
+        app_dir && source_dir_from_priv_symlink(app_dir),
+        app_dir,
+        Path.expand("../../../../deps/rclex", app_dir),
+        Path.expand("../../deps/rclex", app_dir)
+      ]
+      |> Enum.reject(&is_nil/1)
+
+    Enum.find(candidates, fn candidate ->
+      File.exists?(Path.join(candidate, "mix.exs"))
+    end)
+  rescue
+    ArgumentError -> nil
+  end
+
+  defp rclex_app_dir do
+    case Application.app_dir(:rclex) do
+      path when is_binary(path) -> path
+      _ -> nil
+    end
+  rescue
+    ArgumentError ->
+      case :code.lib_dir(:rclex) do
+        path when is_list(path) -> List.to_string(path)
+        _ -> nil
+      end
+  end
+
+  defp source_dir_from_priv_symlink(app_dir) do
+    app_dir
+    |> Path.join("priv")
+    |> File.read_link()
+    |> case do
+      {:ok, target} ->
+        target
+        |> Path.expand(app_dir)
+        |> Path.dirname()
+
+      {:error, _reason} ->
+        nil
     end
   end
 end
