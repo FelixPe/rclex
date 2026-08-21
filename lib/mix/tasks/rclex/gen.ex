@@ -105,20 +105,47 @@ defmodule Mix.Tasks.Rclex.Gen do
   @doc false
   def dependency_compile_args, do: ["rclex"]
 
+  # `Mix.Project.in_project/3` spins up an isolated project context rooted at
+  # rclex's own directory, which has no knowledge of the parent project's
+  # resolved deps tree. When rclex is fetched as a hex/git dependency there is
+  # no nested `deps/rclex/deps/elixir_make`, so `compile.elixir_make` (required
+  # by rclex's `compilers:` list) can't be found inside that isolated context.
+  # Running `deps.compile` from the parent project instead reuses the parent's
+  # already-resolved deps/build paths, so `elixir_make` loads correctly.
   defp recompile_dependency_in_project! do
-    rclex_dir = rclex_dir_path!()
+    # Resolved up front: after `deps.compile` fails, the Mix.Project stack may
+    # no longer hold the path we'd need to look this up again, and a `rescue`
+    # clause can't see variables bound inside the `try`'s `do` block.
+    rclex_dir = safe_rclex_dir_path()
 
-    Mix.Project.in_project(:rclex, rclex_dir, fn _module ->
-      Mix.Task.reenable("compile")
-      Mix.Task.run("compile", ["--force"])
-    end)
+    compile_fun = fn ->
+      Mix.Task.reenable("deps.compile")
+      Mix.Task.run("deps.compile", ["rclex", "--force"])
+    end
 
-    :ok
+    try do
+      # In a Livebook/`Mix.install/2` session there is no project pushed on
+      # the Mix.Project stack once installation finishes, so `deps.compile`
+      # has nothing to work with unless we temporarily restore it.
+      if Mix.installed?() do
+        Mix.in_install_project(compile_fun)
+      else
+        compile_fun.()
+      end
+
+      :ok
+    rescue
+      error ->
+        Mix.raise(
+          "failed to compile Rclex dependency at #{rclex_dir}: #{Exception.message(error)}"
+        )
+    end
+  end
+
+  defp safe_rclex_dir_path do
+    rclex_dir_path!()
   rescue
-    error ->
-      Mix.raise(
-        "failed to compile Rclex dependency at #{rclex_dir_path!()}: #{Exception.message(error)}"
-      )
+    _ -> "rclex"
   end
 
   def rclex_dir_path!() do
