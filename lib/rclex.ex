@@ -145,15 +145,15 @@ defmodule Rclex do
 
   ### Examples
 
-      iex> Rclex.get_nodes(namespace: "/sensors")
+      iex> Rclex.get_local_nodes(namespace: "/sensors")
       [%{name: "camera", namespace: "/sensors"}]
   """
   @doc section: :node
-  @spec get_nodes(opts :: [name: String.t(), namespace: String.t()]) :: [
+  @spec get_local_nodes(opts :: [name: String.t(), namespace: String.t()]) :: [
           %{name: String.t(), namespace: String.t()}
         ]
-  def get_nodes(opts \\ []) when is_list(opts) do
-    Rclex.NodesSupervisor.get_nodes(opts)
+  def get_local_nodes(opts \\ []) when is_list(opts) do
+    Rclex.NodesSupervisor.get_local_nodes(opts)
   end
 
   @doc """

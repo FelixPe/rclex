@@ -11,7 +11,7 @@ defmodule Rclex.NodesSupervisor do
     __MODULE__
   end
 
-  def get_nodes(opts \\ []) when is_list(opts) do
+  def get_local_nodes(opts \\ []) when is_list(opts) do
     node_pids =
       name()
       |> DynamicSupervisor.which_children()
