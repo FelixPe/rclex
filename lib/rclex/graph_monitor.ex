@@ -28,14 +28,15 @@ defmodule Rclex.GraphMonitor do
 
   ## `on_entity/4`
 
-  Registers a zero-arity callback that fires when a ROS entity is visible in
-  the graph. If the entity is already present when `on_entity/4` is called, the
-  callback is invoked before the function returns. Otherwise it fires once the
-  first time the entity joins. The callback runs in the `GraphMonitor` process —
-  keep it non-blocking.
+  Registers a callback that fires when a ROS entity is visible in the graph.
+  The callback receives the matching `entity_spec` as its only argument. If
+  the entity is already present when `on_entity/4` is called, the callback
+  fires before the function returns. Otherwise it fires once the first time
+  the entity joins. Each firing runs in its own `Task`, so a slow or crashing
+  callback cannot block or crash the `GraphMonitor`.
 
-      Rclex.GraphMonitor.on_entity("my_node", {:node, "camera_node", "/sensors"}, fn ->
-        IO.puts("camera_node is up")
+      Rclex.GraphMonitor.on_entity("my_node", {:node, "camera_node", "/sensors"}, fn entity_spec ->
+        IO.inspect(entity_spec, label: "joined")
       end)
   """
 
@@ -60,9 +61,10 @@ defmodule Rclex.GraphMonitor do
   end
 
   @doc """
-  Registers `callback` to be called when `entity_spec` is present in the ROS
-  graph. If the entity is already visible, `callback` is invoked before this
-  function returns. Otherwise it fires once the first time the entity appears.
+  Registers `callback` to be called with `entity_spec` when it is present in
+  the ROS graph. If the entity is already visible, `callback` is invoked
+  before this function returns. Otherwise it fires once the first time the
+  entity appears. Each firing runs in its own `Task`.
 
   `entity_spec` can be:
 
@@ -78,7 +80,7 @@ defmodule Rclex.GraphMonitor do
   @spec on_entity(
           monitor_node_name :: String.t(),
           entity_spec :: entity_spec(),
-          callback :: (-> any()),
+          callback :: (entity_spec() -> any()),
           opts :: [namespace: String.t()]
         ) :: :ok
   def on_entity(node_name, entity_spec, callback, opts \\ []) do
@@ -116,7 +118,7 @@ defmodule Rclex.GraphMonitor do
   def handle_call({:on_entity, entity_spec, callback}, _from, state) do
     new_state =
       if entity_present?(entity_spec, state.snapshot) do
-        callback.()
+        Task.start(fn -> callback.(entity_spec) end)
         state
       else
         %{state | pending: [{entity_spec, callback} | state.pending]}
@@ -261,7 +263,7 @@ defmodule Rclex.GraphMonitor do
   defp fire_pending(diff, pending) do
     Enum.reject(pending, fn {entity_spec, callback} ->
       matched = entity_in_joined?(entity_spec, diff)
-      if matched, do: callback.()
+      if matched, do: Task.start(fn -> callback.(entity_spec) end)
       matched
     end)
   end

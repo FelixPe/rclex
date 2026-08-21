@@ -99,7 +99,7 @@ defmodule Rclex.GraphMonitorTest do
           :ok = Rclex.start_node("warn_watcher", graph_monitor: true)
 
           :ok =
-            GraphMonitor.on_entity("warn_watcher", {:node, "warn_joiner", "/"}, fn ->
+            GraphMonitor.on_entity("warn_watcher", {:node, "warn_joiner", "/"}, fn _ ->
               send(me, :entity_seen)
             end)
 
@@ -214,9 +214,11 @@ defmodule Rclex.GraphMonitorTest do
       assert_receive {:joined, "oe_target"}, 5_000
 
       :ok =
-        GraphMonitor.on_entity("oe_watcher", {:node, "oe_target", "/"}, fn -> send(me, :fired) end)
+        GraphMonitor.on_entity("oe_watcher", {:node, "oe_target", "/"}, fn entity_spec ->
+          send(me, {:fired, entity_spec})
+        end)
 
-      assert_receive :fired
+      assert_receive {:fired, {:node, "oe_target", "/"}}
     end
 
     test "fires when node appears later" do
@@ -224,12 +226,14 @@ defmodule Rclex.GraphMonitorTest do
       :ok = Rclex.start_node("oe_watcher2", graph_monitor: true)
 
       :ok =
-        GraphMonitor.on_entity("oe_watcher2", {:node, "oe_late", "/"}, fn -> send(me, :fired) end)
+        GraphMonitor.on_entity("oe_watcher2", {:node, "oe_late", "/"}, fn entity_spec ->
+          send(me, {:fired, entity_spec})
+        end)
 
-      refute_receive :fired, 200
+      refute_receive {:fired, _}, 200
 
       :ok = Rclex.start_node("oe_late")
-      assert_receive :fired, 5_000
+      assert_receive {:fired, {:node, "oe_late", "/"}}, 5_000
     end
 
     test "fires when topic appears later" do
@@ -237,12 +241,14 @@ defmodule Rclex.GraphMonitorTest do
       :ok = Rclex.start_node("oe_watcher3", graph_monitor: true)
 
       :ok =
-        GraphMonitor.on_entity("oe_watcher3", {:topic, "/oe_topic"}, fn -> send(me, :fired) end)
+        GraphMonitor.on_entity("oe_watcher3", {:topic, "/oe_topic"}, fn entity_spec ->
+          send(me, {:fired, entity_spec})
+        end)
 
-      refute_receive :fired, 200
+      refute_receive {:fired, _}, 200
 
       :ok = Rclex.start_publisher(StdMsgs.Msg.String, "/oe_topic", "oe_watcher3")
-      assert_receive :fired, 5_000
+      assert_receive {:fired, {:topic, "/oe_topic"}}, 5_000
     end
 
     test "fires when service appears later" do
@@ -250,16 +256,16 @@ defmodule Rclex.GraphMonitorTest do
       :ok = Rclex.start_node("oe_watcher4", graph_monitor: true)
 
       :ok =
-        GraphMonitor.on_entity("oe_watcher4", {:service, "/oe_service"}, fn ->
-          send(me, :fired)
+        GraphMonitor.on_entity("oe_watcher4", {:service, "/oe_service"}, fn entity_spec ->
+          send(me, {:fired, entity_spec})
         end)
 
-      refute_receive :fired, 200
+      refute_receive {:fired, _}, 200
 
       :ok =
         Rclex.start_service(fn _req -> nil end, StdSrvs.Srv.SetBool, "/oe_service", "oe_watcher4")
 
-      assert_receive :fired, 5_000
+      assert_receive {:fired, {:service, "/oe_service"}}, 5_000
     end
   end
 
