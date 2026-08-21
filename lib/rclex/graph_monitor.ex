@@ -263,9 +263,13 @@ defmodule Rclex.GraphMonitor do
   defp fire_pending(diff, pending) do
     Enum.reject(pending, fn {entity_spec, callback} ->
       matched = entity_in_joined?(entity_spec, diff)
-      if matched, do: Task.start(fn -> callback.(entity_spec) end)
+      if matched, do: run_callback(callback, entity_spec)
       matched
     end)
+  end
+
+  defp run_callback(callback, entity_spec) do
+    Task.start(fn -> callback.(entity_spec) end)
   end
 
   defp entity_in_joined?({:node, name, namespace}, diff),

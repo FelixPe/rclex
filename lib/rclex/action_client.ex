@@ -352,67 +352,74 @@ defmodule Rclex.ActionClient do
         response_message = apply(response_type, :create!, [])
 
         try do
-          {:ok, response_sequence_number} =
-            Nif.rcl_action_take_goal_response!(action_client, response_message)
-
-          response_struct = apply(response_type, :get!, [response_message])
-
-          default_request = %{
-            request_struct: nil,
-            feedback_callback: nil,
-            accepted_callback: nil,
-            timer: nil
-          }
-
-          {request_data, requests} =
-            Map.pop(requests, response_sequence_number, default_request)
-
-          %{
-            request_struct: request_struct,
-            feedback_callback: feedback_callback,
-            accepted_callback: accepted_callback,
-            timer: timer
-          } = request_data
-
-          if timer, do: Process.cancel_timer(timer)
-
-          if request_struct do
-            uuid = request_struct.goal_id.uuid
-
-            Logger.debug(
-              "#{__MODULE__}: [seq: #{response_sequence_number}] -> [uuid: #{Base.encode16(uuid)}] goal #{if response_struct.accepted do
-                "accepted"
-              else
-                "rejected"
-              end} for #{inspect(request_struct.goal)} call #{inspect(accepted_callback)}"
-            )
-
-            {:ok, _pid} =
-              Task.Supervisor.start_child(
-                {:via, PartitionSupervisor, {Rclex.TaskSupervisors, self()}},
-                fn ->
-                  accepted_callback.(uuid, response_struct.accepted, response_struct.stamp)
-                end
+          case Nif.rcl_action_take_goal_response!(action_client, response_message) do
+            :action_client_take_failed ->
+              Logger.debug(
+                "#{__MODULE__}: take goal response failed but no error occurred in the middleware"
               )
 
-            if response_struct.accepted do
-              goals =
-                Map.put(goals, uuid, %{
-                  goal: request_struct.goal,
-                  stamp: response_struct.stamp,
-                  feedback_callback: feedback_callback
-                })
-
               {requests, goals}
-            else
-              {requests, goals}
-            end
-          else
-            Logger.warning(
-              "#{__MODULE__}: received goal response for unknown sequence number #{response_sequence_number}, ignoring"
-            )
 
-            {requests, goals}
+            {:ok, response_sequence_number} ->
+              response_struct = apply(response_type, :get!, [response_message])
+
+              default_request = %{
+                request_struct: nil,
+                feedback_callback: nil,
+                accepted_callback: nil,
+                timer: nil
+              }
+
+              {request_data, requests} =
+                Map.pop(requests, response_sequence_number, default_request)
+
+              %{
+                request_struct: request_struct,
+                feedback_callback: feedback_callback,
+                accepted_callback: accepted_callback,
+                timer: timer
+              } = request_data
+
+              if timer, do: Process.cancel_timer(timer)
+
+              if request_struct do
+                uuid = request_struct.goal_id.uuid
+
+                Logger.debug(
+                  "#{__MODULE__}: [seq: #{response_sequence_number}] -> [uuid: #{Base.encode16(uuid)}] goal #{if response_struct.accepted do
+                    "accepted"
+                  else
+                    "rejected"
+                  end} for #{inspect(request_struct.goal)} call #{inspect(accepted_callback)}"
+                )
+
+                {:ok, _pid} =
+                  Task.Supervisor.start_child(
+                    {:via, PartitionSupervisor, {Rclex.TaskSupervisors, self()}},
+                    fn ->
+                      accepted_callback.(uuid, response_struct.accepted, response_struct.stamp)
+                    end
+                  )
+
+                if response_struct.accepted do
+                  goals =
+                    Map.put(goals, uuid, %{
+                      goal: request_struct.goal,
+                      stamp: response_struct.stamp,
+                      feedback_callback: feedback_callback
+                    })
+
+                  {requests, goals}
+                else
+                  {requests, goals}
+                end
+              else
+                Logger.warning(
+                  "#{__MODULE__}: received goal response for unknown sequence number #{response_sequence_number}, ignoring"
+                )
+
+                {requests, goals}
+              end
           end
         after
           :ok = apply(response_type, :destroy!, [response_message])
@@ -438,33 +445,40 @@ defmodule Rclex.ActionClient do
         response_message = apply(response_type, :create!, [])
 
         try do
-          {:ok, response_sequence_number} =
-            Nif.rcl_action_take_result_response!(action_client, response_message)
-
-          response_struct = apply(response_type, :get!, [response_message])
-
-          {%{uuid: uuid, result_callback: result_callback, timer: timer}, requests} =
-            Map.pop(requests, response_sequence_number, %{
-              uuid: nil,
-              result_callback: nil,
-              timer: nil
-            })
-
-          if timer, do: Process.cancel_timer(timer)
-
-          if uuid do
-            Logger.debug(
-              "#{__MODULE__}: [seq: #{response_sequence_number}] -> [uuid: #{Base.encode16(uuid)}] goal result (status: #{inspect(response_struct.status)}) #{inspect(response_struct.result)}"
-            )
-
-            {:ok, _pid} =
-              Task.Supervisor.start_child(
-                {:via, PartitionSupervisor, {Rclex.TaskSupervisors, self()}},
-                fn -> result_callback.(response_struct.status, response_struct.result) end
+          case Nif.rcl_action_take_result_response!(action_client, response_message) do
+            :action_client_take_failed ->
+              Logger.debug(
+                "#{__MODULE__}: take result response failed but no error occurred in the middleware"
               )
-          end
 
-          requests
+              requests
+
+            {:ok, response_sequence_number} ->
+              response_struct = apply(response_type, :get!, [response_message])
+
+              {%{uuid: uuid, result_callback: result_callback, timer: timer}, requests} =
+                Map.pop(requests, response_sequence_number, %{
+                  uuid: nil,
+                  result_callback: nil,
+                  timer: nil
+                })
+
+              if timer, do: Process.cancel_timer(timer)
+
+              if uuid do
+                Logger.debug(
+                  "#{__MODULE__}: [seq: #{response_sequence_number}] -> [uuid: #{Base.encode16(uuid)}] goal result (status: #{inspect(response_struct.status)}) #{inspect(response_struct.result)}"
+                )
+
+                {:ok, _pid} =
+                  Task.Supervisor.start_child(
+                    {:via, PartitionSupervisor, {Rclex.TaskSupervisors, self()}},
+                    fn -> result_callback.(response_struct.status, response_struct.result) end
+                  )
+              end
+
+              requests
+          end
         after
           :ok = apply(response_type, :destroy!, [response_message])
         end
@@ -488,35 +502,45 @@ defmodule Rclex.ActionClient do
         response_message = apply(response_type, :create!, [])
 
         try do
-          {:ok, response_sequence_number} =
-            Nif.rcl_action_take_cancel_response!(action_client, response_message)
-
-          response_struct = apply(response_type, :get!, [response_message])
-
-          {%{uuid: uuid, cancel_callback: cancel_callback, timer: timer}, requests} =
-            Map.pop(requests, response_sequence_number, %{
-              uuid: nil,
-              cancel_callback: nil,
-              timer: nil
-            })
-
-          if timer, do: Process.cancel_timer(timer)
-
-          if uuid do
-            Logger.debug(
-              "#{__MODULE__}: [seq: #{response_sequence_number}] -> [uuid: #{Base.encode16(uuid)}] cancel goal result (return_code: #{inspect(response_struct.return_code)}) #{inspect(response_struct.goals_canceling)}"
-            )
-
-            {:ok, _pid} =
-              Task.Supervisor.start_child(
-                {:via, PartitionSupervisor, {Rclex.TaskSupervisors, self()}},
-                fn ->
-                  cancel_callback.(response_struct.return_code, response_struct.goals_canceling)
-                end
+          case Nif.rcl_action_take_cancel_response!(action_client, response_message) do
+            :action_client_take_failed ->
+              Logger.debug(
+                "#{__MODULE__}: take cancel response failed but no error occurred in the middleware"
               )
-          end
 
-          requests
+              requests
+
+            {:ok, response_sequence_number} ->
+              response_struct = apply(response_type, :get!, [response_message])
+
+              {%{uuid: uuid, cancel_callback: cancel_callback, timer: timer}, requests} =
+                Map.pop(requests, response_sequence_number, %{
+                  uuid: nil,
+                  cancel_callback: nil,
+                  timer: nil
+                })
+
+              if timer, do: Process.cancel_timer(timer)
+
+              if uuid do
+                Logger.debug(
+                  "#{__MODULE__}: [seq: #{response_sequence_number}] -> [uuid: #{Base.encode16(uuid)}] cancel goal result (return_code: #{inspect(response_struct.return_code)}) #{inspect(response_struct.goals_canceling)}"
+                )
+
+                {:ok, _pid} =
+                  Task.Supervisor.start_child(
+                    {:via, PartitionSupervisor, {Rclex.TaskSupervisors, self()}},
+                    fn ->
+                      cancel_callback.(
+                        response_struct.return_code,
+                        response_struct.goals_canceling
+                      )
+                    end
+                  )
+              end
+
+              requests
+          end
         after
           :ok = apply(response_type, :destroy!, [response_message])
         end
@@ -540,22 +564,29 @@ defmodule Rclex.ActionClient do
       feedback_message = apply(feedback_message_type, :create!, [])
 
       try do
-        :ok = Nif.rcl_action_take_feedback!(action_client, feedback_message)
-        feedback_message_struct = apply(feedback_message_type, :get!, [feedback_message])
-        uuid = feedback_message_struct.goal_id.uuid
-
-        Logger.debug(
-          "#{__MODULE__}: [uuid: #{Base.encode16(uuid)}] new feedback: #{inspect(feedback_message_struct.feedback)}"
-        )
-
-        goal = Map.get(goals, uuid)
-
-        if goal do
-          {:ok, _pid} =
-            Task.Supervisor.start_child(
-              {:via, PartitionSupervisor, {Rclex.TaskSupervisors, self()}},
-              fn -> goal.feedback_callback.(feedback_message_struct.feedback) end
+        case Nif.rcl_action_take_feedback!(action_client, feedback_message) do
+          :action_client_take_failed ->
+            Logger.debug(
+              "#{__MODULE__}: take feedback failed but no error occurred in the middleware"
             )
+
+          :ok ->
+            feedback_message_struct = apply(feedback_message_type, :get!, [feedback_message])
+            uuid = feedback_message_struct.goal_id.uuid
+
+            Logger.debug(
+              "#{__MODULE__}: [uuid: #{Base.encode16(uuid)}] new feedback: #{inspect(feedback_message_struct.feedback)}"
+            )
+
+            goal = Map.get(goals, uuid)
+
+            if goal do
+              {:ok, _pid} =
+                Task.Supervisor.start_child(
+                  {:via, PartitionSupervisor, {Rclex.TaskSupervisors, self()}},
+                  fn -> goal.feedback_callback.(feedback_message_struct.feedback) end
+                )
+            end
         end
       rescue
         e -> Logger.error("#{inspect(e)}")
@@ -581,10 +612,19 @@ defmodule Rclex.ActionClient do
         status_message = apply(status_type, :create!, [])
 
         try do
-          :ok = Nif.rcl_action_take_status!(action_client, status_message)
-          status_struct = apply(status_type, :get!, [status_message])
-          Logger.debug("#{__MODULE__}: status update: #{inspect(status_struct)}")
-          status_struct
+          case Nif.rcl_action_take_status!(action_client, status_message) do
+            :action_client_take_failed ->
+              Logger.debug(
+                "#{__MODULE__}: take status failed but no error occurred in the middleware"
+              )
+
+              nil
+
+            :ok ->
+              status_struct = apply(status_type, :get!, [status_message])
+              Logger.debug("#{__MODULE__}: status update: #{inspect(status_struct)}")
+              status_struct
+          end
         rescue
           e -> Logger.error("#{inspect(e)}")
         after
