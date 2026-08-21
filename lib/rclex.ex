@@ -137,6 +137,26 @@ defmodule Rclex do
   end
 
   @doc """
+  Return nodes currently supervised by this Rclex instance.
+
+  Each node is returned as a map with `:name` and `:namespace`. Filters are
+  exact matches and are combined with AND semantics. Supported filters are
+  `:name` and `:namespace`.
+
+  ### Examples
+
+      iex> Rclex.get_nodes(namespace: "/sensors")
+      [%{name: "camera", namespace: "/sensors"}]
+  """
+  @doc section: :node
+  @spec get_nodes(opts :: [name: String.t(), namespace: String.t()]) :: [
+          %{name: String.t(), namespace: String.t()}
+        ]
+  def get_nodes(opts \\ []) when is_list(opts) do
+    Rclex.NodesSupervisor.get_nodes(opts)
+  end
+
+  @doc """
   Return communication entities currently supervised by this Rclex instance.
 
   Results contain the owning node `:name` and `:namespace`, interface module ROS2 type

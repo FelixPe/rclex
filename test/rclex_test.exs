@@ -24,6 +24,19 @@ defmodule RclexTest do
       assert is_pid(GenServer.whereis(NodeSupervisor.name("name"))) == true
     end
 
+    test "get_nodes/1 returns and filters locally supervised nodes" do
+      :ok = Rclex.start_node("local_node", namespace: "/local")
+      :ok = Rclex.start_node("other_node", namespace: "/other")
+
+      nodes = Rclex.get_nodes()
+
+      assert Enum.any?(nodes, &(&1 == %{name: "local_node", namespace: "/local"}))
+      assert Enum.any?(nodes, &(&1 == %{name: "other_node", namespace: "/other"}))
+
+      assert [%{name: "local_node", namespace: "/local"}] =
+               Rclex.get_nodes(name: "local_node", namespace: "/local")
+    end
+
     test "start_node/1, wrong node name" do
       assert {:error, _} = Rclex.start_node("/name")
     end
