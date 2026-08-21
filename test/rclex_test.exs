@@ -1309,6 +1309,43 @@ defmodule RclexTest do
       }
     end
 
+    test "get_entities/1 returns locally supervised communication entities", %{
+      name: name,
+      topic_name: topic_name,
+      service_type: service_type,
+      service_name: service_name,
+      action_type: action_type,
+      action_name: action_name
+    } do
+      entities = Rclex.get_entities()
+
+      assert_entity(entities, name, StdMsgs.Msg.String, :publisher, topic_name)
+      assert_entity(entities, name, StdMsgs.Msg.String, :subscription, topic_name)
+      assert_entity(entities, name, service_type, :service, service_name)
+      assert_entity(entities, name, service_type, :client, service_name)
+      assert_entity(entities, name, action_type, :action_server, action_name)
+      assert_entity(entities, name, action_type, :action_client, action_name)
+    end
+
+    test "get_entities/1 filters by name, namespace, type, and entity type", %{name: name} do
+      entities =
+        Rclex.get_entities(
+          name: name,
+          namespace: "/",
+          type: StdMsgs.Msg.String,
+          entity_type: :publisher
+        )
+
+      assert_entity(entities, name, StdMsgs.Msg.String, :publisher, "/chatter")
+
+      assert Enum.all?(entities, fn entity ->
+               entity.name == name and
+                 entity.namespace == "/" and
+                 entity.type == StdMsgs.Msg.String and
+                 entity.entity_type == :publisher
+             end)
+    end
+
     test "count_publishers/2", %{} do
       assert 1 = Rclex.count_publishers("name", "/chatter")
     end
@@ -2177,5 +2214,15 @@ defmodule RclexTest do
         assert :ok = Rclex.stop_parameter_event_handler(node)
       end)
     end
+  end
+
+  defp assert_entity(entities, name, type, entity_type, entity_name) do
+    assert Enum.any?(entities, fn entity ->
+             entity.name == name and
+               entity.namespace == "/" and
+               entity.type == type and
+               entity.entity_type == entity_type and
+               entity.entity_name == entity_name
+           end)
   end
 end

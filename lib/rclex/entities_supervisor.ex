@@ -14,6 +14,14 @@ defmodule Rclex.EntitiesSupervisor do
     {:global, {:entities_supervisor, name, namespace}}
   end
 
+  def get_entities(opts \\ []) when is_list(opts) do
+    entity_pids = entity_pids()
+
+    :global.registered_names()
+    |> Enum.flat_map(&entity_from_registration(&1, entity_pids))
+    |> Enum.filter(&matches_filters?(&1, opts))
+  end
+
   def start_publisher(node, message_type, topic_name, name, namespace, qos) do
     DynamicSupervisor.start_child(
       name(name, namespace),
@@ -197,6 +205,58 @@ defmodule Rclex.EntitiesSupervisor do
       nil -> {:error, :not_found}
       pid -> DynamicSupervisor.terminate_child(name(name, namespace), pid)
     end
+  end
+
+  defp entity_pids do
+    Rclex.NodesSupervisor.name()
+    |> DynamicSupervisor.which_children()
+    |> Enum.flat_map(&entity_supervisor_pids/1)
+    |> Enum.flat_map(&DynamicSupervisor.which_children/1)
+    |> Enum.flat_map(fn {_, pid, _, _} -> if is_pid(pid), do: [pid], else: [] end)
+  end
+
+  defp entity_supervisor_pids({_, node_supervisor_pid, _, _}) when is_pid(node_supervisor_pid) do
+    node_supervisor_pid
+    |> Supervisor.which_children()
+    |> Enum.flat_map(fn
+      {Rclex.EntitiesSupervisor, pid, _, _} when is_pid(pid) -> [pid]
+      _ -> []
+    end)
+  end
+
+  defp entity_supervisor_pids(_child), do: []
+
+  defp entity_from_registration(
+         {entity_type, type, entity_name, name, namespace} = registration,
+         entity_pids
+       )
+       when entity_type in [
+              :publisher,
+              :subscription,
+              :service,
+              :client,
+              :action_server,
+              :action_client
+            ] do
+    if :global.whereis_name(registration) in entity_pids do
+      [
+        %{
+          name: name,
+          namespace: namespace,
+          type: type,
+          entity_type: entity_type,
+          entity_name: entity_name
+        }
+      ]
+    else
+      []
+    end
+  end
+
+  defp entity_from_registration(_registration, _entity_pids), do: []
+
+  defp matches_filters?(entity, opts) do
+    Enum.all?(opts, fn {key, value} -> Map.get(entity, key) == value end)
   end
 
   # callbacks

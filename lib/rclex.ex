@@ -137,6 +137,44 @@ defmodule Rclex do
   end
 
   @doc """
+  Return communication entities currently supervised by this Rclex instance.
+
+  Results contain the owning node `:name` and `:namespace`, interface module ROS2 type
+  `:type`, entity kind `:entity_type`, and topic, service, or action
+  `:entity_name`. Filters are exact matches and are combined with AND semantics.
+
+  Supported filters are `:name`, `:namespace`, `:type`, and `:entity_type`.
+
+  ### Examples
+
+      iex> Rclex.get_entities(entity_type: :publisher)
+      [%{name: "node", namespace: "/", type: StdMsgs.Msg.String,
+         entity_type: :publisher, entity_name: "/chatter"}]
+  """
+  @doc section: :node
+  @spec get_entities(
+          opts :: [
+            name: String.t(),
+            namespace: String.t(),
+            type: module(),
+            entity_type:
+              :publisher | :subscription | :service | :client | :action_server | :action_client
+          ]
+        ) :: [
+          %{
+            name: String.t(),
+            namespace: String.t(),
+            type: module(),
+            entity_type:
+              :publisher | :subscription | :service | :client | :action_server | :action_client,
+            entity_name: String.t()
+          }
+        ]
+  def get_entities(opts \\ []) when is_list(opts) do
+    Rclex.EntitiesSupervisor.get_entities(opts)
+  end
+
+  @doc """
   Start a [managed (lifecycle) node](https://design.ros.org/articles/node_lifecycle.html).
 
   `impl_module` must be a module that `use Rclex.LifecycleNode`. The node and
