@@ -56,7 +56,10 @@ defmodule Rclex.Parsers.MessageParserTest do
           {"string<=10[] bounded_string_array",
            [{:builtin_type_array, "string<=10[]"}, "bounded_string_array"]},
           {"string<=10[<=5] bounded_string_array",
-           [{:builtin_type_array, "string<=10[<=5]"}, "bounded_string_array"]}
+           [{:builtin_type_array, "string<=10[<=5]"}, "bounded_string_array"]},
+          {"geometry_msgs/msg/Twist motion", [{:msg_type, "geometry_msgs/msg/Twist"}, "motion"]},
+          {"string label #", [{:builtin_type, "string"}, "label"]},
+          {"uint32 value\r", [{:builtin_type, "uint32"}, "value"]}
         ] do
       test "#{text}" do
         text = unquote(text)

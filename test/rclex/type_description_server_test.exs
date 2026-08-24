@@ -41,6 +41,30 @@ defmodule Rclex.TypeDescriptionServerTest do
     assert [%{type_name: "std_msgs/msg/String", encoding: "msg"}] = response.type_sources
   end
 
+  test "omits type sources when the request disables them" do
+    response =
+      TypeDescriptionServer.handle_get_type_description(%{
+        type_name: "std_msgs/msg/String",
+        include_type_sources: false
+      })
+
+    assert response.successful
+    assert response.type_sources == []
+  end
+
+  test "accepts a matching compiled type hash" do
+    {:ok, type_hash} = Rclex.TypeDescriptionRegistry.fetch_hash("std_msgs/msg/String")
+
+    response =
+      TypeDescriptionServer.handle_get_type_description(%{
+        type_name: "std_msgs/msg/String",
+        type_hash: type_hash
+      })
+
+    assert response.successful
+    assert response.failure_reason == ""
+  end
+
   test "rejects a mismatched compiled type hash" do
     response =
       TypeDescriptionServer.handle_get_type_description(%{

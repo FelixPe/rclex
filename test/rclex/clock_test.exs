@@ -19,6 +19,12 @@ defmodule Rclex.ClockTest do
       :ok = GenServer.stop(pid)
     end
 
+    test "clock_type/1 returns the configured clock type" do
+      {:ok, pid} = Clock.start_link(clock_type: :system_time, name: :test_system_type)
+      assert Clock.clock_type(:test_system_type) == :system_time
+      :ok = GenServer.stop(pid)
+    end
+
     test "now/1 monotonically increases on a steady clock" do
       {:ok, pid} = Clock.start_link(clock_type: :steady_time, name: :test_steady_mono)
       a = Clock.now(:test_steady_mono)
@@ -33,9 +39,27 @@ defmodule Rclex.ClockTest do
       assert {:error, :clock_type_not_ros_time} = Clock.enable_ros_time_override(:test_sys)
       :ok = GenServer.stop(pid)
     end
+
+    test "disable and set override on non-ros_time clock return errors" do
+      {:ok, pid} = Clock.start_link(clock_type: :steady_time, name: :test_steady_override_errors)
+
+      assert {:error, :clock_type_not_ros_time} =
+               Clock.disable_ros_time_override(:test_steady_override_errors)
+
+      assert {:error, :clock_type_not_ros_time} =
+               Clock.set_ros_time_override(:test_steady_override_errors, 123)
+
+      :ok = GenServer.stop(pid)
+    end
   end
 
   describe "ros_time clock with override" do
+    test "ros_time override is inactive by default" do
+      {:ok, pid} = Clock.start_link(clock_type: :ros_time, name: :test_ros_inactive)
+      refute Clock.ros_time_override_active?(:test_ros_inactive)
+      :ok = GenServer.stop(pid)
+    end
+
     test "set_ros_time_override drives now/1" do
       {:ok, pid} = Clock.start_link(clock_type: :ros_time, name: :test_ros)
       assert :ok = Clock.enable_ros_time_override(:test_ros)
@@ -44,6 +68,17 @@ defmodule Rclex.ClockTest do
 
       assert %Time{nanoseconds: 1_234_567_890, clock_type: :ros_time} =
                Clock.now(:test_ros)
+
+      :ok = GenServer.stop(pid)
+    end
+
+    test "set_ros_time_override accepts integer nanoseconds" do
+      {:ok, pid} = Clock.start_link(clock_type: :ros_time, name: :test_ros_integer)
+      assert :ok = Clock.enable_ros_time_override(:test_ros_integer)
+      assert :ok = Clock.set_ros_time_override(:test_ros_integer, 987_654_321)
+
+      assert %Time{nanoseconds: 987_654_321, clock_type: :ros_time} =
+               Clock.now(:test_ros_integer)
 
       :ok = GenServer.stop(pid)
     end

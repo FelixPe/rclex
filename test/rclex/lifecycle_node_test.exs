@@ -44,6 +44,15 @@ defmodule Rclex.LifecycleNodeTest do
     def on_error(state), do: {:ok, [:on_error | state]}
   end
 
+  defmodule FatalConfigure do
+    use Rclex.LifecycleNode
+
+    @impl true
+    def on_configure(state), do: {:fatal, [:fatal | state]}
+    @impl true
+    def on_error(state), do: {:ok, [:on_error | state]}
+  end
+
   describe "state machine" do
     test "starts in :unconfigured and supports the happy path" do
       :ok = Rclex.start_lifecycle_node(Recorder, "lc1", user_state: [])
@@ -125,9 +134,29 @@ defmodule Rclex.LifecycleNodeTest do
 
       capture_log(fn -> :ok = Rclex.stop_lifecycle_node("lc5") end)
     end
+
+    test "callback returning {:fatal, _} transitions to :finalized via on_error" do
+      :ok = Rclex.start_lifecycle_node(FatalConfigure, "lc6", user_state: [])
+
+      assert {:error, :callback_errored} =
+               Rclex.lifecycle_change_state("lc6", :configure)
+
+      assert :finalized == Rclex.lifecycle_get_state("lc6")
+      user_state = Rclex.LifecycleNode.get_user_state("lc6")
+      assert :fatal in user_state
+      assert :on_error in user_state
+
+      capture_log(fn -> :ok = Rclex.stop_lifecycle_node("lc6") end)
+    end
   end
 
   describe "lifecycle service handlers" do
+    test "handle_change_state returns false for an unknown transition id" do
+      response = Rclex.LifecycleNode.handle_change_state(%{transition: %{id: 999}}, "lc_bad", "/")
+
+      assert %{success: false} = response
+    end
+
     test "handle_get_state returns the current primary state as a State message" do
       :ok = Rclex.start_lifecycle_node(Plain, "lc_svc", namespace: "/test")
 
@@ -149,6 +178,17 @@ defmodule Rclex.LifecycleNodeTest do
       assert ids == [1, 2, 3, 4]
 
       capture_log(fn -> :ok = Rclex.stop_lifecycle_node("lc_svc2") end)
+    end
+
+    test "handle_get_available_transitions returns transitions for the current state" do
+      :ok = Rclex.start_lifecycle_node(Plain, "lc_svc3")
+
+      response = Rclex.LifecycleNode.handle_get_available_transitions(nil, "lc_svc3", "/")
+
+      labels = Enum.map(response.available_transitions, & &1.transition.label) |> Enum.sort()
+      assert labels == ["configure", "shutdown"]
+
+      capture_log(fn -> :ok = Rclex.stop_lifecycle_node("lc_svc3") end)
     end
   end
 end

@@ -8,6 +8,7 @@ defmodule Rclex.Parsers.TypeParserTest do
         {"int32[5]", ["int32", "[", 5, "]"]},
         {"int32[<=5]", ["int32", "[<=", 5, "]"]},
         {"string", ["string"]},
+        {"wstring", ["wstring"]},
         {"string<=10", ["string<=10"]},
         {"string[<=5]", ["string", "[<=", 5, "]"]},
         {"string<=10[]", ["string<=10", "[]"]},

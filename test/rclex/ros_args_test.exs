@@ -55,4 +55,21 @@ defmodule Rclex.RosArgsTest do
     assert RosArgs.node_ros_args(ros_args: ["--param", "use_sim_time:=true"]) ==
              ["--ros-args", "--log-level", "warn", "--param", "use_sim_time:=true"]
   end
+
+  test "node_ros_args/1 normalizes chardata remappings and ros args" do
+    assert RosArgs.node_ros_args(remappings: [{~c"/from", ~c"/to"}], ros_args: [~c"--debug"]) ==
+             ["--ros-args", "-r", "/from:=/to", "--debug"]
+  end
+
+  test "node_ros_args/1 raises on invalid remapping entries" do
+    assert_raise ArgumentError, ~r/invalid remapping entry/, fn ->
+      RosArgs.node_ros_args(remappings: ["/from:=/to"])
+    end
+  end
+
+  test "node_ros_args/1 raises on invalid ros args" do
+    assert_raise ArgumentError, ~r/invalid ros_arg/, fn ->
+      RosArgs.node_ros_args(ros_args: [123])
+    end
+  end
 end

@@ -209,10 +209,7 @@ defmodule Mix.Tasks.Rclex.Gen do
   end
 
   defp rclex_app_dir do
-    case Application.app_dir(:rclex) do
-      path when is_binary(path) -> path
-      _ -> nil
-    end
+    Application.app_dir(:rclex)
   rescue
     ArgumentError ->
       case :code.lib_dir(:rclex) do
