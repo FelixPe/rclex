@@ -168,6 +168,14 @@ defmodule Rclex.Generators.MsgCTest do
       assert result =~ "enif_inspect_binary"
       assert result =~ "rosidl_runtime_c__String__assignn"
 
+      result = MsgC.enif_get({:builtin_type, "string<=255"}, acc, %{})
+      assert result =~ "if (test_binary.size > 255)"
+      assert result =~ "rosidl_runtime_c__String__assignn"
+
+      {setup, result, _accs} = MsgC.enif_make({:builtin_type, "string<=255"}, acc, %{})
+      assert setup =~ "enif_make_binary_wrapper"
+      assert result == "test_term"
+
       # Test boolean type
       result = MsgC.enif_get({:builtin_type, "bool"}, acc, %{})
       assert result =~ "enif_get_atom_length"

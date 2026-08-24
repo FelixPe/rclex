@@ -500,6 +500,25 @@ defmodule Rclex.Generators.MsgExTest do
   end
 
   describe "code generation and formatting" do
+    test "generate/2 emits a bounded string length guard" do
+      ros2_message_type_map = %{
+        {:msg_type, "test/msg/BoundedString"} => [
+          [{:builtin_type, "string<=255"}, "nested_type_name"]
+        ]
+      }
+
+      result = MsgEx.generate("test/msg/BoundedString", ros2_message_type_map)
+
+      assert result =~
+               "defguard is_nested_type_name(value) when is_binary(value) and byte_size(value) <= 255"
+
+      assert result =~ "defstruct nested_type_name: \"\""
+      assert result =~ "@type t :: %__MODULE__{nested_type_name: String.t()}"
+
+      assert result =~ "def to_tuple(%__MODULE__{nested_type_name: nested_type_name})"
+      assert result =~ "when is_nested_type_name(nested_type_name) do"
+    end
+
     test "generate/3 produces valid, formatted Elixir code" do
       ros2_message_type_map =
         Msgs.get_ros2_message_type_map("std_msgs/msg/String", @ros_share_path)

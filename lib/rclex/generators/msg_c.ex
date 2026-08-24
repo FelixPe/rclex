@@ -425,6 +425,20 @@ defmodule Rclex.Generators.MsgC do
     """
   end
 
+  defp enif_get_builtin("string<=" <> bound, var, mbr, term) do
+    """
+    ErlNifBinary #{var}_binary;
+    if (!enif_inspect_binary(env, #{term}, &#{var}_binary))
+      return enif_make_badarg(env);
+
+    if (#{var}_binary.size > #{bound})
+      return enif_make_badarg(env);
+
+    if (!rosidl_runtime_c__String__assignn(&(message_p->#{mbr}), (const char *)#{var}_binary.data, #{var}_binary.size))
+      return raise(env, __FILE__, __LINE__);
+    """
+  end
+
   def get_fun_fragments(ros2_message_type, ros2_message_type_map) do
     build_get_fun_fragments(%Acc{type: {:msg_type, ros2_message_type}}, ros2_message_type_map)
     |> format()
@@ -713,6 +727,10 @@ defmodule Rclex.Generators.MsgC do
     """
 
     {setup, term_var, []}
+  end
+
+  defp enif_make_builtin("string<=" <> _bound, var, mbr) do
+    enif_make_builtin("string", var, mbr)
   end
 
   defp enif_make_builtin("string", var, mbr) do

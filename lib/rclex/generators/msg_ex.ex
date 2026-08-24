@@ -44,6 +44,8 @@ defmodule Rclex.Generators.MsgEx do
     EEx.eval_file(Path.join(Util.templates_dir_path(), "msg_ex.eex"),
       module_name: Util.module_name(type),
       defstruct_fields: defstruct_fields(type, ros2_message_type_map),
+      bounded_string_guards: bounded_string_guards(type, ros2_message_type_map),
+      to_tuple_guard: to_tuple_guard(type, ros2_message_type_map),
       type_fields: type_fields(type, ros2_message_type_map),
       constant_fields: constant_fields(type, ros2_constant_type_map),
       function_prefix: Util.type_down_snake(type),
@@ -58,6 +60,7 @@ defmodule Rclex.Generators.MsgEx do
   end
 
   defp defstruct_builtin_type_field(type, name) do
+    type = builtin_type_base(type)
     "#{name}: #{Map.get(@ros2_elixir_default_map, type, "nil")}"
   end
 
@@ -75,6 +78,40 @@ defmodule Rclex.Generators.MsgEx do
 
   defp defstruct_builtin_type_field(_type, name, default) do
     "#{name}: #{inspect(default)}"
+  end
+
+  defp builtin_type_base("string<=" <> _bound), do: "string"
+  defp builtin_type_base(type), do: type
+
+  def bounded_string_guards(ros2_message_type, ros2_message_type_map) do
+    ros2_message_type
+    |> get_fields(ros2_message_type_map)
+    |> Enum.flat_map(fn
+      [{:builtin_type, "string<=" <> bound}, name | _rest] ->
+        ["defguard is_#{name}(value) when is_binary(value) and byte_size(value) <= #{bound}\n"]
+
+      _field ->
+        []
+    end)
+    |> IO.iodata_to_binary()
+  end
+
+  def to_tuple_guard(ros2_message_type, ros2_message_type_map) do
+    guards =
+      ros2_message_type
+      |> get_fields(ros2_message_type_map)
+      |> Enum.flat_map(fn
+        [{:builtin_type, "string<=" <> _bound}, name | _rest] ->
+          ["is_#{name}(#{name})"]
+
+        _field ->
+          []
+      end)
+
+    case guards do
+      [] -> ""
+      guards -> " when #{Enum.join(guards, " and ")}"
+    end
   end
 
   def defstruct_fields(ros2_message_type, ros2_message_type_map) do
@@ -145,7 +182,7 @@ defmodule Rclex.Generators.MsgEx do
         # credo:disable-for-next-line Credo.Check.Refactor.Nesting
         case [type_tuple, name] do
           [{:builtin_type, type}, name] ->
-            "#{name}: #{@ros2_elixir_type_map[type]}"
+            "#{name}: #{@ros2_elixir_type_map[builtin_type_base(type)]}"
 
           [{:builtin_type_array, "uint8[" <> _}, name] ->
             "#{name}: binary()"

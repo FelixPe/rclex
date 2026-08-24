@@ -6,6 +6,8 @@ defmodule Rclex.Pkgs.<%= module_name %> do
 
   <%= defstruct_fields %>
 
+  <%= bounded_string_guards %>
+
   <%= type_fields %>
 
   alias Rclex.Nif
@@ -30,7 +32,7 @@ defmodule Rclex.Pkgs.<%= module_name %> do
     Nif.<%= function_prefix %>_get!(message) |> to_struct()
   end
 
-  def to_tuple(%__MODULE__{<%= to_tuple_args_fields %>}) do
+  def to_tuple(%__MODULE__{<%= to_tuple_args_fields %>})<%= to_tuple_guard %> do
     <%= to_tuple_return_fields %>
   end
 
