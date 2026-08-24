@@ -16,9 +16,7 @@ config :rclex,
   ros2_directories: [],
   ros2_remappings: [],
   ros2_ros_args: [],
-  ros2_service_types: [
-    "std_srvs/srv/SetBool"
-  ],
+  ros2_service_types: ["std_srvs/srv/SetBool"],
   ros2_action_types: [
     "tf2_msgs/action/LookupTransform"
   ]

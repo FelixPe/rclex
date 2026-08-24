@@ -84,7 +84,11 @@ defmodule Mix.Tasks.Rclex.Gen.Srvs do
   def generate(to) when is_binary(to) do
     srv_types = Application.get_env(:rclex, :ros2_service_types, [])
 
-    srv_types = srv_types ++ srv_types_for_rcl_interfaces() ++ srv_types_for_lifecycle()
+    srv_types =
+      srv_types ++
+        srv_types_for_rcl_interfaces() ++
+        srv_types_for_lifecycle() ++
+        srv_types_for_type_description()
 
     for type <- srv_types do
       [interfaces, interface_type, type_name] = String.split(type, "/")
@@ -130,6 +134,14 @@ defmodule Mix.Tasks.Rclex.Gen.Srvs do
       "lifecycle_msgs/srv/GetAvailableStates",
       "lifecycle_msgs/srv/GetAvailableTransitions"
     ]
+  end
+
+  defp srv_types_for_type_description() do
+    if System.get_env("ROS_DISTRO") == "humble" do
+      []
+    else
+      ["type_description_interfaces/srv/GetTypeDescription"]
+    end
   end
 
   defp response_or_request_or_action?(f) do

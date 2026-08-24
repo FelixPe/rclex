@@ -7,6 +7,7 @@ defmodule Rclex.NodeSupervisor do
   alias Rclex.EntitiesSupervisor
   alias Rclex.GraphMonitor
   alias Rclex.ParameterServer
+  alias Rclex.TypeDescriptionServer
 
   def start_link(args) do
     name = Keyword.fetch!(args, :name)
@@ -23,6 +24,7 @@ defmodule Rclex.NodeSupervisor do
 
   def init(args) do
     start_parameter_server = Keyword.get(args, :start_parameter_server, true)
+    type_description_service = Keyword.get(args, :type_description_service, true)
     graph_monitor = Keyword.get(args, :graph_monitor, false)
     node_name = Keyword.fetch!(args, :name)
     namespace = Keyword.fetch!(args, :namespace)
@@ -53,6 +55,13 @@ defmodule Rclex.NodeSupervisor do
 
     children =
       if start_parameter_server, do: children ++ [{ParameterServer, args}], else: children
+
+    children =
+      if type_description_service and TypeDescriptionServer.available?() do
+        children ++ [{TypeDescriptionServer, args}]
+      else
+        children
+      end
 
     children = if graph_monitor, do: children ++ [{GraphMonitor, args}], else: children
 

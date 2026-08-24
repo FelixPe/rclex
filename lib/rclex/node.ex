@@ -290,6 +290,7 @@ defmodule Rclex.Node do
     namespace = Keyword.fetch!(args, :namespace)
     graph_change_callback = Keyword.get(args, :graph_change_callback)
     ros_args = Keyword.get(args, :ros_args, [])
+    type_description_service = Keyword.get(args, :type_description_service, true)
 
     node = Nif.rcl_node_init!(context, ~c"#{name}", ~c"#{namespace}", ros_args)
 
@@ -311,7 +312,8 @@ defmodule Rclex.Node do
        name: name,
        namespace: namespace,
        graph_change_callback: graph_change_callback,
-       wait_thread: wait_thread
+       wait_thread: wait_thread,
+       type_description_service: type_description_service
      }}
   end
 

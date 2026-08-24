@@ -174,6 +174,8 @@ defmodule Mix.Tasks.Rclex.Gen.Msgs do
     srv_types = Application.get_env(:rclex, :ros2_service_types, [])
     action_types = Application.get_env(:rclex, :ros2_action_types, [])
 
+    srv_types = srv_types ++ srv_types_for_type_description()
+
     msg_types =
       msg_types ++
         Enum.map(srv_types, fn type -> type <> "_Request" end) ++
@@ -183,6 +185,8 @@ defmodule Mix.Tasks.Rclex.Gen.Msgs do
       msg_types ++
         msg_types_for_actions(action_types) ++
         msg_types_for_rcl_interfaces() ++ msg_types_for_tf2() ++ msg_types_for_lifecycle()
+
+    msg_types = msg_types ++ msg_types_for_type_description()
 
     ros2_message_type_map =
       Enum.reduce(msg_types, %{}, fn type, acc ->
@@ -269,6 +273,11 @@ defmodule Mix.Tasks.Rclex.Gen.Msgs do
       function_prefix = Util.type_down_snake(type)
 
       """
+      #ifndef ROS_DISTRO_humble
+      {"#{function_prefix}_type_description!", 0, nif_#{function_prefix}_type_description, REGULAR_NIF},
+      {"#{function_prefix}_type_description_sources!", 0, nif_#{function_prefix}_type_description_sources, REGULAR_NIF},
+      {"#{function_prefix}_type_hash!", 0, nif_#{function_prefix}_type_hash, REGULAR_NIF},
+      #endif
       {"#{function_prefix}_type_support!", 0, nif_#{function_prefix}_type_support, REGULAR_NIF},
       {"#{function_prefix}_create!", 0, nif_#{function_prefix}_create, REGULAR_NIF},
       {"#{function_prefix}_destroy!", 1, nif_#{function_prefix}_destroy, REGULAR_NIF},
@@ -283,8 +292,17 @@ defmodule Mix.Tasks.Rclex.Gen.Msgs do
     Enum.map_join(types, fn {:msg_type, type} ->
       [interfaces, interface_type, type] = String.split(type, "/")
       file_path = Path.join([interfaces, interface_type, Util.to_down_snake(type)]) <> ".h"
+      function_prefix = Util.type_down_snake("#{interfaces}/#{interface_type}/#{type}")
 
       """
+      #ifndef ROS_DISTRO_humble
+      ERL_NIF_TERM nif_#{function_prefix}_type_description(
+        ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
+      ERL_NIF_TERM nif_#{function_prefix}_type_description_sources(
+        ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
+      ERL_NIF_TERM nif_#{function_prefix}_type_hash(
+        ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
+      #endif
       #include "pkgs/#{file_path}"
       """
     end)
@@ -293,6 +311,9 @@ defmodule Mix.Tasks.Rclex.Gen.Msgs do
   @doc false
   def generate_msg_funcs_ex(types) do
     suffix_args_list = [
+      {"type_description!", ""},
+      {"type_description_sources!", ""},
+      {"type_hash!", ""},
       {"type_support!", ""},
       {"create!", ""},
       {"destroy!", "_msg"},
@@ -366,6 +387,29 @@ defmodule Mix.Tasks.Rclex.Gen.Msgs do
       "lifecycle_msgs/srv/GetAvailableTransitions_Request",
       "lifecycle_msgs/srv/GetAvailableTransitions_Response"
     ]
+  end
+
+  defp msg_types_for_type_description() do
+    if System.get_env("ROS_DISTRO") == "humble" do
+      []
+    else
+      [
+        "type_description_interfaces/msg/Field",
+        "type_description_interfaces/msg/FieldType",
+        "type_description_interfaces/msg/IndividualTypeDescription",
+        "type_description_interfaces/msg/KeyValue",
+        "type_description_interfaces/msg/TypeDescription",
+        "type_description_interfaces/msg/TypeSource"
+      ]
+    end
+  end
+
+  defp srv_types_for_type_description() do
+    if System.get_env("ROS_DISTRO") == "humble" do
+      []
+    else
+      ["type_description_interfaces/srv/GetTypeDescription"]
+    end
   end
 
   defp msg_types_for_actions([]) do

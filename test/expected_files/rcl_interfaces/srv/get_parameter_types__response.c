@@ -1,5 +1,8 @@
 // clang-format off
 #include "get_parameter_types__response.h"
+#ifndef ROS_DISTRO_humble
+#include "../../../type_description.h"
+#endif
 #include "../../../macros.h"
 #include "../../../resource_types.h"
 #include "../../../terms.h"
@@ -15,6 +18,9 @@
 #include <rcl_interfaces/srv/detail/get_parameter_types__functions.h>
 #include <rcl_interfaces/srv/detail/get_parameter_types__struct.h>
 #include <rcl_interfaces/srv/detail/get_parameter_types__type_support.h>
+#ifndef ROS_DISTRO_humble
+#include <rosidl_runtime_c/type_description/type_description__struct.h>
+#endif
 
 #include <math.h>
 #include <stddef.h>
@@ -34,6 +40,46 @@ ERL_NIF_TERM nif_rcl_interfaces_srv_get_parameter_types__response_type_support(E
 
   return term;
 }
+
+#ifndef ROS_DISTRO_humble
+ERL_NIF_TERM nif_rcl_interfaces_srv_get_parameter_types__response_type_description(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
+  ignore_unused(argv);
+
+  if (argc != 0) return enif_make_badarg(env);
+
+  const rosidl_message_type_support_t *ts_p = ROSIDL_GET_MSG_TYPE_SUPPORT(rcl_interfaces, srv, GetParameterTypes_Response);
+  const rosidl_runtime_c__type_description__TypeDescription *description =
+      rcl_interfaces__srv__GetParameterTypes_Response__get_type_description(ts_p);
+  if (description == NULL) return raise(env, __FILE__, __LINE__);
+
+  return make_type_description_term(env, description);
+}
+
+ERL_NIF_TERM nif_rcl_interfaces_srv_get_parameter_types__response_type_description_sources(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
+  ignore_unused(argv);
+
+  if (argc != 0) return enif_make_badarg(env);
+
+  const rosidl_message_type_support_t *ts_p = ROSIDL_GET_MSG_TYPE_SUPPORT(rcl_interfaces, srv, GetParameterTypes_Response);
+  const rosidl_runtime_c__type_description__TypeSource__Sequence *sources =
+      rcl_interfaces__srv__GetParameterTypes_Response__get_type_description_sources(ts_p);
+  if (sources == NULL) return raise(env, __FILE__, __LINE__);
+
+  return make_type_sources_term(env, sources);
+}
+
+ERL_NIF_TERM nif_rcl_interfaces_srv_get_parameter_types__response_type_hash(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
+  ignore_unused(argv);
+
+  if (argc != 0) return enif_make_badarg(env);
+
+  const rosidl_message_type_support_t *ts_p = ROSIDL_GET_MSG_TYPE_SUPPORT(rcl_interfaces, srv, GetParameterTypes_Response);
+  const rosidl_type_hash_t *hash = rcl_interfaces__srv__GetParameterTypes_Response__get_type_hash(ts_p);
+  if (hash == NULL) return raise(env, __FILE__, __LINE__);
+
+  return make_type_hash_term(env, hash);
+}
+#endif
 
 ERL_NIF_TERM nif_rcl_interfaces_srv_get_parameter_types__response_create(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
   ignore_unused(argv);

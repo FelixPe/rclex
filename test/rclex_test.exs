@@ -17,6 +17,20 @@ defmodule RclexTest do
   end
 
   describe "node" do
+    test "start_node/2 defaults type description service to enabled" do
+      assert :ok = Rclex.start_node("type_description_default")
+
+      state = :sys.get_state(Rclex.Node.name("type_description_default", "/"))
+      assert state.type_description_service == true
+    end
+
+    test "start_node/2 forwards a disabled type description service option" do
+      assert :ok = Rclex.start_node("type_description_disabled", type_description_service: false)
+
+      state = :sys.get_state(Rclex.Node.name("type_description_disabled", "/"))
+      assert state.type_description_service == false
+    end
+
     test "start_node/1" do
       assert :ok = Rclex.start_node("name")
       assert {:error, :already_started} = Rclex.start_node("name")
@@ -66,7 +80,7 @@ defmodule RclexTest do
         |> String.split("\n")
         |> Enum.filter(&String.contains?(&1, ":shutdown"))
 
-      assert Enum.count(logs) == 12
+      assert Enum.count(logs) == 13
       assert List.last(logs) =~ "Node: :shutdown"
     end
 
@@ -96,7 +110,7 @@ defmodule RclexTest do
         |> String.split("\n")
         |> Enum.filter(&String.contains?(&1, ":shutdown"))
 
-      assert Enum.count(logs) == 12
+      assert Enum.count(logs) == 13
       assert List.last(logs) =~ "Node: :shutdown"
     end
 

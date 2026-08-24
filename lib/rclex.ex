@@ -89,7 +89,8 @@ defmodule Rclex do
             graph_change_callback: function(),
             graph_monitor: boolean(),
             remappings: [{String.t(), String.t()}],
-            ros_args: [String.t()]
+            ros_args: [String.t()],
+            type_description_service: boolean()
           ]
         ) ::
           :ok | {:error, :already_started} | {:error, term()}
@@ -98,6 +99,7 @@ defmodule Rclex do
     namespace = Keyword.get(opts, :namespace, "/")
     graph_change_callback = Keyword.get(opts, :graph_change_callback)
     graph_monitor = Keyword.get(opts, :graph_monitor, false)
+    type_description_service = Keyword.get(opts, :type_description_service, true)
     ros_args = Rclex.RosArgs.node_ros_args(opts)
 
     case Rclex.NodesSupervisor.start_child(
@@ -106,7 +108,8 @@ defmodule Rclex do
            namespace,
            graph_change_callback,
            ros_args,
-           graph_monitor
+           graph_monitor,
+           type_description_service
          ) do
       {:ok, _pid} -> :ok
       {:error, {:already_started, _pid}} -> {:error, :already_started}

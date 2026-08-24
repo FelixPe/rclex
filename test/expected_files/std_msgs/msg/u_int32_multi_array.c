@@ -1,5 +1,8 @@
 // clang-format off
 #include "u_int32_multi_array.h"
+#ifndef ROS_DISTRO_humble
+#include "../../../type_description.h"
+#endif
 #include "../../../macros.h"
 #include "../../../resource_types.h"
 #include "../../../terms.h"
@@ -21,6 +24,9 @@
 #include <std_msgs/msg/detail/u_int32_multi_array__functions.h>
 #include <std_msgs/msg/detail/u_int32_multi_array__struct.h>
 #include <std_msgs/msg/detail/u_int32_multi_array__type_support.h>
+#ifndef ROS_DISTRO_humble
+#include <rosidl_runtime_c/type_description/type_description__struct.h>
+#endif
 
 #include <math.h>
 #include <stddef.h>
@@ -40,6 +46,46 @@ ERL_NIF_TERM nif_std_msgs_msg_u_int32_multi_array_type_support(ErlNifEnv *env, i
 
   return term;
 }
+
+#ifndef ROS_DISTRO_humble
+ERL_NIF_TERM nif_std_msgs_msg_u_int32_multi_array_type_description(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
+  ignore_unused(argv);
+
+  if (argc != 0) return enif_make_badarg(env);
+
+  const rosidl_message_type_support_t *ts_p = ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, UInt32MultiArray);
+  const rosidl_runtime_c__type_description__TypeDescription *description =
+      std_msgs__msg__UInt32MultiArray__get_type_description(ts_p);
+  if (description == NULL) return raise(env, __FILE__, __LINE__);
+
+  return make_type_description_term(env, description);
+}
+
+ERL_NIF_TERM nif_std_msgs_msg_u_int32_multi_array_type_description_sources(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
+  ignore_unused(argv);
+
+  if (argc != 0) return enif_make_badarg(env);
+
+  const rosidl_message_type_support_t *ts_p = ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, UInt32MultiArray);
+  const rosidl_runtime_c__type_description__TypeSource__Sequence *sources =
+      std_msgs__msg__UInt32MultiArray__get_type_description_sources(ts_p);
+  if (sources == NULL) return raise(env, __FILE__, __LINE__);
+
+  return make_type_sources_term(env, sources);
+}
+
+ERL_NIF_TERM nif_std_msgs_msg_u_int32_multi_array_type_hash(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
+  ignore_unused(argv);
+
+  if (argc != 0) return enif_make_badarg(env);
+
+  const rosidl_message_type_support_t *ts_p = ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, UInt32MultiArray);
+  const rosidl_type_hash_t *hash = std_msgs__msg__UInt32MultiArray__get_type_hash(ts_p);
+  if (hash == NULL) return raise(env, __FILE__, __LINE__);
+
+  return make_type_hash_term(env, hash);
+}
+#endif
 
 ERL_NIF_TERM nif_std_msgs_msg_u_int32_multi_array_create(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
   ignore_unused(argv);

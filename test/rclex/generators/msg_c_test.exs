@@ -159,6 +159,16 @@ defmodule Rclex.Generators.MsgCTest do
   end
 
   describe "builtin type handling" do
+    test "generates a type description provider" do
+      ros2_message_type_map =
+        Msgs.get_ros2_message_type_map("std_msgs/msg/String", @ros_share_path)
+
+      result = MsgC.generate("std_msgs/msg/String", ros2_message_type_map)
+
+      assert result =~ "std_msgs__msg__String__get_type_description"
+      assert result =~ "nif_std_msgs_msg_string_type_description"
+    end
+
     test "enif_get handles all builtin types correctly" do
       acc = %MsgC.Acc{vars: ["test"], mbrs: ["data"], terms: ["term"]}
 

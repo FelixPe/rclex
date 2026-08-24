@@ -28,7 +28,8 @@ defmodule Rclex.NodesSupervisor do
         namespace \\ "/",
         graph_change_callback \\ nil,
         ros_args \\ [],
-        graph_monitor \\ false
+        graph_monitor \\ false,
+        type_description_service \\ true
       ) do
     DynamicSupervisor.start_child(
       name(),
@@ -39,7 +40,8 @@ defmodule Rclex.NodesSupervisor do
          namespace: namespace,
          graph_change_callback: graph_change_callback,
          ros_args: ros_args,
-         graph_monitor: graph_monitor
+         graph_monitor: graph_monitor,
+         type_description_service: type_description_service
        ]}
     )
   end
