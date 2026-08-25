@@ -1,10 +1,16 @@
 #ifndef ROS_DISTRO_humble
 
 #include "type_description.h"
+#include "resource_types.h"
 #include "terms.h"
 
 #include <stddef.h>
 #include <stdio.h>
+#include <type_description_interfaces/msg/detail/type_description__functions.h>
+
+extern ERL_NIF_TERM
+nif_type_description_interfaces_msg_type_description_set(ErlNifEnv *env, int argc,
+                                                         const ERL_NIF_TERM argv[]);
 
 static ERL_NIF_TERM make_string_term(ErlNifEnv *env, const rosidl_runtime_c__String *string) {
   return enif_make_binary_wrapper(env, string->data, string->size);
@@ -100,8 +106,42 @@ ERL_NIF_TERM make_type_hash_term(ErlNifEnv *env, const rosidl_type_hash_t *hash)
       return enif_make_badarg(env);
   }
 
-  return enif_make_string_len(env, hash_string, written + (ROSIDL_TYPE_HASH_SIZE * 2),
-                              ERL_NIF_LATIN1);
+  ErlNifBinary binary;
+  size_t hash_string_length = written + (ROSIDL_TYPE_HASH_SIZE * 2);
+  if (!enif_alloc_binary(hash_string_length, &binary)) return raise(env, __FILE__, __LINE__);
+  memcpy(binary.data, hash_string, hash_string_length);
+  return enif_make_binary(env, &binary);
+}
+
+ERL_NIF_TERM nif_rcl_calculate_type_hash(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
+  if (argc != 1) return enif_make_badarg(env);
+
+  type_description_interfaces__msg__TypeDescription *message_p =
+      type_description_interfaces__msg__TypeDescription__create();
+  if (message_p == NULL) return raise(env, __FILE__, __LINE__);
+
+  void **obj                = enif_alloc_resource(rt_ros_message, sizeof(void *));
+  *obj                      = (void *)message_p;
+  ERL_NIF_TERM message_term = enif_make_resource(env, obj);
+
+  ERL_NIF_TERM set_argv[2] = {message_term, argv[0]};
+  ERL_NIF_TERM set_result =
+      nif_type_description_interfaces_msg_type_description_set(env, 2, set_argv);
+
+  enif_release_resource(obj);
+
+  if (!enif_is_identical(set_result, atom_ok)) {
+    type_description_interfaces__msg__TypeDescription__destroy(message_p);
+    return set_result;
+  }
+
+  rosidl_type_hash_t hash;
+  rcl_ret_t rc = rcl_calculate_type_hash(message_p, &hash);
+  type_description_interfaces__msg__TypeDescription__destroy(message_p);
+
+  if (rc != RCL_RET_OK) return raise_with_safe_message(env, __FILE__, __LINE__, rc);
+
+  return make_type_hash_term(env, &hash);
 }
 
 #endif

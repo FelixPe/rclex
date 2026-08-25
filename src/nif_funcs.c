@@ -17,6 +17,7 @@
 #include "resource_types.h"
 #include "srv_funcs.h" // IWYU pragma: keep
 #include "terms.h"
+#include "type_description.h"
 #include <erl_nif.h>
 #include <stddef.h>
 
@@ -163,6 +164,9 @@ static ErlNifFunc nif_funcs[] = {
     nif_regular_func(rmw_qos_profile_parameter_events, 0),
     nif_regular_func(rmw_qos_profile_system_default, 0),
     nif_regular_func(rcl_action_qos_profile_status_default, 0),
+  #ifndef ROS_DISTRO_humble
+    nif_regular_func(rcl_calculate_type_hash, 1),
+  #endif
 #include "msg_funcs.ec" // IWYU pragma: keep
 #include "srv_funcs.ec" // IWYU pragma: keep
 #include "action_funcs.ec" // IWYU pragma: keep

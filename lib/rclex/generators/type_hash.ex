@@ -29,6 +29,20 @@ defmodule Rclex.Generators.TypeHash do
     end
   end
 
+  @spec calculate_type_hash(struct()) :: {:ok, String.t()} | {:error, term()}
+  def calculate_type_hash(type_description) when is_struct(type_description) do
+    type_description_tuple =
+      Rclex.TypeDescriptionModules.call(
+        Rclex.TypeDescriptionModules.message_module("TypeDescription"),
+        :to_tuple,
+        [type_description]
+      )
+
+    {:ok, Rclex.Nif.rcl_calculate_type_hash!(type_description_tuple)}
+  rescue
+    error -> {:error, error}
+  end
+
   defp description_path(type_name, share_path) do
     case String.split(type_name, "/") do
       [package, kind, name] when kind in ["msg", "srv", "action"] ->

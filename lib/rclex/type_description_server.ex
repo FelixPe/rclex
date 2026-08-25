@@ -65,7 +65,7 @@ defmodule Rclex.TypeDescriptionServer do
     response = %{
       successful: true,
       failure_reason: "",
-      type_description: description_struct(description),
+      type_description: description,
       type_sources: type_sources(type_name, request),
       extra_information: []
     }
@@ -78,14 +78,6 @@ defmodule Rclex.TypeDescriptionServer do
       successful: false,
       failure_reason: reason
     })
-  end
-
-  defp description_struct(description) do
-    Rclex.TypeDescriptionModules.call(
-      Rclex.TypeDescriptionModules.message_module("TypeDescription"),
-      :to_struct,
-      [description]
-    )
   end
 
   defp type_sources(_type_name, %{include_type_sources: false}), do: []

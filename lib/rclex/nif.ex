@@ -24,6 +24,10 @@ defmodule Rclex.Nif do
     :erlang.nif_error(:nif_not_loaded)
   end
 
+  def rcl_calculate_type_hash!(_type_description_tuple) do
+    :erlang.nif_error(:nif_not_loaded)
+  end
+
   def rcl_init!() do
     :erlang.nif_error(:nif_not_loaded)
   end
