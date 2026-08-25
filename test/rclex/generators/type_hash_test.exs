@@ -31,9 +31,7 @@ defmodule Rclex.Generators.TypeHashTest do
   end
 
   test "reads the canonical hash for an action root type" do
-    assert {:ok, hash} =
-             TypeHash.type_hash("action_tutorials_interfaces/action/Fibonacci", @share_path)
-
+    assert {:ok, hash} = TypeHash.type_hash("tf2_msgs/action/LookupTransform", @share_path)
     assert String.starts_with?(hash, "RIHS01_")
   end
 
