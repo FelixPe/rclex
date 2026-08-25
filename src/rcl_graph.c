@@ -4,6 +4,7 @@
 #include "qos.h"
 #include "resource_types.h"
 #include "terms.h"
+#include "type_description.h"
 #include <erl_nif.h>
 #include <rcl/allocator.h>
 #include <rcl/graph.h>
@@ -45,10 +46,18 @@ make_topic_endpoint_info_list(ErlNifEnv *env,
   ERL_NIF_TERM atom_publisher    = enif_make_atom(env, "publisher");
   ERL_NIF_TERM atom_subscription = enif_make_atom(env, "subscription");
 
-  ERL_NIF_TERM keys[6] = {
-      enif_make_atom(env, "node_name"),    enif_make_atom(env, "node_namespace"),
-      enif_make_atom(env, "topic_type"),   enif_make_atom(env, "endpoint_type"),
-      enif_make_atom(env, "endpoint_gid"), enif_make_atom(env, "qos_profile")};
+  ERL_NIF_TERM keys[] = {enif_make_atom(env, "node_name"),
+                         enif_make_atom(env, "node_namespace"),
+                         enif_make_atom(env, "topic_type"),
+                         enif_make_atom(env, "endpoint_type"),
+                         enif_make_atom(env, "endpoint_gid"),
+                         enif_make_atom(env, "qos_profile")
+#ifndef ROS_DISTRO_humble
+                             ,
+                         enif_make_atom(env, "topic_type_hash")
+#endif
+  };
+  unsigned int key_count = sizeof(keys) / sizeof(keys[0]);
 
   for (int i = 0; i < info_length; i++) {
 
@@ -67,15 +76,20 @@ make_topic_endpoint_info_list(ErlNifEnv *env,
       endpoint_type = atom_subscription;
     }
 
-    ERL_NIF_TERM values[6] = {
+    ERL_NIF_TERM values[] = {
         enif_make_string(env, topic_endpoint_info->info_array[i].node_name, ERL_NIF_LATIN1),
         enif_make_string(env, topic_endpoint_info->info_array[i].node_namespace, ERL_NIF_LATIN1),
         enif_make_string(env, topic_endpoint_info->info_array[i].topic_type, ERL_NIF_LATIN1),
         endpoint_type,
         enif_make_binary(env, &bin_gid),
-        get_ex_qos_profile(env, topic_endpoint_info->info_array[i].qos_profile)};
+        get_ex_qos_profile(env, topic_endpoint_info->info_array[i].qos_profile)
+#ifndef ROS_DISTRO_humble
+            ,
+        make_type_hash_term(env, &topic_endpoint_info->info_array[i].topic_type_hash)
+#endif
+    };
 
-    if (!enif_make_map_from_arrays(env, keys, values, 6, &info_array[i])) {
+    if (!enif_make_map_from_arrays(env, keys, values, key_count, &info_array[i])) {
       enif_free(info_array);
       return raise(env, __FILE__, __LINE__);
     }

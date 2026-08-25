@@ -49,12 +49,37 @@ defmodule Rclex.TypeDescriptionServer do
   end
 
   def handle_get_type_description(%{type_name: type_name} = request) do
+    case type_name do
+      "" -> handle_hash_only_request(request)
+      _type_name -> handle_named_request(type_name, request)
+    end
+  end
+
+  defp handle_hash_only_request(request) do
+    type_hash = Map.get(request, :type_hash, "")
+
+    case Rclex.TypeDescriptionRegistry.fetch_by_hash(type_hash) do
+      {:ok, description} ->
+        build_response(description.type_description.type_name, description, request)
+
+      {:error, :invalid_type_hash} ->
+        unavailable_response("invalid type hash")
+
+      {:error, _reason} ->
+        unavailable_response("type description not available for #{type_hash}")
+    end
+  end
+
+  defp handle_named_request(type_name, request) do
     case Rclex.TypeDescriptionRegistry.fetch(type_name) do
       {:ok, description} ->
         case validate_type_hash(type_name, Map.get(request, :type_hash, "")) do
           {:ok, _type_hash} -> build_response(type_name, description, request)
           {:error, reason} -> unavailable_response(reason)
         end
+
+      {:error, :invalid_type_name} ->
+        unavailable_response("invalid type name")
 
       {:error, _reason} ->
         unavailable_response("type description not available for #{type_name}")

@@ -173,6 +173,8 @@ defmodule Rclex.GraphTest do
     [info] = Graph.get_publishers_info_by_topic(node, topic_name, false)
 
     assert is_binary(info.endpoint_gid)
+    assert is_binary(info.topic_type_hash)
+    assert String.starts_with?(info.topic_type_hash, "RIHS")
     %qos_type{} = info.qos_profile
     assert qos_type == Rclex.QoS
 
@@ -181,13 +183,15 @@ defmodule Rclex.GraphTest do
              node_namespace: ~c"/namespace",
              topic_type: ~c"std_msgs/msg/String",
              endpoint_type: :publisher
-           } == Map.drop(info, [:endpoint_gid, :qos_profile])
+           } == Map.drop(info, [:endpoint_gid, :qos_profile, :topic_type_hash])
 
     assert [] = Graph.get_publishers_info_by_topic(node, ~c"/does_not_exist", false)
 
     if dds_mangled_graph_supported?() do
       [info] = Graph.get_publishers_info_by_topic(node, ~c"rt/chatter", true)
       assert is_binary(info.endpoint_gid)
+      assert is_binary(info.topic_type_hash)
+      assert String.starts_with?(info.topic_type_hash, "RIHS")
       %qos_type{} = info.qos_profile
       assert qos_type == Rclex.QoS
 
@@ -196,7 +200,7 @@ defmodule Rclex.GraphTest do
                node_namespace: ~c"/namespace",
                topic_type: ~c"std_msgs::msg::dds_::String_",
                endpoint_type: :publisher
-             } == Map.drop(info, [:endpoint_gid, :qos_profile])
+             } == Map.drop(info, [:endpoint_gid, :qos_profile, :topic_type_hash])
     else
       assert [] = Graph.get_publishers_info_by_topic(node, ~c"rt/chatter", true)
     end
@@ -254,6 +258,8 @@ defmodule Rclex.GraphTest do
     [info] = Graph.get_subscribers_info_by_topic(node, topic_name, false)
 
     assert is_binary(info.endpoint_gid)
+    assert is_binary(info.topic_type_hash)
+    assert String.starts_with?(info.topic_type_hash, "RIHS")
     %qos_type{} = info.qos_profile
     assert qos_type == Rclex.QoS
 
@@ -262,13 +268,15 @@ defmodule Rclex.GraphTest do
              node_namespace: ~c"/namespace",
              topic_type: ~c"std_msgs/msg/String",
              endpoint_type: :subscription
-           } == Map.drop(info, [:endpoint_gid, :qos_profile])
+           } == Map.drop(info, [:endpoint_gid, :qos_profile, :topic_type_hash])
 
     assert [] = Graph.get_subscribers_info_by_topic(node, ~c"/does_not_exist", false)
 
     if dds_mangled_graph_supported?() do
       [info] = Graph.get_subscribers_info_by_topic(node, ~c"rt/chatter", true)
       assert is_binary(info.endpoint_gid)
+      assert is_binary(info.topic_type_hash)
+      assert String.starts_with?(info.topic_type_hash, "RIHS")
       %qos_type{} = info.qos_profile
       assert qos_type == Rclex.QoS
 
@@ -277,7 +285,7 @@ defmodule Rclex.GraphTest do
                node_namespace: ~c"/namespace",
                topic_type: ~c"std_msgs::msg::dds_::String_",
                endpoint_type: :subscription
-             } == Map.drop(info, [:endpoint_gid, :qos_profile])
+             } == Map.drop(info, [:endpoint_gid, :qos_profile, :topic_type_hash])
     else
       assert [] = Graph.get_subscribers_info_by_topic(node, ~c"rt/chatter", true)
     end

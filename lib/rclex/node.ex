@@ -262,15 +262,17 @@ defmodule Rclex.Node do
     Enum.map(topic_endpoint_info_list, &topic_endpoint_info_charlist_to_string/1)
   end
 
-  defp topic_endpoint_info_charlist_to_string(%{
-         node_name: node_name,
-         node_namespace: node_namespace,
-         topic_type: topic_type,
-         endpoint_gid: gid,
-         endpoint_type: endpoint_type,
-         qos_profile: qos
-       }) do
-    %{
+  defp topic_endpoint_info_charlist_to_string(
+         %{
+           node_name: node_name,
+           node_namespace: node_namespace,
+           topic_type: topic_type,
+           endpoint_gid: gid,
+           endpoint_type: endpoint_type,
+           qos_profile: qos
+         } = info
+       ) do
+    endpoint_info = %{
       node_name: "#{node_name}",
       node_namespace: "#{node_namespace}",
       topic_type: "#{topic_type}",
@@ -278,6 +280,11 @@ defmodule Rclex.Node do
       endpoint_type: endpoint_type,
       qos_profile: qos
     }
+
+    case Map.fetch(info, :topic_type_hash) do
+      {:ok, topic_type_hash} -> Map.put(endpoint_info, :topic_type_hash, topic_type_hash)
+      :error -> endpoint_info
+    end
   end
 
   # callbacks

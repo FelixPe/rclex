@@ -28,6 +28,21 @@ defmodule Rclex.TypeDescriptionServerTest do
            } = response
   end
 
+  test "returns the compiled description for a hash-only request" do
+    {:ok, type_hash} = Rclex.TypeDescriptionRegistry.fetch_hash("std_msgs/msg/String")
+
+    response =
+      TypeDescriptionServer.handle_get_type_description(%{
+        type_name: "",
+        type_hash: type_hash,
+        include_type_sources: false
+      })
+
+    assert response.successful
+    assert response.type_description.type_description.type_name == "std_msgs/msg/String"
+    assert response.type_sources == []
+  end
+
   test "returns the compiled description for a generated type" do
     response =
       TypeDescriptionServer.handle_get_type_description(%{type_name: "std_msgs/msg/String"})
