@@ -30,15 +30,19 @@ ERL_CFLAGS  ?= -I$(ERTS_INCLUDE_DIR)
 ERL_LDFLAGS ?=
 
 ifeq ($(ROS_DISTRO), humble)
-ROS_INCS    ?= rcl rcutils rmw rcl_yaml_param_parser type_description_interfaces rosidl_runtime_c service_msgs builtin_interfaces rosidl_typesupport_interface rosidl_dynamic_typesupport rcl_action action_msgs unique_identifier_msgs
+ROS_INCS    ?= rcl rcutils rmw rcl_yaml_param_parser type_description_interfaces rosidl_runtime_c service_msgs builtin_interfaces rosidl_typesupport_interface rosidl_dynamic_typesupport rosidl_dynamic_typesupport_fastrtps rcl_action action_msgs unique_identifier_msgs
 ROS_CFLAGS  ?= $(addprefix -I$(ROS_DIR)/include/, $(ROS_INCS))
 else # working for jazzy, kilted and rolling
-ROS_INCS    ?= rcl rcutils rmw rcl_yaml_param_parser type_description_interfaces rosidl_runtime_c service_msgs builtin_interfaces rosidl_typesupport_interface rosidl_dynamic_typesupport rcl_action action_msgs unique_identifier_msgs
+ROS_INCS    ?= rcl rcutils rmw rcl_yaml_param_parser type_description_interfaces rosidl_runtime_c service_msgs builtin_interfaces rosidl_typesupport_interface rosidl_dynamic_typesupport rosidl_dynamic_typesupport_fastrtps rcl_action action_msgs unique_identifier_msgs
 ROS_CFLAGS  ?= $(addprefix -I$(ROS_DIR)/include/, $(ROS_INCS))
 endif
 
 ROS_LDFLAGS ?= -L$(ROS_DIR)/lib
 ROS_LDFLAGS += -lrcl -lrcl_action -laction_msgs__rosidl_generator_c -laction_msgs__rosidl_typesupport_c
+ifneq ($(wildcard $(ROS_DIR)/lib/librosidl_dynamic_typesupport*),)
+ROS_LDFLAGS += -lrosidl_dynamic_typesupport
+CFLAGS += -DHAVE_ROSIDL_DYNAMIC_TYPESUPPORT
+endif
 
 SRC_C  = $(wildcard $(SRC_DIR)/*.c)
 SRC_H  = $(wildcard $(SRC_DIR)/*.h)

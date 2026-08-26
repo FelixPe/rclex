@@ -1,5 +1,6 @@
 #include "rcl_subscription.h"
 #include "allocator.h"
+#include "dynamic_type.h"
 #include "qos.h"
 #include "resource_types.h"
 #include "terms.h"
@@ -98,11 +99,10 @@ ERL_NIF_TERM nif_rcl_take(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
     return enif_make_badarg(env);
   if (!rcl_subscription_is_valid(subscription_p)) return raise(env, __FILE__, __LINE__);
 
-  void **ros_message_pp;
-  if (!enif_get_resource(env, argv[1], rt_ros_message, (void **)&ros_message_pp))
-    return enif_make_badarg(env);
+  void *ros_message;
+  if (!get_ros_message_data(env, argv[1], &ros_message)) return enif_make_badarg(env);
 
-  rc = rcl_take(subscription_p, *ros_message_pp, NULL, NULL);
+  rc = rcl_take(subscription_p, ros_message, NULL, NULL);
   if (rc == RCL_RET_OK) return atom_ok;
   if (rc == RCL_RET_SUBSCRIPTION_TAKE_FAILED) return subscription_take_failed;
   return raise(env, __FILE__, __LINE__);
@@ -118,12 +118,11 @@ ERL_NIF_TERM nif_rcl_take_with_info(ErlNifEnv *env, int argc, const ERL_NIF_TERM
     return enif_make_badarg(env);
   if (!rcl_subscription_is_valid(subscription_p)) return raise(env, __FILE__, __LINE__);
 
-  void **ros_message_pp;
-  if (!enif_get_resource(env, argv[1], rt_ros_message, (void **)&ros_message_pp))
-    return enif_make_badarg(env);
+  void *ros_message;
+  if (!get_ros_message_data(env, argv[1], &ros_message)) return enif_make_badarg(env);
 
   rmw_message_info_t info = rmw_get_zero_initialized_message_info();
-  rc                      = rcl_take(subscription_p, *ros_message_pp, &info, NULL);
+  rc                      = rcl_take(subscription_p, ros_message, &info, NULL);
   if (rc == RCL_RET_SUBSCRIPTION_TAKE_FAILED) return subscription_take_failed;
   if (rc != RCL_RET_OK) return raise_with_safe_message(env, __FILE__, __LINE__, rc);
 

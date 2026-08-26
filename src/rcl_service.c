@@ -1,5 +1,6 @@
 #include "rcl_service.h"
 #include "allocator.h"
+#include "dynamic_type.h"
 #include "qos.h"
 #include "resource_types.h"
 #include "terms.h"
@@ -98,13 +99,12 @@ ERL_NIF_TERM nif_rcl_take_request_with_info(ErlNifEnv *env, int argc, const ERL_
     return enif_make_badarg(env);
   if (!rcl_service_is_valid(service_p)) return raise(env, __FILE__, __LINE__);
 
-  void **ros_request_message_pp;
-  if (!enif_get_resource(env, argv[1], rt_ros_message, (void **)&ros_request_message_pp))
-    return enif_make_badarg(env);
+  void *ros_request_message;
+  if (!get_ros_message_data(env, argv[1], &ros_request_message)) return enif_make_badarg(env);
 
   rmw_service_info_t request_header;
 
-  rc = rcl_take_request_with_info(service_p, &request_header, *ros_request_message_pp);
+  rc = rcl_take_request_with_info(service_p, &request_header, ros_request_message);
   if (rc == RCL_RET_OK) {
     rmw_service_info_t *obj =
         enif_alloc_resource(rt_rmw_service_info_t, sizeof(rmw_service_info_t));
@@ -133,11 +133,10 @@ ERL_NIF_TERM nif_rcl_send_response(ErlNifEnv *env, int argc, const ERL_NIF_TERM 
   if (!enif_get_resource(env, argv[1], rt_rmw_service_info_t, (void **)&response_header_p))
     return enif_make_badarg(env);
 
-  void **ros_message_pp;
-  if (!enif_get_resource(env, argv[2], rt_ros_message, (void **)&ros_message_pp))
-    return enif_make_badarg(env);
+  void *ros_message_data;
+  if (!get_ros_message_data(env, argv[2], &ros_message_data)) return enif_make_badarg(env);
 
-  rc = rcl_send_response(service_p, &(response_header_p->request_id), *ros_message_pp);
+  rc = rcl_send_response(service_p, &(response_header_p->request_id), ros_message_data);
   if (rc != RCL_RET_OK) return raise_with_safe_message(env, __FILE__, __LINE__, rc);
 
   return atom_ok;

@@ -1,4 +1,5 @@
 #include "action_funcs.h" // IWYU pragma: keep
+#include "dynamic_type.h"
 #include "macros.h"
 #include "msg_funcs.h" // IWYU pragma: keep
 #include "qos.h"
@@ -166,6 +167,10 @@ static ErlNifFunc nif_funcs[] = {
     nif_regular_func(rcl_action_qos_profile_status_default, 0),
   #ifndef ROS_DISTRO_humble
     nif_regular_func(rcl_calculate_type_hash, 1),
+    nif_io_bound_func(dynamic_type_from_description, 1),
+    nif_regular_func(dynamic_type_fill_message, 2),
+    nif_regular_func(dynamic_message_destroy, 1),
+    nif_regular_func(dynamic_type_fini, 1),
   #endif
 #include "msg_funcs.ec" // IWYU pragma: keep
 #include "srv_funcs.ec" // IWYU pragma: keep
@@ -186,10 +191,12 @@ static int load(ErlNifEnv *env, void **priv_data, ERL_NIF_TERM load_info) {
   make_action_client_atoms(env);
   make_action_server_atoms(env);
   make_clock_atoms(env);
+  make_dynamic_type_atoms(env);
 
   // open_resource_types/2 the 2nd argument is module_str, but document says following.
   // > Argument module_str is not (yet) used and must be NULL
   if (open_resource_types(env, NULL) != 0) return 1;
+  if (dynamic_type_resource_init(env) != 0) return 1;
 
   return 0;
 }

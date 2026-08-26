@@ -1,5 +1,6 @@
 #include "rcl_publisher.h"
 #include "allocator.h"
+#include "dynamic_type.h"
 #include "qos.h"
 #include "resource_types.h"
 #include "terms.h"
@@ -90,11 +91,10 @@ ERL_NIF_TERM nif_rcl_publish(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]
     return enif_make_badarg(env);
   if (!rcl_publisher_is_valid(publisher_p)) return raise(env, __FILE__, __LINE__);
 
-  void **ros_message_pp;
-  if (!enif_get_resource(env, argv[1], rt_ros_message, (void **)&ros_message_pp))
-    return enif_make_badarg(env);
+  void *ros_message_data;
+  if (!get_ros_message_data(env, argv[1], &ros_message_data)) return enif_make_badarg(env);
 
-  rc = rcl_publish(publisher_p, *ros_message_pp, NULL);
+  rc = rcl_publish(publisher_p, ros_message_data, NULL);
   if (rc != RCL_RET_OK) return raise_with_safe_message(env, __FILE__, __LINE__, rc);
 
   return atom_ok;

@@ -20,6 +20,8 @@ extern ErlNifResourceType *rt_rosidl_action_type_support_t;
 extern ErlNifResourceType *rt_rmw_service_info_t;
 extern ErlNifResourceType *rt_rmw_request_id_t;
 extern ErlNifResourceType *rt_ros_message;
+extern ErlNifResourceType *rt_dynamic_type;
+extern ErlNifResourceType *rt_dynamic_ros_message;
 extern ErlNifResourceType *rt_subscription_callback_resource;
 extern ErlNifResourceType *rt_service_callback_resource;
 extern ErlNifResourceType *rt_client_callback_resource;

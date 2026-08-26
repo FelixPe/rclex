@@ -22,6 +22,8 @@ ErlNifResourceType *rt_rosidl_action_type_support_t;
 ErlNifResourceType *rt_rmw_service_info_t;
 ErlNifResourceType *rt_rmw_request_id_t;
 ErlNifResourceType *rt_ros_message;
+ErlNifResourceType *rt_dynamic_type;
+ErlNifResourceType *rt_dynamic_ros_message;
 ErlNifResourceType *rt_subscription_callback_resource;
 ErlNifResourceType *rt_service_callback_resource;
 ErlNifResourceType *rt_client_callback_resource;
@@ -61,6 +63,8 @@ int open_resource_types(ErlNifEnv *env, const char *module) {
   open_rt_return_if_error(env, module, rmw_service_info_t, flags);
   open_rt_return_if_error(env, module, rmw_request_id_t, flags);
   open_rt_return_if_error(env, module, ros_message, flags);
+  open_rt_return_if_error(env, module, dynamic_type, flags);
+  open_rt_return_if_error(env, module, dynamic_ros_message, flags);
   open_rt_return_if_error(env, module, subscription_callback_resource, flags);
   open_rt_return_if_error(env, module, service_callback_resource, flags);
   open_rt_return_if_error(env, module, client_callback_resource, flags);

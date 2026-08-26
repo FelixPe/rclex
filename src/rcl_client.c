@@ -1,5 +1,6 @@
 #include "rcl_client.h"
 #include "allocator.h"
+#include "dynamic_type.h"
 #include "qos.h"
 #include "resource_types.h"
 #include "terms.h"
@@ -99,11 +100,10 @@ ERL_NIF_TERM nif_rcl_take_response_with_info(ErlNifEnv *env, int argc, const ERL
     return enif_make_badarg(env);
   if (!rcl_client_is_valid(client_p)) return raise(env, __FILE__, __LINE__);
 
-  void **ros_response_message_pp;
-  if (!enif_get_resource(env, argv[1], rt_ros_message, (void **)&ros_response_message_pp))
-    return enif_make_badarg(env);
+  void *ros_response_message;
+  if (!get_ros_message_data(env, argv[1], &ros_response_message)) return enif_make_badarg(env);
 
-  rc = rcl_take_response_with_info(client_p, &request_header, *ros_response_message_pp);
+  rc = rcl_take_response_with_info(client_p, &request_header, ros_response_message);
   int64_t sequence_number = request_header.request_id.sequence_number;
 
   if (rc == RCL_RET_OK)
@@ -123,11 +123,10 @@ ERL_NIF_TERM nif_rcl_send_request(ErlNifEnv *env, int argc, const ERL_NIF_TERM a
     return enif_make_badarg(env);
   if (!rcl_client_is_valid(client_p)) return raise(env, __FILE__, __LINE__);
 
-  void **ros_request_message_pp;
-  if (!enif_get_resource(env, argv[1], rt_ros_message, (void **)&ros_request_message_pp))
-    return enif_make_badarg(env);
+  void *ros_request_message;
+  if (!get_ros_message_data(env, argv[1], &ros_request_message)) return enif_make_badarg(env);
 
-  rc = rcl_send_request(client_p, *ros_request_message_pp, &sequence_number);
+  rc = rcl_send_request(client_p, ros_request_message, &sequence_number);
 
   if (rc == RCL_RET_OK)
     return enif_make_tuple2(env, atom_ok, enif_make_int64(env, sequence_number));

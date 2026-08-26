@@ -1,5 +1,6 @@
 #include "rcl_action_client.h"
 #include "allocator.h"
+#include "dynamic_type.h"
 #include "qos.h"
 #include "resource_types.h"
 #include "terms.h"
@@ -138,11 +139,10 @@ ERL_NIF_TERM nif_rcl_action_take_cancel_response(ErlNifEnv *env, int argc,
     return enif_make_badarg(env);
   if (!rcl_action_client_is_valid(action_client_p)) return raise(env, __FILE__, __LINE__);
 
-  void **ros_response_message_pp;
-  if (!enif_get_resource(env, argv[1], rt_ros_message, (void **)&ros_response_message_pp))
-    return enif_make_badarg(env);
+  void *ros_response_message;
+  if (!get_ros_message_data(env, argv[1], &ros_response_message)) return enif_make_badarg(env);
 
-  rc = rcl_action_take_cancel_response(action_client_p, &response_header, *ros_response_message_pp);
+  rc = rcl_action_take_cancel_response(action_client_p, &response_header, ros_response_message);
   int64_t sequence_number = response_header.sequence_number;
 
   if (rc == RCL_RET_OK)
@@ -161,11 +161,10 @@ ERL_NIF_TERM nif_rcl_action_take_feedback(ErlNifEnv *env, int argc, const ERL_NI
     return enif_make_badarg(env);
   if (!rcl_action_client_is_valid(action_client_p)) return raise(env, __FILE__, __LINE__);
 
-  void **ros_response_message_pp;
-  if (!enif_get_resource(env, argv[1], rt_ros_message, (void **)&ros_response_message_pp))
-    return enif_make_badarg(env);
+  void *ros_response_message;
+  if (!get_ros_message_data(env, argv[1], &ros_response_message)) return enif_make_badarg(env);
 
-  rc = rcl_action_take_feedback(action_client_p, *ros_response_message_pp);
+  rc = rcl_action_take_feedback(action_client_p, ros_response_message);
 
   if (rc == RCL_RET_OK) return atom_ok;
   if (rc == RCL_RET_ACTION_CLIENT_TAKE_FAILED) return atom_action_client_take_failed;
@@ -184,11 +183,10 @@ ERL_NIF_TERM nif_rcl_action_take_goal_response(ErlNifEnv *env, int argc,
     return enif_make_badarg(env);
   if (!rcl_action_client_is_valid(action_client_p)) return raise(env, __FILE__, __LINE__);
 
-  void **ros_response_message_pp;
-  if (!enif_get_resource(env, argv[1], rt_ros_message, (void **)&ros_response_message_pp))
-    return enif_make_badarg(env);
+  void *ros_response_message;
+  if (!get_ros_message_data(env, argv[1], &ros_response_message)) return enif_make_badarg(env);
 
-  rc = rcl_action_take_goal_response(action_client_p, &response_header, *ros_response_message_pp);
+  rc = rcl_action_take_goal_response(action_client_p, &response_header, ros_response_message);
   int64_t sequence_number = response_header.sequence_number;
 
   if (rc == RCL_RET_OK)
@@ -209,11 +207,10 @@ ERL_NIF_TERM nif_rcl_action_take_result_response(ErlNifEnv *env, int argc,
     return enif_make_badarg(env);
   if (!rcl_action_client_is_valid(action_client_p)) return raise(env, __FILE__, __LINE__);
 
-  void **ros_response_message_pp;
-  if (!enif_get_resource(env, argv[1], rt_ros_message, (void **)&ros_response_message_pp))
-    return enif_make_badarg(env);
+  void *ros_response_message;
+  if (!get_ros_message_data(env, argv[1], &ros_response_message)) return enif_make_badarg(env);
 
-  rc = rcl_action_take_result_response(action_client_p, &response_header, *ros_response_message_pp);
+  rc = rcl_action_take_result_response(action_client_p, &response_header, ros_response_message);
   int64_t sequence_number = response_header.sequence_number;
 
   if (rc == RCL_RET_OK)
@@ -232,11 +229,10 @@ ERL_NIF_TERM nif_rcl_action_take_status(ErlNifEnv *env, int argc, const ERL_NIF_
     return enif_make_badarg(env);
   if (!rcl_action_client_is_valid(action_client_p)) return raise(env, __FILE__, __LINE__);
 
-  void **ros_status_array_pp;
-  if (!enif_get_resource(env, argv[1], rt_ros_message, (void **)&ros_status_array_pp))
-    return enif_make_badarg(env);
+  void *ros_status_array;
+  if (!get_ros_message_data(env, argv[1], &ros_status_array)) return enif_make_badarg(env);
 
-  rc = rcl_action_take_status(action_client_p, *ros_status_array_pp);
+  rc = rcl_action_take_status(action_client_p, ros_status_array);
   if (rc == RCL_RET_OK)
     return atom_ok;
   else if (rc == RCL_RET_ACTION_CLIENT_TAKE_FAILED)
@@ -265,11 +261,10 @@ ERL_NIF_TERM nif_rcl_action_send_cancel_request(ErlNifEnv *env, int argc,
     return enif_make_badarg(env);
   if (!rcl_action_client_is_valid(action_client_p)) return raise(env, __FILE__, __LINE__);
 
-  void **ros_request_message_pp;
-  if (!enif_get_resource(env, argv[1], rt_ros_message, (void **)&ros_request_message_pp))
-    return enif_make_badarg(env);
+  void *ros_request_message;
+  if (!get_ros_message_data(env, argv[1], &ros_request_message)) return enif_make_badarg(env);
 
-  rc = rcl_action_send_cancel_request(action_client_p, *ros_request_message_pp, &sequence_number);
+  rc = rcl_action_send_cancel_request(action_client_p, ros_request_message, &sequence_number);
 
   if (rc == RCL_RET_OK)
     return enif_make_tuple2(env, atom_ok, enif_make_int64(env, sequence_number));
@@ -290,11 +285,10 @@ ERL_NIF_TERM nif_rcl_action_send_goal_request(ErlNifEnv *env, int argc, const ER
     return enif_make_badarg(env);
   if (!rcl_action_client_is_valid(action_client_p)) return raise(env, __FILE__, __LINE__);
 
-  void **ros_request_message_pp;
-  if (!enif_get_resource(env, argv[1], rt_ros_message, (void **)&ros_request_message_pp))
-    return enif_make_badarg(env);
+  void *ros_request_message;
+  if (!get_ros_message_data(env, argv[1], &ros_request_message)) return enif_make_badarg(env);
 
-  rc = rcl_action_send_goal_request(action_client_p, *ros_request_message_pp, &sequence_number);
+  rc = rcl_action_send_goal_request(action_client_p, ros_request_message, &sequence_number);
   if (rc == RCL_RET_OK)
     return enif_make_tuple2(env, atom_ok, enif_make_int64(env, sequence_number));
   else if (rc == RCL_RET_INVALID_ARGUMENT)
@@ -315,11 +309,10 @@ ERL_NIF_TERM nif_rcl_action_send_result_request(ErlNifEnv *env, int argc,
     return enif_make_badarg(env);
   if (!rcl_action_client_is_valid(action_client_p)) return raise(env, __FILE__, __LINE__);
 
-  void **ros_request_message_pp;
-  if (!enif_get_resource(env, argv[1], rt_ros_message, (void **)&ros_request_message_pp))
-    return enif_make_badarg(env);
+  void *ros_request_message;
+  if (!get_ros_message_data(env, argv[1], &ros_request_message)) return enif_make_badarg(env);
 
-  rc = rcl_action_send_result_request(action_client_p, *ros_request_message_pp, &sequence_number);
+  rc = rcl_action_send_result_request(action_client_p, ros_request_message, &sequence_number);
   if (rc == RCL_RET_OK)
     return enif_make_tuple2(env, atom_ok, enif_make_int64(env, sequence_number));
   else if (rc == RCL_RET_INVALID_ARGUMENT)

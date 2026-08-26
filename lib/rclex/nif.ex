@@ -28,6 +28,22 @@ defmodule Rclex.Nif do
     :erlang.nif_error(:nif_not_loaded)
   end
 
+  def dynamic_type_from_description!(_type_description_struct) do
+    :erlang.nif_error(:nif_not_loaded)
+  end
+
+  def dynamic_type_fill_message!(_dynamic_type, _message_map) do
+    :erlang.nif_error(:nif_not_loaded)
+  end
+
+  def dynamic_message_destroy!(_dynamic_message) do
+    :erlang.nif_error(:nif_not_loaded)
+  end
+
+  def dynamic_type_fini!(_dynamic_type) do
+    :erlang.nif_error(:nif_not_loaded)
+  end
+
   def rcl_init!() do
     :erlang.nif_error(:nif_not_loaded)
   end
