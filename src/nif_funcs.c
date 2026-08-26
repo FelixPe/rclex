@@ -79,6 +79,7 @@ static ErlNifFunc nif_funcs[] = {
     nif_io_bound_func(rcl_wait_timer, 3),
     nif_io_bound_func(rcl_service_init, 4),
     nif_io_bound_func(rcl_service_fini, 2),
+    nif_io_bound_func(rcl_service_configure_service_introspection, 6),
     nif_regular_func(rcl_service_set_on_new_request_callback, 1),
     nif_regular_func(rcl_service_clear_request_callback, 2),
     nif_regular_func(rcl_take_request_with_info, 2),

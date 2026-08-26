@@ -377,6 +377,18 @@ defmodule RclexTest do
                Rclex.start_service(callback, StdSrvs.Srv.SetBool, "/set_test_bool", "name")
     end
 
+    test "start_service/5 enables metadata introspection", %{callback: callback} do
+      assert :ok =
+               Rclex.start_service(callback, StdSrvs.Srv.SetBool, "/set_test_bool", "name",
+                 introspection: :metadata
+               )
+
+      assert {"/set_test_bool/_service_event", _types} =
+               Enum.find(Rclex.get_topic_names_and_types("name"), fn {topic_name, _types} ->
+                 topic_name == "/set_test_bool/_service_event"
+               end)
+    end
+
     test "start_service/4, node doesn't exist", %{callback: callback} do
       assert {:noproc, _} =
                catch_exit(

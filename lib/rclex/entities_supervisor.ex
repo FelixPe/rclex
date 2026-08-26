@@ -63,7 +63,19 @@ defmodule Rclex.EntitiesSupervisor do
     )
   end
 
-  def start_service(context, callback, node, service_type, service_name, name, namespace, qos) do
+  # credo:disable-for-next-line Credo.Check.Refactor.FunctionArity
+  def start_service(
+        context,
+        callback,
+        node,
+        service_type,
+        service_name,
+        name,
+        namespace,
+        qos,
+        introspection \\ :off,
+        introspection_qos \\ Rclex.QoS.profile_services_default()
+      ) do
     DynamicSupervisor.start_child(
       name(name, namespace),
       {Rclex.Service,
@@ -75,7 +87,9 @@ defmodule Rclex.EntitiesSupervisor do
          service_name: service_name,
          name: name,
          namespace: namespace,
-         qos: qos
+         qos: qos,
+         introspection: introspection,
+         introspection_qos: introspection_qos
        ]}
     )
   end

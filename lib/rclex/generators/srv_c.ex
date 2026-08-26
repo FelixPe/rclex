@@ -5,9 +5,9 @@ defmodule Rclex.Generators.SrvC do
 
   def generate(type) do
     EEx.eval_file(Path.join(Util.templates_dir_path(:srv), "srv_c.eex"),
+      function_prefix: "nif_" <> Util.type_down_snake(type),
       header_name: to_header_name(type),
       header_prefix: to_header_prefix(type),
-      function_prefix: "nif_" <> Util.type_down_snake(type),
       rosidl_get_srv_type_support: rosidl_get_srv_type_support(type)
     )
   end

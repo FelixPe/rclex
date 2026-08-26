@@ -6,6 +6,8 @@
 #include <erl_nif.h>
 #include <rcl/node.h>
 #include <rcl/service.h>
+#include <rcl/service_introspection.h>
+#include <rcl/time.h>
 #include <rcl/types.h>
 #include <rmw/ret_types.h>
 #include <rmw/types.h>
@@ -15,10 +17,16 @@
 
 ERL_NIF_TERM atom_new_request;
 ERL_NIF_TERM atom_service_take_failed;
+ERL_NIF_TERM atom_off;
+ERL_NIF_TERM atom_metadata;
+ERL_NIF_TERM atom_contents;
 
 void make_service_atoms(ErlNifEnv *env) {
   atom_new_request         = enif_make_atom(env, "new_request");
   atom_service_take_failed = enif_make_atom(env, "service_take_failed");
+  atom_off                 = enif_make_atom(env, "off");
+  atom_metadata            = enif_make_atom(env, "metadata");
+  atom_contents            = enif_make_atom(env, "contents");
 }
 
 ERL_NIF_TERM nif_rcl_service_init(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
@@ -83,6 +91,54 @@ ERL_NIF_TERM nif_rcl_service_fini(ErlNifEnv *env, int argc, const ERL_NIF_TERM a
 
   rcl_ret_t rc;
   rc = rcl_service_fini(service_p, node_p);
+  if (rc != RCL_RET_OK) return raise_with_safe_message(env, __FILE__, __LINE__, rc);
+
+  return atom_ok;
+}
+
+ERL_NIF_TERM nif_rcl_service_configure_service_introspection(ErlNifEnv *env, int argc,
+                                                             const ERL_NIF_TERM argv[]) {
+  if (argc != 6) return enif_make_badarg(env);
+
+  rcl_service_t *service_p;
+  if (!enif_get_resource(env, argv[0], rt_rcl_service_t, (void **)&service_p))
+    return enif_make_badarg(env);
+  if (!rcl_service_is_valid(service_p)) return raise(env, __FILE__, __LINE__);
+
+  rcl_node_t *node_p;
+  if (!enif_get_resource(env, argv[1], rt_rcl_node_t, (void **)&node_p))
+    return enif_make_badarg(env);
+  if (!rcl_node_is_valid(node_p)) return raise(env, __FILE__, __LINE__);
+
+  rcl_clock_t *clock_p;
+  if (!enif_get_resource(env, argv[2], rt_rcl_clock_t, (void **)&clock_p))
+    return enif_make_badarg(env);
+
+  rosidl_service_type_support_t *type_support_p;
+  if (!enif_get_resource(env, argv[3], rt_rosidl_service_type_support_t, (void **)&type_support_p))
+    return enif_make_badarg(env);
+
+  rmw_qos_profile_t qos;
+  ERL_NIF_TERM ret = get_c_qos_profile(env, argv[4], &qos);
+  if (enif_is_exception(env, ret)) return ret;
+
+  rcl_service_introspection_state_t state;
+  if (enif_is_identical(argv[5], atom_off)) {
+    state = RCL_SERVICE_INTROSPECTION_OFF;
+  } else if (enif_is_identical(argv[5], atom_metadata)) {
+    state = RCL_SERVICE_INTROSPECTION_METADATA;
+  } else if (enif_is_identical(argv[5], atom_contents)) {
+    state = RCL_SERVICE_INTROSPECTION_CONTENTS;
+  } else {
+    return enif_make_badarg(env);
+  }
+
+  rcl_publisher_options_t publisher_options = rcl_publisher_get_default_options();
+  publisher_options.allocator               = get_nif_allocator();
+  publisher_options.qos                     = qos;
+
+  rcl_ret_t rc = rcl_service_configure_service_introspection(
+      service_p, node_p, clock_p, type_support_p, publisher_options, state);
   if (rc != RCL_RET_OK) return raise_with_safe_message(env, __FILE__, __LINE__, rc);
 
   return atom_ok;

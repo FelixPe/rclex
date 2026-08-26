@@ -192,6 +192,17 @@ defmodule Rclex.Nif do
     :erlang.nif_error(:nif_not_loaded)
   end
 
+  def rcl_service_configure_service_introspection!(
+        _service,
+        _node,
+        _clock,
+        _type_support,
+        _qos,
+        _state
+      ) do
+    :erlang.nif_error(:nif_not_loaded)
+  end
+
   def rcl_service_set_on_new_request_callback!(_service) do
     :erlang.nif_error(:nif_not_loaded)
   end

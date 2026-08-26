@@ -33,11 +33,18 @@ defmodule Rclex.Service do
     namespace = Keyword.fetch!(args, :namespace)
     callback = Keyword.fetch!(args, :callback)
     qos = Keyword.get(args, :qos, Rclex.QoS.profile_services_default())
+    introspection = Keyword.get(args, :introspection, :off)
+
+    introspection_qos =
+      Keyword.get(args, :introspection_qos, Rclex.QoS.profile_services_default())
 
     1 = :erlang.fun_info(callback)[:arity]
 
     type_support = apply(service_type, :type_support!, [])
     service = Nif.rcl_service_init!(node, type_support, ~c"#{service_name}", qos)
+
+    introspection_clock =
+      configure_introspection(service, node, service_type, introspection, introspection_qos)
 
     {:ok,
      %{
@@ -51,16 +58,26 @@ defmodule Rclex.Service do
        namespace: namespace,
        request_type: apply(service_type, :request_type, []),
        response_type: apply(service_type, :response_type, []),
+       introspection_clock: introspection_clock,
        callback_resource: nil
      }, {:continue, nil}}
   end
 
   def terminate(
         reason,
-        %{node: node, service: service, callback_resource: callback_resource} = state
+        %{
+          node: node,
+          service: service,
+          callback_resource: callback_resource,
+          introspection_clock: introspection_clock
+        } = state
       ) do
     Nif.rcl_service_clear_request_callback!(service, callback_resource)
     Nif.rcl_service_fini!(service, node)
+
+    if introspection_clock do
+      Nif.rcl_clock_fini!(introspection_clock)
+    end
 
     Logger.debug("#{__MODULE__}: #{inspect(reason)} #{Path.join(state.namespace, state.name)}")
   end
@@ -118,5 +135,32 @@ defmodule Rclex.Service do
     end
 
     {:noreply, state}
+  end
+
+  defp configure_introspection(_service, _node, _service_type, :off, _qos), do: nil
+
+  defp configure_introspection(service, node, service_type, state, qos)
+       when state in [:metadata, :contents] do
+    clock = Nif.rcl_clock_init!(:system_time)
+
+    try do
+      type_support = apply(service_type, :type_support!, [])
+
+      :ok =
+        Nif.rcl_service_configure_service_introspection!(
+          service,
+          node,
+          clock,
+          type_support,
+          qos,
+          state
+        )
+
+      clock
+    rescue
+      exception ->
+        Nif.rcl_clock_fini!(clock)
+        reraise exception, __STACKTRACE__
+    end
   end
 end

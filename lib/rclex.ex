@@ -20,6 +20,8 @@ defmodule Rclex do
   @no_demangle_doc "`:no_demangle` if `true`, return all topics without any demangling. if not specified, the default is `false`"
   @no_mangle_doc "`:no_mangle` if `true`, `topic_name` needs to be a valid middleware topic name, otherwise it should be a valid ROS topic name. if not specified, the default is `false`"
   @goal_uuid_doc "`goal_uuid` define the UUID of the goal. By default a random UUID will be generated."
+  @introspection_doc "`:introspection` enables service event publishing with `:metadata` or `:contents`. If not specified, the default is `:off`"
+  @introspection_qos_doc "`:introspection_qos` configures the service event publisher. If not specified, the default is `Rclex.QoS.profile_services_default/0`"
 
   @typedoc "#{@topic_name_doc}."
   @type topic_name :: String.t()
@@ -540,6 +542,8 @@ defmodule Rclex do
 
   - #{@namespace_doc}
   - #{@qos_doc}
+  - #{@introspection_doc}
+  - #{@introspection_qos_doc}
 
   ### Examples
 
@@ -555,7 +559,12 @@ defmodule Rclex do
           service_type :: module(),
           service_name :: service_name(),
           node_name :: String.t(),
-          opts :: [namespace: String.t(), qos: QoS.t()]
+          opts :: [
+            namespace: String.t(),
+            qos: QoS.t(),
+            introspection: :off | :metadata | :contents,
+            introspection_qos: QoS.t()
+          ]
         ) ::
           :ok | {:error, :already_started} | {:error, term()}
   def start_service(callback, service_type, service_name, node_name, opts \\ [])
@@ -563,6 +572,8 @@ defmodule Rclex do
              is_binary(node_name) and is_list(opts) do
     namespace = Keyword.get(opts, :namespace, "/")
     qos = Keyword.get(opts, :qos, QoS.profile_services_default())
+    introspection = Keyword.get(opts, :introspection, :off)
+    introspection_qos = Keyword.get(opts, :introspection_qos, QoS.profile_services_default())
 
     case Rclex.Node.start_service(
            callback,
@@ -570,7 +581,9 @@ defmodule Rclex do
            service_name,
            node_name,
            namespace,
-           qos
+           qos,
+           introspection,
+           introspection_qos
          ) do
       {:ok, _pid} -> :ok
       {:error, {:already_started, _pid}} -> {:error, :already_started}
