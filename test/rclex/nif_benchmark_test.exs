@@ -647,14 +647,15 @@ defmodule Rclex.NifBenchmarkTest do
 
       request_message = Nif.tf2_msgs_action_lookup_transform__send_goal__request_create!()
       response_message = Nif.tf2_msgs_action_lookup_transform__send_goal__response_create!()
-      goal_struct = %Rclex.Pkgs.Tf2Msgs.Action.LookupTransform.Goal{source_frame: "/source_frame", target_frame: "/target_frame"}
+
+      goal_struct = %Rclex.Pkgs.Tf2Msgs.Action.LookupTransform.Goal{
+        source_frame: "/source_frame",
+        target_frame: "/target_frame"
+      }
 
       Nif.tf2_msgs_action_lookup_transform__send_goal__request_set!(
         request_message,
         {{uuid}, Rclex.Pkgs.Tf2Msgs.Action.LookupTransform.Goal.to_tuple(goal_struct)}
-
-
-
       )
 
       Nif.tf2_msgs_action_lookup_transform__send_goal__response_set!(
