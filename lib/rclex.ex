@@ -640,6 +640,8 @@ defmodule Rclex do
 
   - #{@namespace_doc}
   - #{@qos_doc}
+  - #{@introspection_doc}
+  - #{@introspection_qos_doc}
 
   ### Examples
 
@@ -658,7 +660,12 @@ defmodule Rclex do
           service_type :: module(),
           service_name :: service_name(),
           node_name :: String.t(),
-          opts :: [namespace: String.t(), qos: QoS.t()]
+          opts :: [
+            namespace: String.t(),
+            qos: QoS.t(),
+            introspection: :off | :metadata | :contents,
+            introspection_qos: QoS.t()
+          ]
         ) ::
           :ok | {:error, :already_started} | {:error, term()}
   def start_client(callback, service_type, service_name, node_name, opts \\ [])
@@ -666,6 +673,8 @@ defmodule Rclex do
              is_binary(node_name) and is_list(opts) do
     namespace = Keyword.get(opts, :namespace, "/")
     qos = Keyword.get(opts, :qos, QoS.profile_services_default())
+    introspection = Keyword.get(opts, :introspection, :off)
+    introspection_qos = Keyword.get(opts, :introspection_qos, QoS.profile_services_default())
 
     case Rclex.Node.start_client(
            callback,
@@ -673,7 +682,9 @@ defmodule Rclex do
            service_name,
            node_name,
            namespace,
-           qos
+           qos,
+           introspection,
+           introspection_qos
          ) do
       {:ok, _pid} -> :ok
       {:error, {:already_started, _pid}} -> {:error, :already_started}

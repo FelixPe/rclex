@@ -64,9 +64,22 @@ defmodule Rclex.Node do
     GenServer.call(server, {:stop_service, service_type, service_name})
   end
 
-  def start_client(callback, service_type, service_name, name, namespace, qos) do
+  def start_client(
+        callback,
+        service_type,
+        service_name,
+        name,
+        namespace,
+        qos,
+        introspection \\ :off,
+        introspection_qos \\ Rclex.QoS.profile_services_default()
+      ) do
     server = name(name, namespace)
-    GenServer.call(server, {:start_client, callback, service_type, service_name, qos})
+
+    GenServer.call(
+      server,
+      {:start_client, callback, service_type, service_name, qos, introspection, introspection_qos}
+    )
   end
 
   def stop_client(service_type, service_name, name, namespace \\ "/") do
@@ -405,6 +418,29 @@ defmodule Rclex.Node do
         state.name,
         state.namespace,
         qos
+      )
+
+    {:reply, return, state}
+  end
+
+  def handle_call(
+        {:start_client, callback, service_type, service_name, qos, introspection,
+         introspection_qos},
+        _from,
+        state
+      ) do
+    return =
+      ES.start_client(
+        state.context,
+        callback,
+        state.node,
+        service_type,
+        service_name,
+        state.name,
+        state.namespace,
+        qos,
+        introspection,
+        introspection_qos
       )
 
     {:reply, return, state}

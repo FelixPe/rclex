@@ -107,9 +107,16 @@ defmodule Rclex.Client do
     namespace = Keyword.fetch!(args, :namespace)
     callback = Keyword.fetch!(args, :callback)
     qos = Keyword.get(args, :qos, Rclex.QoS.profile_services_default())
+    introspection = Keyword.get(args, :introspection, :off)
+
+    introspection_qos =
+      Keyword.get(args, :introspection_qos, Rclex.QoS.profile_services_default())
 
     type_support = apply(service_type, :type_support!, [])
     client = Nif.rcl_client_init!(node, type_support, ~c"#{service_name}", qos)
+
+    introspection_clock =
+      configure_introspection(client, node, service_type, introspection, introspection_qos)
 
     {:ok,
      %{
@@ -124,16 +131,26 @@ defmodule Rclex.Client do
        request_type: apply(service_type, :request_type, []),
        response_type: apply(service_type, :response_type, []),
        callback_resource: nil,
-       requests: %{}
+       requests: %{},
+       introspection_clock: introspection_clock
      }, {:continue, nil}}
   end
 
   def terminate(
         reason,
-        %{node: node, client: client, callback_resource: callback_resource} = state
+        %{
+          node: node,
+          client: client,
+          callback_resource: callback_resource,
+          introspection_clock: introspection_clock
+        } = state
       ) do
     Nif.rcl_client_clear_response_callback!(client, callback_resource)
     Nif.rcl_client_fini!(client, node)
+
+    if introspection_clock do
+      Nif.rcl_clock_fini!(introspection_clock)
+    end
 
     Logger.debug("#{__MODULE__}: #{inspect(reason)} #{Path.join(state.namespace, state.name)}")
   end
@@ -263,5 +280,32 @@ defmodule Rclex.Client do
 
   def handle_cast({:remove_pending, sequence}, %{requests: requests} = state) do
     {:noreply, %{state | requests: Map.delete(requests, sequence)}}
+  end
+
+  defp configure_introspection(_client, _node, _client_type, :off, _qos), do: nil
+
+  defp configure_introspection(client, node, client_type, state, qos)
+       when state in [:metadata, :contents] do
+    clock = Nif.rcl_clock_init!(:ros_time)
+
+    try do
+      type_support = apply(client_type, :type_support!, [])
+
+      :ok =
+        Nif.rcl_client_configure_service_introspection!(
+          client,
+          node,
+          clock,
+          type_support,
+          qos,
+          state
+        )
+
+      clock
+    rescue
+      exception ->
+        Nif.rcl_clock_fini!(clock)
+        reraise exception, __STACKTRACE__
+    end
   end
 end

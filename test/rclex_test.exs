@@ -389,6 +389,44 @@ defmodule RclexTest do
                end)
     end
 
+    test "start_service/5 enables contents introspection", %{callback: callback} do
+      assert :ok =
+               Rclex.start_service(
+                 callback,
+                 StdSrvs.Srv.SetBool,
+                 "/set_test_bool_contents",
+                 "name", introspection: :contents)
+
+      assert {"/set_test_bool_contents/_service_event", _types} =
+               Enum.find(Rclex.get_topic_names_and_types("name"), fn {topic_name, _types} ->
+                 topic_name == "/set_test_bool_contents/_service_event"
+               end)
+    end
+
+    test "start_service/5 with custom introspection_qos", %{callback: callback} do
+      custom_qos = %Rclex.QoS{
+        history: :keep_last,
+        depth: 5,
+        reliability: :best_effort,
+        durability: :transient_local
+      }
+
+      assert :ok =
+               Rclex.start_service(
+                 callback,
+                 StdSrvs.Srv.SetBool,
+                 "/set_test_bool_custom_qos",
+                 "name",
+                 introspection: :metadata,
+                 introspection_qos: custom_qos
+               )
+
+      assert {"/set_test_bool_custom_qos/_service_event", _types} =
+               Enum.find(Rclex.get_topic_names_and_types("name"), fn {topic_name, _types} ->
+                 topic_name == "/set_test_bool_custom_qos/_service_event"
+               end)
+    end
+
     test "start_service/4, node doesn't exist", %{callback: callback} do
       assert {:noproc, _} =
                catch_exit(
@@ -435,6 +473,58 @@ defmodule RclexTest do
 
       assert {:error, :already_started} =
                Rclex.start_client(callback, StdSrvs.Srv.SetBool, "/set_test_bool", "name")
+    end
+
+    test "start_client/5 enables metadata introspection", %{callback: callback} do
+      assert :ok =
+               Rclex.start_client(
+                 callback,
+                 StdSrvs.Srv.SetBool,
+                 "/set_test_bool_client_meta",
+                 "name", introspection: :metadata)
+
+      assert {"/set_test_bool_client_meta/_service_event", _types} =
+               Enum.find(Rclex.get_topic_names_and_types("name"), fn {topic_name, _types} ->
+                 topic_name == "/set_test_bool_client_meta/_service_event"
+               end)
+    end
+
+    test "start_client/5 enables contents introspection", %{callback: callback} do
+      assert :ok =
+               Rclex.start_client(
+                 callback,
+                 StdSrvs.Srv.SetBool,
+                 "/set_test_bool_client_contents",
+                 "name", introspection: :contents)
+
+      assert {"/set_test_bool_client_contents/_service_event", _types} =
+               Enum.find(Rclex.get_topic_names_and_types("name"), fn {topic_name, _types} ->
+                 topic_name == "/set_test_bool_client_contents/_service_event"
+               end)
+    end
+
+    test "start_client/5 with custom introspection_qos", %{callback: callback} do
+      custom_qos = %Rclex.QoS{
+        history: :keep_last,
+        depth: 10,
+        reliability: :reliable,
+        durability: :volatile
+      }
+
+      assert :ok =
+               Rclex.start_client(
+                 callback,
+                 StdSrvs.Srv.SetBool,
+                 "/set_test_bool_client_custom_qos",
+                 "name",
+                 introspection: :metadata,
+                 introspection_qos: custom_qos
+               )
+
+      assert {"/set_test_bool_client_custom_qos/_service_event", _types} =
+               Enum.find(Rclex.get_topic_names_and_types("name"), fn {topic_name, _types} ->
+                 topic_name == "/set_test_bool_client_custom_qos/_service_event"
+               end)
     end
 
     test "start_client/4, node doesn't exist", %{callback: callback} do

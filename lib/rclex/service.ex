@@ -141,7 +141,7 @@ defmodule Rclex.Service do
 
   defp configure_introspection(service, node, service_type, state, qos)
        when state in [:metadata, :contents] do
-    clock = Nif.rcl_clock_init!(:system_time)
+    clock = Nif.rcl_clock_init!(:ros_time)
 
     try do
       type_support = apply(service_type, :type_support!, [])
