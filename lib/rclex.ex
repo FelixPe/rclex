@@ -624,6 +624,56 @@ defmodule Rclex do
   end
 
   @doc """
+  Reconfigure service introspection at runtime, without restarting the service.
+
+  - #{@service_name_doc}
+  - #{@introspection_doc}
+
+  ### opts
+
+  - #{@namespace_doc}
+  - #{@introspection_qos_doc}
+
+  ### Examples
+
+      iex> alias Rclex.Pkgs.StdSrvs
+      iex> Rclex.configure_service_introspection(StdSrvs.Srv.SetBool, "/set_bool", "node", :contents, namespace: "/example")
+      :ok
+      iex> Rclex.configure_service_introspection(StdSrvs.Srv.SetBool, "/does_not_exist", "node", :off, namespace: "/example")
+      {:error, :not_found}
+  """
+  @doc section: :service
+  @spec configure_service_introspection(
+          service_type :: module(),
+          service_name :: service_name(),
+          node_name :: String.t(),
+          introspection :: :off | :metadata | :contents,
+          opts :: [namespace: String.t(), introspection_qos: QoS.t()]
+        ) ::
+          :ok | {:error, :not_found}
+  def configure_service_introspection(
+        service_type,
+        service_name,
+        node_name,
+        introspection,
+        opts \\ []
+      )
+      when is_atom(service_type) and is_binary(service_name) and is_binary(node_name) and
+             introspection in [:off, :metadata, :contents] and is_list(opts) do
+    namespace = Keyword.get(opts, :namespace, "/")
+    introspection_qos = Keyword.get(opts, :introspection_qos, QoS.profile_services_default())
+
+    Rclex.Service.configure_introspection(
+      service_type,
+      service_name,
+      node_name,
+      introspection,
+      introspection_qos,
+      namespace
+    )
+  end
+
+  @doc """
   Start a ROS client. After calling this function for a ROS `service_type`, it can be used to
   send requests of the given type to the service server. If the request is received by
   a (possibly remote) service and if the service sends a response,
@@ -800,6 +850,56 @@ defmodule Rclex do
              is_list(opts) do
     namespace = Keyword.get(opts, :namespace, "/")
     Rclex.Node.stop_client(service_type, service_name, node_name, namespace)
+  end
+
+  @doc """
+  Reconfigure client introspection at runtime, without restarting the client.
+
+  - #{@service_name_doc}
+  - #{@introspection_doc}
+
+  ### opts
+
+  - #{@namespace_doc}
+  - #{@introspection_qos_doc}
+
+  ### Examples
+
+      iex> alias Rclex.Pkgs.StdSrvs
+      iex> Rclex.configure_client_introspection(StdSrvs.Srv.SetBool, "/set_bool", "node", :contents, namespace: "/example")
+      :ok
+      iex> Rclex.configure_client_introspection(StdSrvs.Srv.SetBool, "/does_not_exist", "node", :off, namespace: "/example")
+      {:error, :not_found}
+  """
+  @doc section: :client
+  @spec configure_client_introspection(
+          service_type :: module(),
+          service_name :: service_name(),
+          node_name :: String.t(),
+          introspection :: :off | :metadata | :contents,
+          opts :: [namespace: String.t(), introspection_qos: QoS.t()]
+        ) ::
+          :ok | {:error, :not_found}
+  def configure_client_introspection(
+        service_type,
+        service_name,
+        node_name,
+        introspection,
+        opts \\ []
+      )
+      when is_atom(service_type) and is_binary(service_name) and is_binary(node_name) and
+             introspection in [:off, :metadata, :contents] and is_list(opts) do
+    namespace = Keyword.get(opts, :namespace, "/")
+    introspection_qos = Keyword.get(opts, :introspection_qos, QoS.profile_services_default())
+
+    Rclex.Client.configure_introspection(
+      service_type,
+      service_name,
+      node_name,
+      introspection,
+      introspection_qos,
+      namespace
+    )
   end
 
   @doc """

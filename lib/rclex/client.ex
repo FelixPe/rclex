@@ -94,6 +94,24 @@ defmodule Rclex.Client do
     end
   end
 
+  @doc """
+  Reconfigure client introspection at runtime, switching between `:off`, `:metadata` and `:contents`.
+  """
+  def configure_introspection(
+        service_type,
+        service_name,
+        name,
+        introspection,
+        introspection_qos \\ Rclex.QoS.profile_services_default(),
+        namespace \\ "/"
+      )
+      when introspection in [:off, :metadata, :contents] do
+    case GenServer.whereis(name(service_type, service_name, name, namespace)) do
+      nil -> {:error, :not_found}
+      pid -> GenServer.call(pid, {:configure_introspection, introspection, introspection_qos})
+    end
+  end
+
   # callbacks
 
   def init(args) do
@@ -116,7 +134,7 @@ defmodule Rclex.Client do
     client = Nif.rcl_client_init!(node, type_support, ~c"#{service_name}", qos)
 
     introspection_clock =
-      configure_introspection(client, node, service_type, introspection, introspection_qos)
+      start_introspection(client, node, service_type, introspection, introspection_qos)
 
     {:ok,
      %{
@@ -158,6 +176,29 @@ defmodule Rclex.Client do
   def handle_continue(nil, %{client: client} = state) do
     callback_resource = Nif.rcl_client_set_on_new_response_callback!(client)
     {:noreply, %{state | callback_resource: callback_resource}}
+  end
+
+  def handle_call(
+        {:configure_introspection, introspection, introspection_qos},
+        _from,
+        %{
+          client: client,
+          node: node,
+          service_type: service_type,
+          introspection_clock: introspection_clock
+        } = state
+      ) do
+    new_introspection_clock =
+      reconfigure_introspection(
+        client,
+        node,
+        service_type,
+        introspection_clock,
+        introspection,
+        introspection_qos
+      )
+
+    {:reply, :ok, %{state | introspection_clock: new_introspection_clock}}
   end
 
   def handle_call(
@@ -282,9 +323,9 @@ defmodule Rclex.Client do
     {:noreply, %{state | requests: Map.delete(requests, sequence)}}
   end
 
-  defp configure_introspection(_client, _node, _client_type, :off, _qos), do: nil
+  defp start_introspection(_client, _node, _client_type, :off, _qos), do: nil
 
-  defp configure_introspection(client, node, client_type, state, qos)
+  defp start_introspection(client, node, client_type, state, qos)
        when state in [:metadata, :contents] do
     clock = Nif.rcl_clock_init!(:ros_time)
 
@@ -307,5 +348,50 @@ defmodule Rclex.Client do
         Nif.rcl_clock_fini!(clock)
         reraise exception, __STACKTRACE__
     end
+  end
+
+  # already off, nothing to tear down
+  defp reconfigure_introspection(_client, _node, _client_type, nil, :off, _qos), do: nil
+
+  # first time enabling, no existing clock to reuse
+  defp reconfigure_introspection(client, node, client_type, nil, state, qos)
+       when state in [:metadata, :contents] do
+    start_introspection(client, node, client_type, state, qos)
+  end
+
+  # disabling requires passing the existing clock so rcl can tear down the publisher
+  defp reconfigure_introspection(client, node, client_type, clock, :off, qos) do
+    type_support = apply(client_type, :type_support!, [])
+
+    :ok =
+      Nif.rcl_client_configure_service_introspection!(
+        client,
+        node,
+        clock,
+        type_support,
+        qos,
+        :off
+      )
+
+    Nif.rcl_clock_fini!(clock)
+    nil
+  end
+
+  # switching between metadata/contents while enabled, reuse the existing clock
+  defp reconfigure_introspection(client, node, client_type, clock, state, qos)
+       when state in [:metadata, :contents] do
+    type_support = apply(client_type, :type_support!, [])
+
+    :ok =
+      Nif.rcl_client_configure_service_introspection!(
+        client,
+        node,
+        clock,
+        type_support,
+        qos,
+        state
+      )
+
+    clock
   end
 end

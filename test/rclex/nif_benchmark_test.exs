@@ -1,3 +1,8 @@
+# Benchmarks for Rclex NIF functions
+# 
+# These benchmarks measure the execution time of various Rclex NIF functions to ensure they
+# complete within acceptable time limits for the BEAM scheduler.
+# To run them use `mix test test/rclex/nif_benchmark_test.exs  --include skip`
 defmodule Rclex.NifBenchmarkTest do
   use ExUnit.Case
 
@@ -165,6 +170,192 @@ defmodule Rclex.NifBenchmarkTest do
     test "rcl_client_fini!/2", %{node: node, type_support: type_support, qos: qos} do
       client = Nif.rcl_client_init!(node, type_support, ~c"/set_test_bool", qos)
       {time_us, :ok} = :timer.tc(&Nif.rcl_client_fini!/2, [client, node])
+      assert time_us <= @nif_limit_time_us
+    end
+  end
+
+  describe "service introspection" do
+    setup do
+      context = Nif.rcl_init!()
+      node = Nif.rcl_node_init!(context, ~c"name", ~c"/namespace")
+      type_support = Nif.std_srvs_srv_set_bool_type_support!()
+      qos = QoS.profile_services_default()
+      service = Nif.rcl_service_init!(node, type_support, ~c"/set_test_bool", qos)
+      clock = Nif.rcl_clock_init!(:ros_time)
+
+      on_exit(fn ->
+        :ok = Nif.rcl_clock_fini!(clock)
+        :ok = Nif.rcl_service_fini!(service, node)
+        :ok = Nif.rcl_node_fini!(node)
+        :ok = Nif.rcl_fini!(context)
+      end)
+
+      %{node: node, type_support: type_support, qos: qos, service: service, clock: clock}
+    end
+
+    # marked as a dirty (IO bound) NIF since it allocates a publisher; confirm it still
+    # exceeds the regular NIF budget, otherwise it could be downgraded to a regular NIF
+    test "rcl_service_configure_service_introspection!/6 enable", %{
+      service: service,
+      node: node,
+      clock: clock,
+      type_support: type_support,
+      qos: qos
+    } do
+      {time_us, :ok} =
+        :timer.tc(&Nif.rcl_service_configure_service_introspection!/6, [
+          service,
+          node,
+          clock,
+          type_support,
+          qos,
+          :metadata
+        ])
+
+      assert time_us <= @nif_limit_time_us
+
+      :ok =
+        Nif.rcl_service_configure_service_introspection!(
+          service,
+          node,
+          clock,
+          type_support,
+          qos,
+          :off
+        )
+    end
+
+    test "rcl_service_configure_service_introspection!/6 toggling at runtime", %{
+      service: service,
+      node: node,
+      clock: clock,
+      type_support: type_support,
+      qos: qos
+    } do
+      :ok =
+        Nif.rcl_service_configure_service_introspection!(
+          service,
+          node,
+          clock,
+          type_support,
+          qos,
+          :metadata
+        )
+
+      {time_us, :ok} =
+        :timer.tc(&Nif.rcl_service_configure_service_introspection!/6, [
+          service,
+          node,
+          clock,
+          type_support,
+          qos,
+          :contents
+        ])
+
+      assert time_us <= @nif_limit_time_us
+
+      {time_us, :ok} =
+        :timer.tc(&Nif.rcl_service_configure_service_introspection!/6, [
+          service,
+          node,
+          clock,
+          type_support,
+          qos,
+          :off
+        ])
+
+      assert time_us <= @nif_limit_time_us
+    end
+  end
+
+  describe "client introspection" do
+    setup do
+      context = Nif.rcl_init!()
+      node = Nif.rcl_node_init!(context, ~c"name", ~c"/namespace")
+      type_support = Nif.std_srvs_srv_set_bool_type_support!()
+      qos = QoS.profile_services_default()
+      client = Nif.rcl_client_init!(node, type_support, ~c"/set_test_bool", qos)
+      clock = Nif.rcl_clock_init!(:ros_time)
+
+      on_exit(fn ->
+        :ok = Nif.rcl_clock_fini!(clock)
+        :ok = Nif.rcl_client_fini!(client, node)
+        :ok = Nif.rcl_node_fini!(node)
+        :ok = Nif.rcl_fini!(context)
+      end)
+
+      %{node: node, type_support: type_support, qos: qos, client: client, clock: clock}
+    end
+
+    test "rcl_client_configure_service_introspection!/6 enable", %{
+      client: client,
+      node: node,
+      clock: clock,
+      type_support: type_support,
+      qos: qos
+    } do
+      {time_us, :ok} =
+        :timer.tc(&Nif.rcl_client_configure_service_introspection!/6, [
+          client,
+          node,
+          clock,
+          type_support,
+          qos,
+          :metadata
+        ])
+
+      assert time_us <= @nif_limit_time_us
+
+      :ok =
+        Nif.rcl_client_configure_service_introspection!(
+          client,
+          node,
+          clock,
+          type_support,
+          qos,
+          :off
+        )
+    end
+
+    test "rcl_client_configure_service_introspection!/6 toggling at runtime", %{
+      client: client,
+      node: node,
+      clock: clock,
+      type_support: type_support,
+      qos: qos
+    } do
+      :ok =
+        Nif.rcl_client_configure_service_introspection!(
+          client,
+          node,
+          clock,
+          type_support,
+          qos,
+          :metadata
+        )
+
+      {time_us, :ok} =
+        :timer.tc(&Nif.rcl_client_configure_service_introspection!/6, [
+          client,
+          node,
+          clock,
+          type_support,
+          qos,
+          :contents
+        ])
+
+      assert time_us <= @nif_limit_time_us
+
+      {time_us, :ok} =
+        :timer.tc(&Nif.rcl_client_configure_service_introspection!/6, [
+          client,
+          node,
+          clock,
+          type_support,
+          qos,
+          :off
+        ])
+
       assert time_us <= @nif_limit_time_us
     end
   end
@@ -456,10 +647,14 @@ defmodule Rclex.NifBenchmarkTest do
 
       request_message = Nif.tf2_msgs_action_lookup_transform__send_goal__request_create!()
       response_message = Nif.tf2_msgs_action_lookup_transform__send_goal__response_create!()
+      goal_struct = %Rclex.Pkgs.Tf2Msgs.Action.LookupTransform.Goal{source_frame: "/source_frame", target_frame: "/target_frame"}
 
       Nif.tf2_msgs_action_lookup_transform__send_goal__request_set!(
         request_message,
-        {{uuid}, {1.234}}
+        {{uuid}, Rclex.Pkgs.Tf2Msgs.Action.LookupTransform.Goal.to_tuple(goal_struct)}
+
+
+
       )
 
       Nif.tf2_msgs_action_lookup_transform__send_goal__response_set!(
@@ -507,10 +702,11 @@ defmodule Rclex.NifBenchmarkTest do
       response_message = Nif.tf2_msgs_action_lookup_transform__get_result__response_create!()
 
       Nif.tf2_msgs_action_lookup_transform__get_result__request_set!(request_message, {{uuid}})
+      result_struct = %Rclex.Pkgs.Tf2Msgs.Action.LookupTransform.Result{}
 
       Nif.tf2_msgs_action_lookup_transform__get_result__response_set!(
         response_message,
-        {0, {1.234}}
+        {0, Rclex.Pkgs.Tf2Msgs.Action.LookupTransform.Result.to_tuple(result_struct)}
       )
 
       {time_us, {:ok, request_id_send}} =
