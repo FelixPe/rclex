@@ -22,6 +22,11 @@ defmodule Rclex.Subscription do
 
   # callbacks
 
+  # bounds how many callbacks run concurrently per batch of taken messages
+  @default_max_concurrency System.schedulers_online()
+  # kills a single stuck callback rather than blocking the whole batch forever
+  @default_callback_timeout 5_000
+
   def init(args) do
     Process.flag(:trap_exit, true)
 
@@ -33,6 +38,8 @@ defmodule Rclex.Subscription do
     name = Keyword.fetch!(args, :name)
     namespace = Keyword.fetch!(args, :namespace)
     qos = Keyword.get(args, :qos, Rclex.QoS.profile_default())
+    max_concurrency = Keyword.get(args, :max_concurrency, @default_max_concurrency)
+    callback_timeout = Keyword.get(args, :callback_timeout, @default_callback_timeout)
 
     arity = :erlang.fun_info(callback)[:arity]
 
@@ -55,7 +62,9 @@ defmodule Rclex.Subscription do
        name: name,
        namespace: namespace,
        subscription: subscription,
-       callback_resource: nil
+       callback_resource: nil,
+       max_concurrency: max_concurrency,
+       callback_timeout: callback_timeout
      }, {:continue, nil}}
   end
 
@@ -72,28 +81,31 @@ defmodule Rclex.Subscription do
   end
 
   def handle_info({:new_message, number_of_events}, state) when number_of_events > 0 do
-    for _ <- 1..number_of_events do
-      message = apply(state.message_type, :create!, [])
-
-      try do
-        case take(state, message) do
-          {:ok, message_info} ->
-            message_struct = apply(state.message_type, :get!, [message])
-            dispatch(state, message_struct, message_info)
-
-          :ok ->
-            message_struct = apply(state.message_type, :get!, [message])
-            dispatch(state, message_struct, nil)
-
-          :subscription_take_failed ->
-            Logger.debug("#{__MODULE__}: take failed but no error occurred in the middleware")
-        end
-      after
-        :ok = apply(state.message_type, :destroy!, [message])
-      end
-    end
+    1..number_of_events
+    |> Enum.reduce([], fn _, acc -> take_one(state, acc) end)
+    |> dispatch_all(state)
 
     {:noreply, state}
+  end
+
+  defp take_one(state, acc) do
+    message = apply(state.message_type, :create!, [])
+
+    try do
+      case take(state, message) do
+        {:ok, message_info} ->
+          [{apply(state.message_type, :get!, [message]), message_info} | acc]
+
+        :ok ->
+          [{apply(state.message_type, :get!, [message]), nil} | acc]
+
+        :subscription_take_failed ->
+          Logger.debug("#{__MODULE__}: take failed but no error occurred in the middleware")
+          acc
+      end
+    after
+      :ok = apply(state.message_type, :destroy!, [message])
+    end
   end
 
   defp take(%{callback_arity: 2} = state, message) do
@@ -104,19 +116,36 @@ defmodule Rclex.Subscription do
     Nif.rcl_take!(state.subscription, message)
   end
 
-  defp dispatch(%{callback_arity: 2} = state, message_struct, message_info) do
-    {:ok, _pid} =
-      Task.Supervisor.start_child(
-        {:via, PartitionSupervisor, {Rclex.TaskSupervisors, self()}},
-        fn -> state.callback.(message_struct, message_info) end
-      )
+  defp dispatch_all([], _state), do: :ok
+
+  defp dispatch_all(messages, state) do
+    {:via, PartitionSupervisor, {Rclex.TaskSupervisors, self()}}
+    |> Task.Supervisor.async_stream_nolink(
+      messages,
+      fn {message_struct, message_info} ->
+        invoke_callback(state, message_struct, message_info)
+      end,
+      max_concurrency: state.max_concurrency,
+      ordered: false,
+      timeout: state.callback_timeout,
+      on_timeout: :kill_task
+    )
+    |> Enum.each(&log_callback_result(&1, state))
   end
 
-  defp dispatch(state, message_struct, _message_info) do
-    {:ok, _pid} =
-      Task.Supervisor.start_child(
-        {:via, PartitionSupervisor, {Rclex.TaskSupervisors, self()}},
-        fn -> state.callback.(message_struct) end
-      )
+  defp log_callback_result({:ok, _result}, _state), do: :ok
+
+  defp log_callback_result({:exit, reason}, state) do
+    Logger.warning(
+      "#{__MODULE__}: callback failed #{Path.join(state.namespace, state.name)} #{inspect(reason)}"
+    )
+  end
+
+  defp invoke_callback(%{callback_arity: 2} = state, message_struct, message_info) do
+    state.callback.(message_struct, message_info)
+  end
+
+  defp invoke_callback(state, message_struct, _message_info) do
+    state.callback.(message_struct)
   end
 end

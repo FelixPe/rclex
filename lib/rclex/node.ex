@@ -20,9 +20,9 @@ defmodule Rclex.Node do
     {:global, {name, namespace}}
   end
 
-  def start_publisher(message_type, topic_name, name, namespace, qos) do
+  def start_publisher(message_type, topic_name, name, namespace, opts \\ []) do
     server = name(name, namespace)
-    GenServer.call(server, {:start_publisher, message_type, topic_name, qos})
+    GenServer.call(server, {:start_publisher, message_type, topic_name, opts})
   end
 
   def stop_publisher(message_type, topic_name, name, namespace \\ "/") do
@@ -30,9 +30,9 @@ defmodule Rclex.Node do
     GenServer.call(server, {:stop_publisher, message_type, topic_name})
   end
 
-  def start_subscription(callback, message_type, topic_name, name, namespace, qos) do
+  def start_subscription(callback, message_type, topic_name, name, namespace, opts \\ []) do
     server = name(name, namespace)
-    GenServer.call(server, {:start_subscription, callback, message_type, topic_name, qos})
+    GenServer.call(server, {:start_subscription, callback, message_type, topic_name, opts})
   end
 
   def stop_subscription(message_type, topic_name, name, namespace \\ "/") do
@@ -40,23 +40,9 @@ defmodule Rclex.Node do
     GenServer.call(server, {:stop_subscription, message_type, topic_name})
   end
 
-  def start_service(
-        callback,
-        service_type,
-        service_name,
-        name,
-        namespace,
-        qos,
-        introspection \\ :off,
-        introspection_qos \\ Rclex.QoS.profile_services_default()
-      ) do
+  def start_service(callback, service_type, service_name, name, namespace, opts \\ []) do
     server = name(name, namespace)
-
-    GenServer.call(
-      server,
-      {:start_service, callback, service_type, service_name, qos, introspection,
-       introspection_qos}
-    )
+    GenServer.call(server, {:start_service, callback, service_type, service_name, opts})
   end
 
   def stop_service(service_type, service_name, name, namespace \\ "/") do
@@ -64,22 +50,9 @@ defmodule Rclex.Node do
     GenServer.call(server, {:stop_service, service_type, service_name})
   end
 
-  def start_client(
-        callback,
-        service_type,
-        service_name,
-        name,
-        namespace,
-        qos,
-        introspection \\ :off,
-        introspection_qos \\ Rclex.QoS.profile_services_default()
-      ) do
+  def start_client(callback, service_type, service_name, name, namespace, opts \\ []) do
     server = name(name, namespace)
-
-    GenServer.call(
-      server,
-      {:start_client, callback, service_type, service_name, qos, introspection, introspection_qos}
-    )
+    GenServer.call(server, {:start_client, callback, service_type, service_name, opts})
   end
 
   def stop_client(service_type, service_name, name, namespace \\ "/") do
@@ -365,9 +338,9 @@ defmodule Rclex.Node do
     Logger.debug("#{__MODULE__}: #{inspect(reason)} #{Path.join(namespace, name)}")
   end
 
-  def handle_call({:start_publisher, message_type, topic_name, qos}, _from, state) do
+  def handle_call({:start_publisher, message_type, topic_name, opts}, _from, state) do
     return =
-      ES.start_publisher(state.node, message_type, topic_name, state.name, state.namespace, qos)
+      ES.start_publisher(state.node, message_type, topic_name, state.name, state.namespace, opts)
 
     {:reply, return, state}
   end
@@ -379,8 +352,7 @@ defmodule Rclex.Node do
   end
 
   def handle_call(
-        {:start_service, callback, service_type, service_name, qos, introspection,
-         introspection_qos},
+        {:start_service, callback, service_type, service_name, opts},
         _from,
         state
       ) do
@@ -393,9 +365,7 @@ defmodule Rclex.Node do
         service_name,
         state.name,
         state.namespace,
-        qos,
-        introspection,
-        introspection_qos
+        opts
       )
 
     {:reply, return, state}
@@ -407,25 +377,8 @@ defmodule Rclex.Node do
     {:reply, return, state}
   end
 
-  def handle_call({:start_client, callback, service_type, service_name, qos}, _from, state) do
-    return =
-      ES.start_client(
-        state.context,
-        callback,
-        state.node,
-        service_type,
-        service_name,
-        state.name,
-        state.namespace,
-        qos
-      )
-
-    {:reply, return, state}
-  end
-
   def handle_call(
-        {:start_client, callback, service_type, service_name, qos, introspection,
-         introspection_qos},
+        {:start_client, callback, service_type, service_name, opts},
         _from,
         state
       ) do
@@ -438,9 +391,7 @@ defmodule Rclex.Node do
         service_name,
         state.name,
         state.namespace,
-        qos,
-        introspection,
-        introspection_qos
+        opts
       )
 
     {:reply, return, state}
@@ -505,7 +456,11 @@ defmodule Rclex.Node do
     {:reply, return, state}
   end
 
-  def handle_call({:start_subscription, callback, message_type, topic_name, qos}, _from, state) do
+  def handle_call(
+        {:start_subscription, callback, message_type, topic_name, opts},
+        _from,
+        state
+      ) do
     return =
       ES.start_subscription(
         state.context,
@@ -515,7 +470,7 @@ defmodule Rclex.Node do
         topic_name,
         state.name,
         state.namespace,
-        qos
+        opts
       )
 
     {:reply, return, state}

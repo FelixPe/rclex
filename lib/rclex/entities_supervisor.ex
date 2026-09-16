@@ -22,18 +22,17 @@ defmodule Rclex.EntitiesSupervisor do
     |> Enum.filter(&matches_filters?(&1, opts))
   end
 
-  def start_publisher(node, message_type, topic_name, name, namespace, qos) do
+  def start_publisher(node, message_type, topic_name, name, namespace, opts \\ []) do
     DynamicSupervisor.start_child(
       name(name, namespace),
       {Rclex.Publisher,
-       [
+       Keyword.merge(opts,
          node: node,
          message_type: message_type,
          topic_name: topic_name,
          name: name,
-         namespace: namespace,
-         qos: qos
-       ]}
+         namespace: namespace
+       )}
     )
   end
 
@@ -45,21 +44,20 @@ defmodule Rclex.EntitiesSupervisor do
         topic_name,
         name,
         namespace,
-        qos
+        opts \\ []
       ) do
     DynamicSupervisor.start_child(
       name(name, namespace),
       {Rclex.Subscription,
-       [
+       Keyword.merge(opts,
          context: context,
          node: node,
          callback: callback,
          message_type: message_type,
          topic_name: topic_name,
          name: name,
-         namespace: namespace,
-         qos: qos
-       ]}
+         namespace: namespace
+       )}
     )
   end
 
@@ -72,25 +70,20 @@ defmodule Rclex.EntitiesSupervisor do
         service_name,
         name,
         namespace,
-        qos,
-        introspection \\ :off,
-        introspection_qos \\ Rclex.QoS.profile_services_default()
+        opts \\ []
       ) do
     DynamicSupervisor.start_child(
       name(name, namespace),
       {Rclex.Service,
-       [
+       Keyword.merge(opts,
          context: context,
          node: node,
          callback: callback,
          service_type: service_type,
          service_name: service_name,
          name: name,
-         namespace: namespace,
-         qos: qos,
-         introspection: introspection,
-         introspection_qos: introspection_qos
-       ]}
+         namespace: namespace
+       )}
     )
   end
 
@@ -103,25 +96,20 @@ defmodule Rclex.EntitiesSupervisor do
         service_name,
         name,
         namespace,
-        qos,
-        introspection \\ :off,
-        introspection_qos \\ Rclex.QoS.profile_services_default()
+        opts \\ []
       ) do
     DynamicSupervisor.start_child(
       name(name, namespace),
       {Rclex.Client,
-       [
+       Keyword.merge(opts,
          context: context,
          callback: callback,
          node: node,
          service_type: service_type,
          service_name: service_name,
          name: name,
-         namespace: namespace,
-         qos: qos,
-         introspection: introspection,
-         introspection_qos: introspection_qos
-       ]}
+         namespace: namespace
+       )}
     )
   end
 

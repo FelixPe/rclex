@@ -181,7 +181,7 @@ defmodule Rclex.ParameterServer do
         "#{node_namespace}#{node_name}/get_parameters",
         node_name,
         node_namespace,
-        Rclex.QoS.profile_services_default()
+        qos: Rclex.QoS.profile_services_default()
       )
 
     # Set Parameters service
@@ -192,7 +192,7 @@ defmodule Rclex.ParameterServer do
         "#{node_namespace}#{node_name}/set_parameters",
         node_name,
         node_namespace,
-        Rclex.QoS.profile_services_default()
+        qos: Rclex.QoS.profile_services_default()
       )
 
     # Set Parameters Atomically service
@@ -203,7 +203,7 @@ defmodule Rclex.ParameterServer do
         "#{node_namespace}#{node_name}/set_parameters_atomically",
         node_name,
         node_namespace,
-        Rclex.QoS.profile_services_default()
+        qos: Rclex.QoS.profile_services_default()
       )
 
     # List Parameters service
@@ -214,7 +214,7 @@ defmodule Rclex.ParameterServer do
         "#{node_namespace}#{node_name}/list_parameters",
         node_name,
         node_namespace,
-        Rclex.QoS.profile_services_default()
+        qos: Rclex.QoS.profile_services_default()
       )
 
     # Describe Parameters service
@@ -225,7 +225,7 @@ defmodule Rclex.ParameterServer do
         "#{node_namespace}#{node_name}/describe_parameters",
         node_name,
         node_namespace,
-        Rclex.QoS.profile_services_default()
+        qos: Rclex.QoS.profile_services_default()
       )
 
     # Get Parameter Types service
@@ -236,7 +236,7 @@ defmodule Rclex.ParameterServer do
         "#{node_namespace}#{node_name}/get_parameter_types",
         node_name,
         node_namespace,
-        Rclex.QoS.profile_services_default()
+        qos: Rclex.QoS.profile_services_default()
       )
   end
 
@@ -246,7 +246,7 @@ defmodule Rclex.ParameterServer do
            @parameter_events_topic,
            node_name,
            node_namespace,
-           Rclex.QoS.profile_parameter_events()
+           qos: Rclex.QoS.profile_parameter_events()
          ) do
       {:ok, publisher} ->
         {:ok, publisher}
@@ -263,7 +263,7 @@ defmodule Rclex.ParameterServer do
            @parameter_event_descriptors_topic,
            node_name,
            node_namespace,
-           Rclex.QoS.profile_parameter_events()
+           qos: Rclex.QoS.profile_parameter_events()
          ) do
       {:ok, publisher} ->
         {:ok, publisher}

@@ -304,7 +304,7 @@ defmodule Rclex do
     namespace = Keyword.get(opts, :namespace, "/")
     qos = Keyword.get(opts, :qos, QoS.profile_default())
 
-    case Rclex.Node.start_publisher(message_type, topic_name, node_name, namespace, qos) do
+    case Rclex.Node.start_publisher(message_type, topic_name, node_name, namespace, qos: qos) do
       {:ok, _pid} -> :ok
       {:error, {:already_started, _pid}} -> {:error, :already_started}
       {:error, reason} -> {:error, reason}
@@ -392,6 +392,11 @@ defmodule Rclex do
 
   - #{@namespace_doc}
   - #{@qos_doc}
+  - `:max_concurrency` - maximum number of callback invocations run concurrently per batch of
+    received messages, defaults to `System.schedulers_online/0`. Set to `1` to run callbacks
+    one at a time (in a dedicated task, preserving delivery order).
+  - `:callback_timeout` - maximum time (ms) a single callback invocation may run before it is
+    killed, defaults to `5_000`.
 
   ### Examples
 
@@ -412,14 +417,23 @@ defmodule Rclex do
           message_type :: module(),
           topic_name :: topic_name(),
           node_name :: String.t(),
-          opts :: [namespace: String.t(), qos: QoS.t()]
+          opts :: [
+            namespace: String.t(),
+            qos: QoS.t(),
+            max_concurrency: pos_integer(),
+            callback_timeout: timeout()
+          ]
         ) ::
           :ok | {:error, :already_started} | {:error, term()}
   def start_subscription(callback, message_type, topic_name, node_name, opts \\ [])
       when is_function(callback) and is_atom(message_type) and is_binary(topic_name) and
              is_binary(node_name) and is_list(opts) do
     namespace = Keyword.get(opts, :namespace, "/")
-    qos = Keyword.get(opts, :qos, QoS.profile_default())
+
+    node_opts =
+      opts
+      |> Keyword.take([:max_concurrency, :callback_timeout])
+      |> Keyword.put(:qos, Keyword.get(opts, :qos, QoS.profile_default()))
 
     case Rclex.Node.start_subscription(
            callback,
@@ -427,7 +441,7 @@ defmodule Rclex do
            topic_name,
            node_name,
            namespace,
-           qos
+           node_opts
          ) do
       {:ok, _pid} -> :ok
       {:error, {:already_started, _pid}} -> {:error, :already_started}
@@ -571,9 +585,11 @@ defmodule Rclex do
       when is_function(callback) and is_atom(service_type) and is_binary(service_name) and
              is_binary(node_name) and is_list(opts) do
     namespace = Keyword.get(opts, :namespace, "/")
-    qos = Keyword.get(opts, :qos, QoS.profile_services_default())
-    introspection = Keyword.get(opts, :introspection, :off)
-    introspection_qos = Keyword.get(opts, :introspection_qos, QoS.profile_services_default())
+
+    node_opts =
+      opts
+      |> Keyword.take([:introspection, :introspection_qos])
+      |> Keyword.put(:qos, Keyword.get(opts, :qos, QoS.profile_services_default()))
 
     case Rclex.Node.start_service(
            callback,
@@ -581,9 +597,7 @@ defmodule Rclex do
            service_name,
            node_name,
            namespace,
-           qos,
-           introspection,
-           introspection_qos
+           node_opts
          ) do
       {:ok, _pid} -> :ok
       {:error, {:already_started, _pid}} -> {:error, :already_started}
@@ -722,9 +736,11 @@ defmodule Rclex do
       when is_function(callback) and is_atom(service_type) and is_binary(service_name) and
              is_binary(node_name) and is_list(opts) do
     namespace = Keyword.get(opts, :namespace, "/")
-    qos = Keyword.get(opts, :qos, QoS.profile_services_default())
-    introspection = Keyword.get(opts, :introspection, :off)
-    introspection_qos = Keyword.get(opts, :introspection_qos, QoS.profile_services_default())
+
+    node_opts =
+      opts
+      |> Keyword.take([:introspection, :introspection_qos])
+      |> Keyword.put(:qos, Keyword.get(opts, :qos, QoS.profile_services_default()))
 
     case Rclex.Node.start_client(
            callback,
@@ -732,9 +748,7 @@ defmodule Rclex do
            service_name,
            node_name,
            namespace,
-           qos,
-           introspection,
-           introspection_qos
+           node_opts
          ) do
       {:ok, _pid} -> :ok
       {:error, {:already_started, _pid}} -> {:error, :already_started}

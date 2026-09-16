@@ -38,7 +38,7 @@ defmodule Rclex.TypeDescriptionServer do
         service_name,
         name,
         namespace,
-        Rclex.QoS.profile_services_default()
+        qos: Rclex.QoS.profile_services_default()
       )
 
     {:ok, %{name: name, namespace: namespace, service_name: service_name}}
