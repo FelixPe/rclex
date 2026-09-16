@@ -168,7 +168,7 @@ defmodule Mix.Tasks.Rclex.Gen.Action do
       function_prefix = Util.type_down_snake(type)
 
       """
-      {"#{function_prefix}_type_support!", 0, nif_#{function_prefix}_type_support, ERL_NIF_DIRTY_JOB_IO_BOUND},
+      {"#{function_prefix}_type_support!", 0, nif_#{function_prefix}_type_support, REGULAR_NIF},
       """
     end)
   end

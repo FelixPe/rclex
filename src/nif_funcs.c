@@ -49,7 +49,7 @@ static ErlNifFunc nif_funcs[] = {
     nif_io_bound_func(rcl_node_fini, 1),
     nif_io_bound_func(rcl_publisher_init, 4),
     nif_io_bound_func(rcl_publisher_fini, 2),
-    nif_regular_func(rcl_publish, 2),
+    nif_io_bound_func(rcl_publish, 2),
     nif_io_bound_func(rcl_subscription_init, 4),
     nif_io_bound_func(rcl_subscription_fini, 2),
     nif_regular_func(rcl_subscription_set_on_new_message_callback, 1),

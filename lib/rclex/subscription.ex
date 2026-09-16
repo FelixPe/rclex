@@ -40,6 +40,7 @@ defmodule Rclex.Subscription do
     qos = Keyword.get(args, :qos, Rclex.QoS.profile_default())
     max_concurrency = Keyword.get(args, :max_concurrency, @default_max_concurrency)
     callback_timeout = Keyword.get(args, :callback_timeout, @default_callback_timeout)
+    inline_callback = Keyword.get(args, :inline_callback, false)
 
     arity = :erlang.fun_info(callback)[:arity]
 
@@ -64,7 +65,8 @@ defmodule Rclex.Subscription do
        subscription: subscription,
        callback_resource: nil,
        max_concurrency: max_concurrency,
-       callback_timeout: callback_timeout
+       callback_timeout: callback_timeout,
+       inline_callback: inline_callback
      }, {:continue, nil}}
   end
 
@@ -81,11 +83,25 @@ defmodule Rclex.Subscription do
   end
 
   def handle_info({:new_message, number_of_events}, state) when number_of_events > 0 do
-    1..number_of_events
-    |> Enum.reduce([], fn _, acc -> take_one(state, acc) end)
-    |> dispatch_all(state)
+    if state.inline_callback do
+      Enum.each(1..number_of_events, fn _ -> take_and_invoke_one(state) end)
+    else
+      1..number_of_events
+      |> Enum.reduce([], fn _, acc -> take_one(state, acc) end)
+      |> dispatch_all(state)
+    end
 
     {:noreply, state}
+  end
+
+  defp take_and_invoke_one(state) do
+    case take_one(state, []) do
+      [{message_struct, message_info}] ->
+        invoke_callback_safely(state, message_struct, message_info)
+
+      [] ->
+        :ok
+    end
   end
 
   defp take_one(state, acc) do
@@ -138,6 +154,21 @@ defmodule Rclex.Subscription do
   defp log_callback_result({:exit, reason}, state) do
     Logger.warning(
       "#{__MODULE__}: callback failed #{Path.join(state.namespace, state.name)} #{inspect(reason)}"
+    )
+  end
+
+  defp invoke_callback_safely(state, message_struct, message_info) do
+    invoke_callback(state, message_struct, message_info)
+  rescue
+    exception -> log_callback_failure(state, exception, __STACKTRACE__)
+  catch
+    kind, reason -> log_callback_failure(state, {kind, reason}, __STACKTRACE__)
+  end
+
+  defp log_callback_failure(state, reason, stacktrace) do
+    Logger.warning(
+      "#{__MODULE__}: callback failed #{Path.join(state.namespace, state.name)} " <>
+        Exception.format(:error, reason, stacktrace)
     )
   end
 

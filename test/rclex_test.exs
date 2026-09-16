@@ -258,6 +258,53 @@ defmodule RclexTest do
       assert {:noproc, _} =
                catch_exit(Rclex.stop_subscription(StdMsgs.Msg.String, "/chatter", "notexists"))
     end
+
+    test "inline_callback runs the callback in the subscription process" do
+      me = self()
+      topic_name = "/inline_subscription"
+
+      assert :ok =
+               Rclex.start_subscription(
+                 fn _message -> send(me, {:callback_pid, self()}) end,
+                 StdMsgs.Msg.String,
+                 topic_name,
+                 "name",
+                 inline_callback: true
+               )
+
+      subscription_pid =
+        GenServer.whereis(Rclex.Subscription.name(StdMsgs.Msg.String, topic_name, "name"))
+
+      assert :ok = Rclex.start_publisher(StdMsgs.Msg.String, topic_name, "name")
+      assert :ok = Rclex.publish(%StdMsgs.Msg.String{data: "inline"}, topic_name, "name")
+      assert_receive {:callback_pid, callback_pid}
+      assert callback_pid == subscription_pid
+    end
+
+    test "inline_callback isolates callback failures" do
+      me = self()
+      topic_name = "/inline_subscription_failure"
+
+      assert :ok =
+               Rclex.start_subscription(
+                 fn _message ->
+                   send(me, :callback_started)
+                   raise "callback failure"
+                 end,
+                 StdMsgs.Msg.String,
+                 topic_name,
+                 "name",
+                 inline_callback: true
+               )
+
+      subscription_pid =
+        GenServer.whereis(Rclex.Subscription.name(StdMsgs.Msg.String, topic_name, "name"))
+
+      assert :ok = Rclex.start_publisher(StdMsgs.Msg.String, topic_name, "name")
+      assert :ok = Rclex.publish(%StdMsgs.Msg.String{data: "inline"}, topic_name, "name")
+      assert_receive :callback_started
+      assert Process.alive?(subscription_pid)
+    end
   end
 
   describe "pub/sub" do
@@ -375,6 +422,40 @@ defmodule RclexTest do
 
       assert {:error, :already_started} =
                Rclex.start_service(callback, StdSrvs.Srv.SetBool, "/set_test_bool", "name")
+    end
+
+    test "inline_callback runs the callback in the service process" do
+      me = self()
+      service_name = "/inline_service"
+
+      assert :ok =
+               Rclex.start_service(
+                 fn request ->
+                   send(me, {:callback_pid, self()})
+                   %StdSrvs.Srv.SetBool.Response{success: request.data}
+                 end,
+                 StdSrvs.Srv.SetBool,
+                 service_name,
+                 "name",
+                 inline_callback: true
+               )
+
+      service_pid =
+        GenServer.whereis(Rclex.Service.name(StdSrvs.Srv.SetBool, service_name, "name"))
+
+      assert :ok =
+               Rclex.start_client(
+                 fn _response -> :ok end,
+                 StdSrvs.Srv.SetBool,
+                 service_name,
+                 "name"
+               )
+
+      assert :ok =
+               Rclex.call_async(%StdSrvs.Srv.SetBool.Request{data: true}, service_name, "name")
+
+      assert_receive {:callback_pid, callback_pid}
+      assert callback_pid == service_pid
     end
 
     test "start_service/5 enables metadata introspection", %{callback: callback} do

@@ -397,6 +397,8 @@ defmodule Rclex do
     one at a time (in a dedicated task, preserving delivery order).
   - `:callback_timeout` - maximum time (ms) a single callback invocation may run before it is
     killed, defaults to `5_000`.
+  - `:inline_callback` - when `true`, run callbacks serially in the subscription process. This
+    prevents the next message from being taken until the callback returns. Defaults to `false`.
 
   ### Examples
 
@@ -421,7 +423,8 @@ defmodule Rclex do
             namespace: String.t(),
             qos: QoS.t(),
             max_concurrency: pos_integer(),
-            callback_timeout: timeout()
+            callback_timeout: timeout(),
+            inline_callback: boolean()
           ]
         ) ::
           :ok | {:error, :already_started} | {:error, term()}
@@ -432,7 +435,7 @@ defmodule Rclex do
 
     node_opts =
       opts
-      |> Keyword.take([:max_concurrency, :callback_timeout])
+      |> Keyword.take([:max_concurrency, :callback_timeout, :inline_callback])
       |> Keyword.put(:qos, Keyword.get(opts, :qos, QoS.profile_default()))
 
     case Rclex.Node.start_subscription(
@@ -558,6 +561,8 @@ defmodule Rclex do
   - #{@qos_doc}
   - #{@introspection_doc}
   - #{@introspection_qos_doc}
+  - `:inline_callback` - when `true`, handle requests serially in the service process. This
+    prevents the next request from being taken until its callback returns. Defaults to `false`.
 
   ### Examples
 
@@ -577,7 +582,8 @@ defmodule Rclex do
             namespace: String.t(),
             qos: QoS.t(),
             introspection: :off | :metadata | :contents,
-            introspection_qos: QoS.t()
+            introspection_qos: QoS.t(),
+            inline_callback: boolean()
           ]
         ) ::
           :ok | {:error, :already_started} | {:error, term()}
@@ -588,7 +594,7 @@ defmodule Rclex do
 
     node_opts =
       opts
-      |> Keyword.take([:introspection, :introspection_qos])
+      |> Keyword.take([:introspection, :introspection_qos, :inline_callback])
       |> Keyword.put(:qos, Keyword.get(opts, :qos, QoS.profile_services_default()))
 
     case Rclex.Node.start_service(

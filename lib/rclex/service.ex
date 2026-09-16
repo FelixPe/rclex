@@ -52,6 +52,7 @@ defmodule Rclex.Service do
     callback = Keyword.fetch!(args, :callback)
     qos = Keyword.get(args, :qos, Rclex.QoS.profile_services_default())
     introspection = Keyword.get(args, :introspection, :off)
+    inline_callback = Keyword.get(args, :inline_callback, false)
 
     introspection_qos =
       Keyword.get(args, :introspection_qos, Rclex.QoS.profile_services_default())
@@ -77,7 +78,8 @@ defmodule Rclex.Service do
        request_type: apply(service_type, :request_type, []),
        response_type: apply(service_type, :response_type, []),
        introspection_clock: introspection_clock,
-       callback_resource: nil
+       callback_resource: nil,
+       inline_callback: inline_callback
      }, {:continue, nil}}
   end
 
@@ -133,8 +135,8 @@ defmodule Rclex.Service do
         %{
           service: service,
           request_type: request_type,
-          response_type: response_type,
-          callback: callback
+          response_type: _response_type,
+          callback: _callback
         } = state
       )
       when number_of_events > 0 do
@@ -146,26 +148,7 @@ defmodule Rclex.Service do
           {:ok, request_header} ->
             request_message_struct = apply(request_type, :get!, [request_message])
 
-            {:ok, _pid} =
-              Task.Supervisor.start_child(
-                {:via, PartitionSupervisor, {Rclex.TaskSupervisors, self()}},
-                fn ->
-                  response_message_struct = callback.(request_message_struct)
-                  response_message = apply(response_type, :create!, [])
-
-                  try do
-                    :ok =
-                      apply(response_type, :set!, [
-                        response_message,
-                        response_message_struct
-                      ])
-
-                    :ok = Nif.rcl_send_response!(service, request_header, response_message)
-                  after
-                    :ok = apply(response_type, :destroy!, [response_message])
-                  end
-                end
-              )
+            dispatch_request(state, request_message_struct, request_header)
 
           :service_take_failed ->
             Logger.debug("#{__MODULE__}: take failed but no error occurred in the middleware")
@@ -176,6 +159,49 @@ defmodule Rclex.Service do
     end
 
     {:noreply, state}
+  end
+
+  defp dispatch_request(%{inline_callback: true} = state, request_message_struct, request_header) do
+    handle_request_safely(state, request_message_struct, request_header)
+  end
+
+  defp dispatch_request(state, request_message_struct, request_header) do
+    {:ok, _pid} =
+      Task.Supervisor.start_child(
+        {:via, PartitionSupervisor, {Rclex.TaskSupervisors, self()}},
+        fn -> handle_request(state, request_message_struct, request_header) end
+      )
+  end
+
+  defp handle_request_safely(state, request_message_struct, request_header) do
+    handle_request(state, request_message_struct, request_header)
+  rescue
+    exception -> log_callback_failure(state, exception, __STACKTRACE__)
+  catch
+    kind, reason -> log_callback_failure(state, {kind, reason}, __STACKTRACE__)
+  end
+
+  defp handle_request(
+         %{callback: callback, response_type: response_type, service: service},
+         request_message_struct,
+         request_header
+       ) do
+    response_message_struct = callback.(request_message_struct)
+    response_message = apply(response_type, :create!, [])
+
+    try do
+      :ok = apply(response_type, :set!, [response_message, response_message_struct])
+      :ok = Nif.rcl_send_response!(service, request_header, response_message)
+    after
+      :ok = apply(response_type, :destroy!, [response_message])
+    end
+  end
+
+  defp log_callback_failure(state, reason, stacktrace) do
+    Logger.warning(
+      "#{__MODULE__}: callback failed #{Path.join(state.namespace, state.name)} " <>
+        Exception.format(:error, reason, stacktrace)
+    )
   end
 
   defp start_introspection(_service, _node, _service_type, :off, _qos), do: nil
