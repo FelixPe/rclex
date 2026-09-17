@@ -399,6 +399,9 @@ defmodule Rclex do
     killed, defaults to `5_000`.
   - `:inline_callback` - when `true`, run callbacks serially in the subscription process. This
     prevents the next message from being taken until the callback returns. Defaults to `false`.
+  - `:latest_only` - when `true`, drain queued notifications and take available messages into
+    one native buffer, invoking the callback once with the newest message. Older messages are
+    discarded before deserialization. This mode runs callbacks serially and defaults to `false`.
 
   ### Examples
 
@@ -424,7 +427,8 @@ defmodule Rclex do
             qos: QoS.t(),
             max_concurrency: pos_integer(),
             callback_timeout: timeout(),
-            inline_callback: boolean()
+            inline_callback: boolean(),
+            latest_only: boolean()
           ]
         ) ::
           :ok | {:error, :already_started} | {:error, term()}
@@ -435,7 +439,7 @@ defmodule Rclex do
 
     node_opts =
       opts
-      |> Keyword.take([:max_concurrency, :callback_timeout, :inline_callback])
+      |> Keyword.take([:max_concurrency, :callback_timeout, :inline_callback, :latest_only])
       |> Keyword.put(:qos, Keyword.get(opts, :qos, QoS.profile_default()))
 
     case Rclex.Node.start_subscription(

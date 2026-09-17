@@ -305,6 +305,58 @@ defmodule RclexTest do
       assert_receive :callback_started
       assert Process.alive?(subscription_pid)
     end
+
+    test "latest_only drains queued messages and invokes the callback with the newest" do
+      me = self()
+      topic_name = "/latest_subscription"
+
+      assert :ok =
+               Rclex.start_subscription(
+                 fn %StdMsgs.Msg.String{data: data} ->
+                   send(me, {:latest_callback, data})
+
+                   receive do
+                     :release -> :ok
+                   end
+                 end,
+                 StdMsgs.Msg.String,
+                 topic_name,
+                 "name",
+                 latest_only: true
+               )
+
+      subscription_pid =
+        GenServer.whereis(Rclex.Subscription.name(StdMsgs.Msg.String, topic_name, "name"))
+
+      assert :ok = Rclex.start_publisher(StdMsgs.Msg.String, topic_name, "name")
+      assert :ok = Rclex.publish(%StdMsgs.Msg.String{data: "first"}, topic_name, "name")
+      assert_receive {:latest_callback, "first"}
+
+      parent = self()
+
+      spawn(fn ->
+        for index <- 2..20 do
+          :ok =
+            Rclex.publish(
+              %StdMsgs.Msg.String{data: Integer.to_string(index)},
+              topic_name,
+              "name"
+            )
+        end
+
+        send(parent, :latest_burst_complete)
+      end)
+
+      assert_receive :latest_burst_complete
+      send(subscription_pid, :release)
+      assert_receive {:latest_callback, "20"}
+
+      {:message_queue_len, message_queue_len} =
+        Process.info(subscription_pid, :message_queue_len)
+
+      assert message_queue_len <= 1
+      send(subscription_pid, :release)
+    end
   end
 
   describe "pub/sub" do

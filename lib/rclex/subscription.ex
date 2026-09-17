@@ -41,6 +41,7 @@ defmodule Rclex.Subscription do
     max_concurrency = Keyword.get(args, :max_concurrency, @default_max_concurrency)
     callback_timeout = Keyword.get(args, :callback_timeout, @default_callback_timeout)
     inline_callback = Keyword.get(args, :inline_callback, false)
+    latest_only = Keyword.get(args, :latest_only, false)
 
     arity = :erlang.fun_info(callback)[:arity]
 
@@ -66,7 +67,8 @@ defmodule Rclex.Subscription do
        callback_resource: nil,
        max_concurrency: max_concurrency,
        callback_timeout: callback_timeout,
-       inline_callback: inline_callback
+       inline_callback: inline_callback,
+       latest_only: latest_only
      }, {:continue, nil}}
   end
 
@@ -83,15 +85,58 @@ defmodule Rclex.Subscription do
   end
 
   def handle_info({:new_message, number_of_events}, state) when number_of_events > 0 do
-    if state.inline_callback do
-      Enum.each(1..number_of_events, fn _ -> take_and_invoke_one(state) end)
-    else
-      1..number_of_events
-      |> Enum.reduce([], fn _, acc -> take_one(state, acc) end)
-      |> dispatch_all(state)
+    cond do
+      state.latest_only ->
+        drain_notifications()
+        take_latest_and_invoke(state)
+
+      state.inline_callback ->
+        Enum.each(1..number_of_events, fn _ -> take_and_invoke_one(state) end)
+
+      true ->
+        1..number_of_events
+        |> Enum.reduce([], fn _, acc -> take_one(state, acc) end)
+        |> dispatch_all(state)
     end
 
     {:noreply, state}
+  end
+
+  # Drain notifications already queued in this subscription process before taking
+  # the newest available sample.
+  defp drain_notifications do
+    receive do
+      {:new_message, n} when n > 0 -> drain_notifications()
+    after
+      0 -> :ok
+    end
+  end
+
+  # Reuse one native message buffer so superseded samples are overwritten by
+  # rcl_take and are never converted into Elixir structs.
+  defp take_latest_and_invoke(state) do
+    message = apply(state.message_type, :create!, [])
+
+    try do
+      case take_until_empty(state, message, :empty) do
+        :empty ->
+          :ok
+
+        {:taken, message_info} ->
+          message_struct = apply(state.message_type, :get!, [message])
+          invoke_callback_safely(state, message_struct, message_info)
+      end
+    after
+      :ok = apply(state.message_type, :destroy!, [message])
+    end
+  end
+
+  defp take_until_empty(state, message, last) do
+    case take(state, message) do
+      :subscription_take_failed -> last
+      :ok -> take_until_empty(state, message, {:taken, nil})
+      {:ok, message_info} -> take_until_empty(state, message, {:taken, message_info})
+    end
   end
 
   defp take_and_invoke_one(state) do
