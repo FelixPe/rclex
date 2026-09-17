@@ -27,6 +27,10 @@ typedef struct {
   int (*owner_is_valid)(const void *);
 } callback_resource_t;
 
+static int action_client_owner_is_valid(const void *owner) {
+  return rcl_action_client_is_valid((const rcl_action_client_t *)owner);
+}
+
 static int callback_resource_should_drop(const callback_resource_t *callback_resource) {
   if (callback_resource == NULL || !callback_resource->active) return 1;
   if (!enif_is_process_alive(NULL, &((callback_resource_t *)callback_resource)->pid)) {
@@ -433,7 +437,7 @@ ERL_NIF_TERM nif_rcl_action_client_set_cancel_client_callback(ErlNifEnv *env, in
   if (enif_self(env, &callback_resource->pid) == NULL) return raise(env, __FILE__, __LINE__);
   callback_resource->active = 1;
   callback_resource->owner  = action_client_p;
-  callback_resource->owner_is_valid = (int (*)(const void *))rcl_action_client_is_valid;
+  callback_resource->owner_is_valid = action_client_owner_is_valid;
   enif_keep_resource(callback_resource);
 
   rcl_ret_t rc;
@@ -459,7 +463,7 @@ ERL_NIF_TERM nif_rcl_action_client_set_feedback_subscription_callback(ErlNifEnv 
   if (enif_self(env, &callback_resource->pid) == NULL) return raise(env, __FILE__, __LINE__);
   callback_resource->active = 1;
   callback_resource->owner  = action_client_p;
-  callback_resource->owner_is_valid = (int (*)(const void *))rcl_action_client_is_valid;
+  callback_resource->owner_is_valid = action_client_owner_is_valid;
   enif_keep_resource(callback_resource);
 
   rcl_ret_t rc;
@@ -485,7 +489,7 @@ ERL_NIF_TERM nif_rcl_action_client_set_goal_client_callback(ErlNifEnv *env, int 
   if (enif_self(env, &callback_resource->pid) == NULL) return raise(env, __FILE__, __LINE__);
   callback_resource->active = 1;
   callback_resource->owner  = action_client_p;
-  callback_resource->owner_is_valid = (int (*)(const void *))rcl_action_client_is_valid;
+  callback_resource->owner_is_valid = action_client_owner_is_valid;
   enif_keep_resource(callback_resource);
 
   rcl_ret_t rc;
@@ -511,7 +515,7 @@ ERL_NIF_TERM nif_rcl_action_client_set_result_client_callback(ErlNifEnv *env, in
   if (enif_self(env, &callback_resource->pid) == NULL) return raise(env, __FILE__, __LINE__);
   callback_resource->active = 1;
   callback_resource->owner  = action_client_p;
-  callback_resource->owner_is_valid = (int (*)(const void *))rcl_action_client_is_valid;
+  callback_resource->owner_is_valid = action_client_owner_is_valid;
   enif_keep_resource(callback_resource);
 
   rcl_ret_t rc;
@@ -537,7 +541,7 @@ ERL_NIF_TERM nif_rcl_action_client_set_status_subscription_callback(ErlNifEnv *e
   if (enif_self(env, &callback_resource->pid) == NULL) return raise(env, __FILE__, __LINE__);
   callback_resource->active = 1;
   callback_resource->owner  = action_client_p;
-  callback_resource->owner_is_valid = (int (*)(const void *))rcl_action_client_is_valid;
+  callback_resource->owner_is_valid = action_client_owner_is_valid;
   enif_keep_resource(callback_resource);
 
   rcl_ret_t rc;
