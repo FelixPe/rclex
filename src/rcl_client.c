@@ -17,6 +17,27 @@
 ERL_NIF_TERM new_response;
 ERL_NIF_TERM client_take_failed;
 
+typedef struct {
+  ErlNifPid pid;
+  int active;
+  void *owner;
+  int (*owner_is_valid)(const void *);
+} callback_resource_t;
+
+static int callback_resource_should_drop(const callback_resource_t *callback_resource) {
+  if (callback_resource == NULL || !callback_resource->active) return 1;
+  if (!enif_is_process_alive(NULL, &((callback_resource_t *)callback_resource)->pid)) {
+    ((callback_resource_t *)callback_resource)->active = 0;
+    return 1;
+  }
+  if (callback_resource->owner != NULL && callback_resource->owner_is_valid != NULL &&
+      !callback_resource->owner_is_valid(callback_resource->owner)) {
+    ((callback_resource_t *)callback_resource)->active = 0;
+    return 1;
+  }
+  return 0;
+}
+
 void make_client_atoms(ErlNifEnv *env) {
   new_response       = enif_make_atom(env, "new_response");
   client_take_failed = enif_make_atom(env, "client_take_failed");
@@ -83,6 +104,9 @@ ERL_NIF_TERM nif_rcl_client_fini(ErlNifEnv *env, int argc, const ERL_NIF_TERM ar
   if (!rcl_node_is_valid(node_p)) return raise(env, __FILE__, __LINE__);
 
   rcl_ret_t rc;
+  rc = rcl_client_set_on_new_response_callback(client_p, NULL, NULL);
+  if (rc != RCL_RET_OK) return raise_with_safe_message(env, __FILE__, __LINE__, rc);
+
   rc = rcl_client_fini(client_p, node_p);
   if (rc != RCL_RET_OK) return raise_with_safe_message(env, __FILE__, __LINE__, rc);
 
@@ -185,10 +209,11 @@ ERL_NIF_TERM nif_rcl_send_request(ErlNifEnv *env, int argc, const ERL_NIF_TERM a
 }
 
 static void new_response_callback(const void *user_data, size_t number_of_events) {
-  ErlNifPid *pid_p = (ErlNifPid *)user_data;
+  callback_resource_t *callback_resource = (callback_resource_t *)user_data;
+  if (callback_resource_should_drop(callback_resource)) return;
 
   ErlNifEnv *env = enif_alloc_env();
-  enif_send(env, pid_p, env,
+  enif_send(env, &callback_resource->pid, env,
             enif_make_tuple(env, 2, new_response, enif_make_int(env, number_of_events)));
   enif_free_env(env);
 }
@@ -202,17 +227,21 @@ ERL_NIF_TERM nif_rcl_client_set_on_new_response_callback(ErlNifEnv *env, int arg
     return enif_make_badarg(env);
   if (!rcl_client_is_valid(client_p)) return raise(env, __FILE__, __LINE__);
 
-  ErlNifPid *pid_p =
-      (ErlNifPid *)enif_alloc_resource(rt_client_callback_resource, sizeof(ErlNifPid));
-  if (enif_self(env, pid_p) == NULL) return raise(env, __FILE__, __LINE__);
-  enif_keep_resource(pid_p);
+  callback_resource_t *callback_resource =
+      (callback_resource_t *)enif_alloc_resource(rt_client_callback_resource,
+                                                 sizeof(callback_resource_t));
+  if (enif_self(env, &callback_resource->pid) == NULL) return raise(env, __FILE__, __LINE__);
+  callback_resource->active = 1;
+  callback_resource->owner  = client_p;
+  callback_resource->owner_is_valid = (int (*)(const void *))rcl_client_is_valid;
+  enif_keep_resource(callback_resource);
 
   rcl_ret_t rc;
-  rc =
-      rcl_client_set_on_new_response_callback(client_p, new_response_callback, (const void *)pid_p);
+  rc = rcl_client_set_on_new_response_callback(client_p, new_response_callback,
+                                               (const void *)callback_resource);
   if (rc != RCL_RET_OK) return raise_with_safe_message(env, __FILE__, __LINE__, rc);
 
-  return enif_make_resource(env, pid_p);
+  return enif_make_resource(env, callback_resource);
 }
 
 ERL_NIF_TERM nif_rcl_client_clear_response_callback(ErlNifEnv *env, int argc,
@@ -224,15 +253,17 @@ ERL_NIF_TERM nif_rcl_client_clear_response_callback(ErlNifEnv *env, int argc,
     return enif_make_badarg(env);
   if (!rcl_client_is_valid(client_p)) return raise(env, __FILE__, __LINE__);
 
-  ErlNifPid *pid_p = NULL;
-  if (!enif_get_resource(env, argv[1], rt_client_callback_resource, (void **)&pid_p))
+  callback_resource_t *callback_resource = NULL;
+  if (!enif_get_resource(env, argv[1], rt_client_callback_resource, (void **)&callback_resource))
     return enif_make_badarg(env);
+
+  callback_resource->active = 0;
 
   rcl_ret_t rc;
   rc = rcl_client_set_on_new_response_callback(client_p, NULL, NULL);
   if (rc != RCL_RET_OK) return raise_with_safe_message(env, __FILE__, __LINE__, rc);
 
-  enif_release_resource(pid_p);
+  enif_release_resource(callback_resource);
 
   return atom_ok;
 }

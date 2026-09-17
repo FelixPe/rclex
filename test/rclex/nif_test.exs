@@ -524,6 +524,18 @@ defmodule Rclex.NifTest do
 
       :ok = Nif.rcl_subscription_fini!(subscription, node)
     end
+
+    test "rcl_subscription_fini!/2 clears the callback before teardown", %{
+      node: node,
+      type_support: type_support,
+      qos: qos
+    } do
+      subscription = Nif.rcl_subscription_init!(node, type_support, ~c"/topic", qos)
+      callback_resource = Nif.rcl_subscription_set_on_new_message_callback!(subscription)
+
+      assert is_reference(callback_resource)
+      assert Nif.rcl_subscription_fini!(subscription, node) == :ok
+    end
   end
 
   describe "service" do

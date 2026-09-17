@@ -24,6 +24,27 @@ ERL_NIF_TERM atom_goal_event_succeed;
 ERL_NIF_TERM atom_goal_event_abort;
 ERL_NIF_TERM atom_goal_event_canceled;
 
+typedef struct {
+  ErlNifPid pid;
+  int active;
+  void *owner;
+  int (*owner_is_valid)(const void *);
+} callback_resource_t;
+
+static int callback_resource_should_drop(const callback_resource_t *callback_resource) {
+  if (callback_resource == NULL || !callback_resource->active) return 1;
+  if (!enif_is_process_alive(NULL, &((callback_resource_t *)callback_resource)->pid)) {
+    ((callback_resource_t *)callback_resource)->active = 0;
+    return 1;
+  }
+  if (callback_resource->owner != NULL && callback_resource->owner_is_valid != NULL &&
+      !callback_resource->owner_is_valid(callback_resource->owner)) {
+    ((callback_resource_t *)callback_resource)->active = 0;
+    return 1;
+  }
+  return 0;
+}
+
 void make_action_server_atoms(ErlNifEnv *env) {
   atom_new_cancel_request        = enif_make_atom(env, "new_cancel_request");
   atom_new_goal_request          = enif_make_atom(env, "new_goal_request");
@@ -138,7 +159,12 @@ ERL_NIF_TERM nif_rcl_action_server_fini(ErlNifEnv *env, int argc, const ERL_NIF_
     return enif_make_badarg(env);
   if (!rcl_node_is_valid(node_p)) return raise(env, __FILE__, __LINE__);
 
-  rcl_ret_t rc;
+  rcl_ret_t rc;  rc = rcl_action_server_set_cancel_service_callback(action_server_p, NULL, NULL);
+  if (rc != RCL_RET_OK) return raise_with_safe_message(env, __FILE__, __LINE__, rc);
+  rc = rcl_action_server_set_goal_service_callback(action_server_p, NULL, NULL);
+  if (rc != RCL_RET_OK) return raise_with_safe_message(env, __FILE__, __LINE__, rc);
+  rc = rcl_action_server_set_result_service_callback(action_server_p, NULL, NULL);
+  if (rc != RCL_RET_OK) return raise_with_safe_message(env, __FILE__, __LINE__, rc);
   rc = rcl_action_server_fini(action_server_p, node_p);
   if (rc != RCL_RET_OK) return raise(env, __FILE__, __LINE__);
 
@@ -588,30 +614,32 @@ ERL_NIF_TERM nif_rcl_action_take_result_request(ErlNifEnv *env, int argc,
 }
 
 static void new_cancel_request_callback(const void *user_data, size_t number_of_events) {
-  ErlNifPid *pid_p = (ErlNifPid *)user_data;
+  callback_resource_t *callback_resource = (callback_resource_t *)user_data;
+  if (callback_resource_should_drop(callback_resource)) return;
 
   ErlNifEnv *env = enif_alloc_env();
-  enif_send(
-      env, pid_p, env,
-      enif_make_tuple(env, 2, atom_new_cancel_request, enif_make_uint(env, number_of_events)));
+  enif_send(env, &callback_resource->pid, env,
+            enif_make_tuple(env, 2, atom_new_cancel_request, enif_make_uint(env, number_of_events)));
   enif_free_env(env);
 }
 
 static void new_goal_request_callback(const void *user_data, size_t number_of_events) {
-  ErlNifPid *pid_p = (ErlNifPid *)user_data;
+  callback_resource_t *callback_resource = (callback_resource_t *)user_data;
+  if (callback_resource_should_drop(callback_resource)) return;
 
   ErlNifEnv *env = enif_alloc_env();
-  enif_send(env, pid_p, env,
+  enif_send(env, &callback_resource->pid, env,
             enif_make_tuple(env, 2, atom_new_goal_request, enif_make_uint(env, number_of_events)));
   enif_free_env(env);
 }
 
 static void new_result_request_callback(const void *user_data, size_t number_of_events) {
-  ErlNifPid *pid_p = (ErlNifPid *)user_data;
+  callback_resource_t *callback_resource = (callback_resource_t *)user_data;
+  if (callback_resource_should_drop(callback_resource)) return;
 
   ErlNifEnv *env = enif_alloc_env();
   enif_send(
-      env, pid_p, env,
+      env, &callback_resource->pid, env,
       enif_make_tuple(env, 2, atom_new_result_request, enif_make_uint(env, number_of_events)));
   enif_free_env(env);
 }
@@ -625,17 +653,21 @@ ERL_NIF_TERM nif_rcl_action_server_set_cancel_service_callback(ErlNifEnv *env, i
     return enif_make_badarg(env);
   if (!rcl_action_server_is_valid(action_server_p)) return raise(env, __FILE__, __LINE__);
 
-  ErlNifPid *pid_p = (ErlNifPid *)enif_alloc_resource(
-      rt_action_server_cancel_service_callback_resource, sizeof(ErlNifPid));
-  if (enif_self(env, pid_p) == NULL) return raise(env, __FILE__, __LINE__);
-  enif_keep_resource(pid_p);
+  callback_resource_t *callback_resource =
+      (callback_resource_t *)enif_alloc_resource(
+          rt_action_server_cancel_service_callback_resource, sizeof(callback_resource_t));
+  if (enif_self(env, &callback_resource->pid) == NULL) return raise(env, __FILE__, __LINE__);
+  callback_resource->active = 1;
+  callback_resource->owner  = action_server_p;
+  callback_resource->owner_is_valid = (int (*)(const void *))rcl_action_server_is_valid;
+  enif_keep_resource(callback_resource);
 
   rcl_ret_t rc;
   rc = rcl_action_server_set_cancel_service_callback(action_server_p, new_cancel_request_callback,
-                                                     (const void *)pid_p);
+                                                     (const void *)callback_resource);
   if (rc != RCL_RET_OK) return raise(env, __FILE__, __LINE__);
 
-  return enif_make_resource(env, pid_p);
+  return enif_make_resource(env, callback_resource);
 }
 
 ERL_NIF_TERM nif_rcl_action_server_clear_cancel_service_callback(ErlNifEnv *env, int argc,
@@ -647,16 +679,18 @@ ERL_NIF_TERM nif_rcl_action_server_clear_cancel_service_callback(ErlNifEnv *env,
     return enif_make_badarg(env);
   if (!rcl_action_server_is_valid(action_server_p)) return raise(env, __FILE__, __LINE__);
 
-  ErlNifPid *pid_p = NULL;
+  callback_resource_t *callback_resource = NULL;
   if (!enif_get_resource(env, argv[1], rt_action_server_cancel_service_callback_resource,
-                         (void **)&pid_p))
+                         (void **)&callback_resource))
     return enif_make_badarg(env);
+
+  callback_resource->active = 0;
 
   rcl_ret_t rc;
   rc = rcl_action_server_set_cancel_service_callback(action_server_p, NULL, NULL);
   if (rc != RCL_RET_OK) return raise(env, __FILE__, __LINE__);
 
-  enif_release_resource(pid_p);
+  enif_release_resource(callback_resource);
 
   return atom_ok;
 }
@@ -670,17 +704,21 @@ ERL_NIF_TERM nif_rcl_action_server_set_goal_service_callback(ErlNifEnv *env, int
     return enif_make_badarg(env);
   if (!rcl_action_server_is_valid(action_server_p)) return raise(env, __FILE__, __LINE__);
 
-  ErlNifPid *pid_p = (ErlNifPid *)enif_alloc_resource(
-      rt_action_server_goal_service_callback_resource, sizeof(ErlNifPid));
-  if (enif_self(env, pid_p) == NULL) return raise(env, __FILE__, __LINE__);
-  enif_keep_resource(pid_p);
+  callback_resource_t *callback_resource =
+      (callback_resource_t *)enif_alloc_resource(
+          rt_action_server_goal_service_callback_resource, sizeof(callback_resource_t));
+  if (enif_self(env, &callback_resource->pid) == NULL) return raise(env, __FILE__, __LINE__);
+  callback_resource->active = 1;
+  callback_resource->owner  = action_server_p;
+  callback_resource->owner_is_valid = (int (*)(const void *))rcl_action_server_is_valid;
+  enif_keep_resource(callback_resource);
 
   rcl_ret_t rc;
   rc = rcl_action_server_set_goal_service_callback(action_server_p, new_goal_request_callback,
-                                                   (const void *)pid_p);
+                                                   (const void *)callback_resource);
   if (rc != RCL_RET_OK) return raise(env, __FILE__, __LINE__);
 
-  return enif_make_resource(env, pid_p);
+  return enif_make_resource(env, callback_resource);
 }
 
 ERL_NIF_TERM nif_rcl_action_server_clear_goal_service_callback(ErlNifEnv *env, int argc,
@@ -692,16 +730,18 @@ ERL_NIF_TERM nif_rcl_action_server_clear_goal_service_callback(ErlNifEnv *env, i
     return enif_make_badarg(env);
   if (!rcl_action_server_is_valid(action_server_p)) return raise(env, __FILE__, __LINE__);
 
-  ErlNifPid *pid_p = NULL;
+  callback_resource_t *callback_resource = NULL;
   if (!enif_get_resource(env, argv[1], rt_action_server_goal_service_callback_resource,
-                         (void **)&pid_p))
+                         (void **)&callback_resource))
     return enif_make_badarg(env);
+
+  callback_resource->active = 0;
 
   rcl_ret_t rc;
   rc = rcl_action_server_set_goal_service_callback(action_server_p, NULL, NULL);
   if (rc != RCL_RET_OK) return raise(env, __FILE__, __LINE__);
 
-  enif_release_resource(pid_p);
+  enif_release_resource(callback_resource);
 
   return atom_ok;
 }
@@ -715,17 +755,21 @@ ERL_NIF_TERM nif_rcl_action_server_set_result_service_callback(ErlNifEnv *env, i
     return enif_make_badarg(env);
   if (!rcl_action_server_is_valid(action_server_p)) return raise(env, __FILE__, __LINE__);
 
-  ErlNifPid *pid_p = (ErlNifPid *)enif_alloc_resource(
-      rt_action_server_result_service_callback_resource, sizeof(ErlNifPid));
-  if (enif_self(env, pid_p) == NULL) return raise(env, __FILE__, __LINE__);
-  enif_keep_resource(pid_p);
+  callback_resource_t *callback_resource =
+      (callback_resource_t *)enif_alloc_resource(
+          rt_action_server_result_service_callback_resource, sizeof(callback_resource_t));
+  if (enif_self(env, &callback_resource->pid) == NULL) return raise(env, __FILE__, __LINE__);
+  callback_resource->active = 1;
+  callback_resource->owner  = action_server_p;
+  callback_resource->owner_is_valid = (int (*)(const void *))rcl_action_server_is_valid;
+  enif_keep_resource(callback_resource);
 
   rcl_ret_t rc;
   rc = rcl_action_server_set_result_service_callback(action_server_p, new_result_request_callback,
-                                                     (const void *)pid_p);
+                                                     (const void *)callback_resource);
   if (rc != RCL_RET_OK) return raise(env, __FILE__, __LINE__);
 
-  return enif_make_resource(env, pid_p);
+  return enif_make_resource(env, callback_resource);
 }
 
 ERL_NIF_TERM nif_rcl_action_server_clear_result_service_callback(ErlNifEnv *env, int argc,
@@ -737,16 +781,18 @@ ERL_NIF_TERM nif_rcl_action_server_clear_result_service_callback(ErlNifEnv *env,
     return enif_make_badarg(env);
   if (!rcl_action_server_is_valid(action_server_p)) return raise(env, __FILE__, __LINE__);
 
-  ErlNifPid *pid_p = NULL;
+  callback_resource_t *callback_resource = NULL;
   if (!enif_get_resource(env, argv[1], rt_action_server_result_service_callback_resource,
-                         (void **)&pid_p))
+                         (void **)&callback_resource))
     return enif_make_badarg(env);
+
+  callback_resource->active = 0;
 
   rcl_ret_t rc;
   rc = rcl_action_server_set_result_service_callback(action_server_p, NULL, NULL);
   if (rc != RCL_RET_OK) return raise(env, __FILE__, __LINE__);
 
-  enif_release_resource(pid_p);
+  enif_release_resource(callback_resource);
 
   return atom_ok;
 }
