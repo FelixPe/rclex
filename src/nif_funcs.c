@@ -15,6 +15,8 @@
 #include "rcl_timer.h"
 #include "rcl_wait.h"
 #include "resource_types.h"
+#include "rmw_serialization.h" // IWYU pragma: keep
+#include "prototype_point_cloud_struct.h" // IWYU pragma: keep
 #include "srv_funcs.h" // IWYU pragma: keep
 #include "terms.h"
 #include "type_description.h"
@@ -169,6 +171,12 @@ static ErlNifFunc nif_funcs[] = {
   #ifndef ROS_DISTRO_humble
     nif_regular_func(rcl_calculate_type_hash, 1),
   #endif
+    // Benchmarking-only, apples-to-apples CDR comparison (see rmw_serialization.c).
+    nif_regular_func(rmw_serialize, 2),
+    nif_regular_func(rmw_deserialize, 3),
+    // PROTOTYPE, not code-generated yet (see prototype_point_cloud_struct.c).
+    nif_regular_func(sensor_msgs_msg_point_cloud_set_struct, 2),
+    nif_regular_func(sensor_msgs_msg_point_cloud_get_struct, 1),
 #include "msg_funcs.ec" // IWYU pragma: keep
 #include "srv_funcs.ec" // IWYU pragma: keep
 #include "action_funcs.ec" // IWYU pragma: keep
@@ -188,6 +196,7 @@ static int load(ErlNifEnv *env, void **priv_data, ERL_NIF_TERM load_info) {
   make_action_client_atoms(env);
   make_action_server_atoms(env);
   make_clock_atoms(env);
+  make_prototype_point_cloud_struct_atoms(env);
 
   // open_resource_types/2 the 2nd argument is module_str, but document says following.
   // > Argument module_str is not (yet) used and must be NULL

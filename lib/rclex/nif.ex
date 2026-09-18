@@ -76,6 +76,24 @@ defmodule Rclex.Nif do
     :erlang.nif_error(:nif_not_loaded)
   end
 
+  # Benchmarking-only, apples-to-apples CDR comparison (see src/rmw_serialization.c).
+  def rmw_serialize!(_type_support, _ros_message) do
+    :erlang.nif_error(:nif_not_loaded)
+  end
+
+  def rmw_deserialize!(_payload, _type_support, _ros_message) do
+    :erlang.nif_error(:nif_not_loaded)
+  end
+
+  # PROTOTYPE, not code-generated yet (see src/prototype_point_cloud_struct.c).
+  def sensor_msgs_msg_point_cloud_set_struct!(_ros_message, _struct) do
+    :erlang.nif_error(:nif_not_loaded)
+  end
+
+  def sensor_msgs_msg_point_cloud_get_struct!(_ros_message) do
+    :erlang.nif_error(:nif_not_loaded)
+  end
+
   def rcl_subscription_init!(_node, _type_support, _topic_name, _qos) do
     :erlang.nif_error(:nif_not_loaded)
   end
