@@ -1212,7 +1212,7 @@ defmodule Rclex do
             feedback_callback: (struct() -> any()),
             accepted_callback: (goal_uuid(),
                                 boolean(),
-                                Rclex.Pkgs.BuiltinInterfaces.Msg.Time.t() ->
+                                struct() ->
                                   any()),
             goal_uuid: goal_uuid()
           ]
