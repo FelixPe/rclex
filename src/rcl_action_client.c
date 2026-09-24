@@ -431,12 +431,11 @@ ERL_NIF_TERM nif_rcl_action_client_set_cancel_client_callback(ErlNifEnv *env, in
     return enif_make_badarg(env);
   if (!rcl_action_client_is_valid(action_client_p)) return raise(env, __FILE__, __LINE__);
 
-  callback_resource_t *callback_resource =
-      (callback_resource_t *)enif_alloc_resource(
-          rt_action_client_cancel_client_callback_resource, sizeof(callback_resource_t));
+  callback_resource_t *callback_resource = (callback_resource_t *)enif_alloc_resource(
+      rt_action_client_cancel_client_callback_resource, sizeof(callback_resource_t));
   if (enif_self(env, &callback_resource->pid) == NULL) return raise(env, __FILE__, __LINE__);
-  callback_resource->active = 1;
-  callback_resource->owner  = action_client_p;
+  callback_resource->active         = 1;
+  callback_resource->owner          = action_client_p;
   callback_resource->owner_is_valid = action_client_owner_is_valid;
   enif_keep_resource(callback_resource);
 
@@ -457,12 +456,11 @@ ERL_NIF_TERM nif_rcl_action_client_set_feedback_subscription_callback(ErlNifEnv 
     return enif_make_badarg(env);
   if (!rcl_action_client_is_valid(action_client_p)) return raise(env, __FILE__, __LINE__);
 
-  callback_resource_t *callback_resource =
-      (callback_resource_t *)enif_alloc_resource(
-          rt_action_client_feedback_subscription_callback_resource, sizeof(callback_resource_t));
+  callback_resource_t *callback_resource = (callback_resource_t *)enif_alloc_resource(
+      rt_action_client_feedback_subscription_callback_resource, sizeof(callback_resource_t));
   if (enif_self(env, &callback_resource->pid) == NULL) return raise(env, __FILE__, __LINE__);
-  callback_resource->active = 1;
-  callback_resource->owner  = action_client_p;
+  callback_resource->active         = 1;
+  callback_resource->owner          = action_client_p;
   callback_resource->owner_is_valid = action_client_owner_is_valid;
   enif_keep_resource(callback_resource);
 
@@ -483,12 +481,11 @@ ERL_NIF_TERM nif_rcl_action_client_set_goal_client_callback(ErlNifEnv *env, int 
     return enif_make_badarg(env);
   if (!rcl_action_client_is_valid(action_client_p)) return raise(env, __FILE__, __LINE__);
 
-  callback_resource_t *callback_resource =
-      (callback_resource_t *)enif_alloc_resource(
-          rt_action_client_goal_client_callback_resource, sizeof(callback_resource_t));
+  callback_resource_t *callback_resource = (callback_resource_t *)enif_alloc_resource(
+      rt_action_client_goal_client_callback_resource, sizeof(callback_resource_t));
   if (enif_self(env, &callback_resource->pid) == NULL) return raise(env, __FILE__, __LINE__);
-  callback_resource->active = 1;
-  callback_resource->owner  = action_client_p;
+  callback_resource->active         = 1;
+  callback_resource->owner          = action_client_p;
   callback_resource->owner_is_valid = action_client_owner_is_valid;
   enif_keep_resource(callback_resource);
 
@@ -509,12 +506,11 @@ ERL_NIF_TERM nif_rcl_action_client_set_result_client_callback(ErlNifEnv *env, in
     return enif_make_badarg(env);
   if (!rcl_action_client_is_valid(action_client_p)) return raise(env, __FILE__, __LINE__);
 
-  callback_resource_t *callback_resource =
-      (callback_resource_t *)enif_alloc_resource(
-          rt_action_client_result_client_callback_resource, sizeof(callback_resource_t));
+  callback_resource_t *callback_resource = (callback_resource_t *)enif_alloc_resource(
+      rt_action_client_result_client_callback_resource, sizeof(callback_resource_t));
   if (enif_self(env, &callback_resource->pid) == NULL) return raise(env, __FILE__, __LINE__);
-  callback_resource->active = 1;
-  callback_resource->owner  = action_client_p;
+  callback_resource->active         = 1;
+  callback_resource->owner          = action_client_p;
   callback_resource->owner_is_valid = action_client_owner_is_valid;
   enif_keep_resource(callback_resource);
 
@@ -535,12 +531,11 @@ ERL_NIF_TERM nif_rcl_action_client_set_status_subscription_callback(ErlNifEnv *e
     return enif_make_badarg(env);
   if (!rcl_action_client_is_valid(action_client_p)) return raise(env, __FILE__, __LINE__);
 
-  callback_resource_t *callback_resource =
-      (callback_resource_t *)enif_alloc_resource(
-          rt_action_client_status_subscription_callback_resource, sizeof(callback_resource_t));
+  callback_resource_t *callback_resource = (callback_resource_t *)enif_alloc_resource(
+      rt_action_client_status_subscription_callback_resource, sizeof(callback_resource_t));
   if (enif_self(env, &callback_resource->pid) == NULL) return raise(env, __FILE__, __LINE__);
-  callback_resource->active = 1;
-  callback_resource->owner  = action_client_p;
+  callback_resource->active         = 1;
+  callback_resource->owner          = action_client_p;
   callback_resource->owner_is_valid = action_client_owner_is_valid;
   enif_keep_resource(callback_resource);
 

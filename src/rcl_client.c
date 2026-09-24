@@ -231,12 +231,11 @@ ERL_NIF_TERM nif_rcl_client_set_on_new_response_callback(ErlNifEnv *env, int arg
     return enif_make_badarg(env);
   if (!rcl_client_is_valid(client_p)) return raise(env, __FILE__, __LINE__);
 
-  callback_resource_t *callback_resource =
-      (callback_resource_t *)enif_alloc_resource(rt_client_callback_resource,
-                                                 sizeof(callback_resource_t));
+  callback_resource_t *callback_resource = (callback_resource_t *)enif_alloc_resource(
+      rt_client_callback_resource, sizeof(callback_resource_t));
   if (enif_self(env, &callback_resource->pid) == NULL) return raise(env, __FILE__, __LINE__);
-  callback_resource->active = 1;
-  callback_resource->owner  = client_p;
+  callback_resource->active         = 1;
+  callback_resource->owner          = client_p;
   callback_resource->owner_is_valid = client_owner_is_valid;
   enif_keep_resource(callback_resource);
 

@@ -204,12 +204,11 @@ ERL_NIF_TERM nif_rcl_subscription_set_on_new_message_callback(ErlNifEnv *env, in
     return enif_make_badarg(env);
   if (!rcl_subscription_is_valid(subscription_p)) return raise(env, __FILE__, __LINE__);
 
-  callback_resource_t *callback_resource =
-      (callback_resource_t *)enif_alloc_resource(rt_subscription_callback_resource,
-                                                 sizeof(callback_resource_t));
+  callback_resource_t *callback_resource = (callback_resource_t *)enif_alloc_resource(
+      rt_subscription_callback_resource, sizeof(callback_resource_t));
   if (enif_self(env, &callback_resource->pid) == NULL) return raise(env, __FILE__, __LINE__);
-  callback_resource->active = 1;
-  callback_resource->owner  = subscription_p;
+  callback_resource->active         = 1;
+  callback_resource->owner          = subscription_p;
   callback_resource->owner_is_valid = subscription_owner_is_valid;
   enif_keep_resource(callback_resource);
 

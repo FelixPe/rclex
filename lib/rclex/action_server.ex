@@ -261,7 +261,7 @@ defmodule Rclex.ActionServer do
     {:reply, ret, %{state | goals: goals}}
   end
 
-  def cancel_goal(goals, goal_info, action_server, action_type) do
+  def cancel_goal(goals, goal_info, action_server, action_type, result) do
     {ret, goals} =
       case Map.fetch(goals, get_uuid(goal_info)) do
         {:ok, goal} ->
@@ -273,7 +273,7 @@ defmodule Rclex.ActionServer do
           goals = update_goals_state(:goal_event_canceled, goal_info, goals, action_server)
 
           goals =
-            set_goals_result_and_reset_task(nil, goal_info, action_server, action_type, goals)
+            set_goals_result_and_reset_task(result, goal_info, action_server, action_type, goals)
 
           {ret, goals}
 
@@ -284,6 +284,40 @@ defmodule Rclex.ActionServer do
       end
 
     {ret, goals}
+  end
+
+  defp cancel_goal_if_accepted(
+         goal_info_struct,
+         goals,
+         cancel_callback,
+         action_server,
+         action_type
+       ) do
+    uuid = goal_info_struct.goal_id.uuid
+
+    case Map.fetch(goals, uuid) do
+      {:ok, %{goal_info: goal_info}} ->
+        case cancel_callback.(goal_info) do
+          :accept ->
+            cancel_accepted_goal(goals, goal_info_struct, action_server, action_type, nil)
+
+          {:accept, result} ->
+            cancel_accepted_goal(goals, goal_info_struct, action_server, action_type, result)
+
+          :reject ->
+            goals
+        end
+
+      :error ->
+        Logger.error("#{__MODULE__}: #{uuid_pretty(uuid)} goal to cancel not found")
+        goals
+    end
+  end
+
+  defp cancel_accepted_goal(goals, goal_info, action_server, action_type, result) do
+    Logger.debug("#{__MODULE__}: #{uuid_pretty(goal_info)} cancel goal handler")
+    {_ret, goals} = cancel_goal(goals, goal_info, action_server, action_type, result)
+    goals
   end
 
   def handle_info(
@@ -433,30 +467,13 @@ defmodule Rclex.ActionServer do
                 goals =
                   Enum.reduce(response_message_struct.goals_canceling, goals, fn goal_info_struct,
                                                                                  goals ->
-                    uuid = goal_info_struct.goal_id.uuid
-
-                    case Map.fetch(goals, uuid) do
-                      {:ok, %{goal_info: goal_info}} ->
-                        accepted = cancel_callback.(goal_info) == :accept
-
-                        if accepted do
-                          Logger.debug("#{__MODULE__}: #{uuid_pretty(uuid)} cancel goal handler")
-
-                          {_ret, goals} =
-                            cancel_goal(goals, goal_info_struct, action_server, action_type)
-
-                          goals
-                        else
-                          goals
-                        end
-
-                      :error ->
-                        Logger.error(
-                          "#{__MODULE__}: #{uuid_pretty(uuid)} goal to cancel not found"
-                        )
-
-                        goals
-                    end
+                    cancel_goal_if_accepted(
+                      goal_info_struct,
+                      goals,
+                      cancel_callback,
+                      action_server,
+                      action_type
+                    )
                   end)
 
                 :ok =

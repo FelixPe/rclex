@@ -163,7 +163,8 @@ ERL_NIF_TERM nif_rcl_action_server_fini(ErlNifEnv *env, int argc, const ERL_NIF_
     return enif_make_badarg(env);
   if (!rcl_node_is_valid(node_p)) return raise(env, __FILE__, __LINE__);
 
-  rcl_ret_t rc;  rc = rcl_action_server_set_cancel_service_callback(action_server_p, NULL, NULL);
+  rcl_ret_t rc;
+  rc = rcl_action_server_set_cancel_service_callback(action_server_p, NULL, NULL);
   if (rc != RCL_RET_OK) return raise_with_safe_message(env, __FILE__, __LINE__, rc);
   rc = rcl_action_server_set_goal_service_callback(action_server_p, NULL, NULL);
   if (rc != RCL_RET_OK) return raise_with_safe_message(env, __FILE__, __LINE__, rc);
@@ -622,8 +623,9 @@ static void new_cancel_request_callback(const void *user_data, size_t number_of_
   if (callback_resource_should_drop(callback_resource)) return;
 
   ErlNifEnv *env = enif_alloc_env();
-  enif_send(env, &callback_resource->pid, env,
-            enif_make_tuple(env, 2, atom_new_cancel_request, enif_make_uint(env, number_of_events)));
+  enif_send(
+      env, &callback_resource->pid, env,
+      enif_make_tuple(env, 2, atom_new_cancel_request, enif_make_uint(env, number_of_events)));
   enif_free_env(env);
 }
 
@@ -657,12 +659,11 @@ ERL_NIF_TERM nif_rcl_action_server_set_cancel_service_callback(ErlNifEnv *env, i
     return enif_make_badarg(env);
   if (!rcl_action_server_is_valid(action_server_p)) return raise(env, __FILE__, __LINE__);
 
-  callback_resource_t *callback_resource =
-      (callback_resource_t *)enif_alloc_resource(
-          rt_action_server_cancel_service_callback_resource, sizeof(callback_resource_t));
+  callback_resource_t *callback_resource = (callback_resource_t *)enif_alloc_resource(
+      rt_action_server_cancel_service_callback_resource, sizeof(callback_resource_t));
   if (enif_self(env, &callback_resource->pid) == NULL) return raise(env, __FILE__, __LINE__);
-  callback_resource->active = 1;
-  callback_resource->owner  = action_server_p;
+  callback_resource->active         = 1;
+  callback_resource->owner          = action_server_p;
   callback_resource->owner_is_valid = action_server_owner_is_valid;
   enif_keep_resource(callback_resource);
 
@@ -708,12 +709,11 @@ ERL_NIF_TERM nif_rcl_action_server_set_goal_service_callback(ErlNifEnv *env, int
     return enif_make_badarg(env);
   if (!rcl_action_server_is_valid(action_server_p)) return raise(env, __FILE__, __LINE__);
 
-  callback_resource_t *callback_resource =
-      (callback_resource_t *)enif_alloc_resource(
-          rt_action_server_goal_service_callback_resource, sizeof(callback_resource_t));
+  callback_resource_t *callback_resource = (callback_resource_t *)enif_alloc_resource(
+      rt_action_server_goal_service_callback_resource, sizeof(callback_resource_t));
   if (enif_self(env, &callback_resource->pid) == NULL) return raise(env, __FILE__, __LINE__);
-  callback_resource->active = 1;
-  callback_resource->owner  = action_server_p;
+  callback_resource->active         = 1;
+  callback_resource->owner          = action_server_p;
   callback_resource->owner_is_valid = action_server_owner_is_valid;
   enif_keep_resource(callback_resource);
 
@@ -759,12 +759,11 @@ ERL_NIF_TERM nif_rcl_action_server_set_result_service_callback(ErlNifEnv *env, i
     return enif_make_badarg(env);
   if (!rcl_action_server_is_valid(action_server_p)) return raise(env, __FILE__, __LINE__);
 
-  callback_resource_t *callback_resource =
-      (callback_resource_t *)enif_alloc_resource(
-          rt_action_server_result_service_callback_resource, sizeof(callback_resource_t));
+  callback_resource_t *callback_resource = (callback_resource_t *)enif_alloc_resource(
+      rt_action_server_result_service_callback_resource, sizeof(callback_resource_t));
   if (enif_self(env, &callback_resource->pid) == NULL) return raise(env, __FILE__, __LINE__);
-  callback_resource->active = 1;
-  callback_resource->owner  = action_server_p;
+  callback_resource->active         = 1;
+  callback_resource->owner          = action_server_p;
   callback_resource->owner_is_valid = action_server_owner_is_valid;
   enif_keep_resource(callback_resource);
 

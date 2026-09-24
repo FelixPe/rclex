@@ -88,7 +88,7 @@ defmodule Rclex do
           name :: String.t(),
           opts :: [
             namespace: String.t(),
-            graph_change_callback: function(),
+            graph_change_callback: (-> any()),
             graph_monitor: boolean(),
             remappings: [{String.t(), String.t()}],
             ros_args: [String.t()],
@@ -418,7 +418,7 @@ defmodule Rclex do
   """
   @doc section: :subscription
   @spec start_subscription(
-          callback :: function(),
+          callback :: (struct() -> any()) | (struct(), map() -> any()),
           message_type :: module(),
           topic_name :: topic_name(),
           node_name :: String.t(),
@@ -578,7 +578,7 @@ defmodule Rclex do
   """
   @doc section: :service
   @spec start_service(
-          callback :: function(),
+          callback :: (struct() -> struct()),
           service_type :: module(),
           service_name :: service_name(),
           node_name :: String.t(),
@@ -730,7 +730,7 @@ defmodule Rclex do
   """
   @doc section: :client
   @spec start_client(
-          callback :: function(),
+          callback :: (struct(), struct() -> any()),
           service_type :: module(),
           service_name :: service_name(),
           node_name :: String.t(),
@@ -940,7 +940,7 @@ defmodule Rclex do
   ### opts
 
   - #{@namespace_doc}
-  - The purpose of the `cancel_callback` is to decide if a request to cancel an on-going (or queued) goal should be accepted or rejected. The callback should take one parameter containing the goal handle and must return the atom `:accept` or `:reject`. By default all cancel requests are rejected.
+  - The purpose of the `cancel_callback` is to decide if a request to cancel an on-going (or queued) goal should be accepted or rejected. The callback should take one parameter containing the goal handle and return `:accept`, `:reject`, or `{:accept, result}`, where `result` is a result struct for the action type. Plain `:accept` returns the default empty result struct. By default all cancel requests are rejected.
   - The purpose of the `goal_callback` is to decide if a new goal should be accepted or rejected. The callback should take the goal struct as a parameter and must return the atom `:accept` or `:reject`. By default all goals are accepted.
   - The `handle_accepted_callback` function is called whenever a new goal has been accepted by this action server. The function should expect as arguments: goal info, action_type, action name, node name and namespace.
   - options
@@ -962,16 +962,21 @@ defmodule Rclex do
   """
   @doc section: :action_server
   @spec start_action_server(
-          execute_callback :: function(),
+          execute_callback :: (struct(), (struct() -> any()) -> struct()),
           action_type :: module(),
           action_name :: action_name(),
           node_name :: String.t(),
           opts :: [
             namespace: String.t(),
             options: Rclex.ActionServerOptions.t(),
-            goal_callback: function(),
-            handle_accepted_callback: function(),
-            cancel_callback: function()
+            goal_callback: (struct() -> :accept | :reject),
+            handle_accepted_callback: (goal_info(),
+                                       module(),
+                                       action_name(),
+                                       String.t(),
+                                       String.t() ->
+                                         any()),
+            cancel_callback: (goal_info() -> :accept | :reject | {:accept, struct()})
           ]
         ) :: :ok | {:error, :already_started} | {:error, term()}
   def start_action_server(
@@ -1204,8 +1209,11 @@ defmodule Rclex do
           node_name :: String.t(),
           opts :: [
             namespace: String.t(),
-            feedback_callback: function(),
-            accepted_callback: function(),
+            feedback_callback: (struct() -> any()),
+            accepted_callback: (goal_uuid(),
+                                boolean(),
+                                Rclex.Pkgs.BuiltinInterfaces.Msg.Time.t() ->
+                                  any()),
             goal_uuid: goal_uuid()
           ]
         ) ::
@@ -1252,7 +1260,7 @@ defmodule Rclex do
   @doc section: :action_client
   @spec cancel_goal_async(
           goal_uuid :: goal_uuid(),
-          cancel_callback :: function(),
+          cancel_callback :: (integer(), [goal_info()] -> any()),
           action_type :: atom(),
           action_name :: action_name(),
           node_name :: String.t(),
@@ -1304,7 +1312,7 @@ defmodule Rclex do
   @doc section: :action_client
   @spec get_result_async(
           goal_uuid :: goal_uuid(),
-          result_callback :: function(),
+          result_callback :: (integer(), struct() -> any()),
           action_type :: atom(),
           action_name :: action_name(),
           node_name :: String.t(),
@@ -1382,7 +1390,7 @@ defmodule Rclex do
   @doc section: :time
   @spec start_timer(
           period_ms :: non_neg_integer(),
-          callback :: function(),
+          callback :: (-> any()),
           timer_name :: String.t(),
           node_name :: String.t(),
           opts :: [namespace: String.t()]

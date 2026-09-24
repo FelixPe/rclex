@@ -285,25 +285,32 @@ defmodule RclexTest do
       me = self()
       topic_name = "/inline_subscription_failure"
 
-      assert :ok =
-               Rclex.start_subscription(
-                 fn _message ->
-                   send(me, :callback_started)
-                   raise "callback failure"
-                 end,
-                 StdMsgs.Msg.String,
-                 topic_name,
-                 "name",
-                 inline_callback: true
-               )
+      log =
+        capture_log(fn ->
+          assert :ok =
+                   Rclex.start_subscription(
+                     fn _message ->
+                       send(me, :callback_started)
+                       raise "callback failure"
+                     end,
+                     StdMsgs.Msg.String,
+                     topic_name,
+                     "name",
+                     inline_callback: true
+                   )
 
-      subscription_pid =
-        GenServer.whereis(Rclex.Subscription.name(StdMsgs.Msg.String, topic_name, "name"))
+          subscription_pid =
+            GenServer.whereis(Rclex.Subscription.name(StdMsgs.Msg.String, topic_name, "name"))
 
-      assert :ok = Rclex.start_publisher(StdMsgs.Msg.String, topic_name, "name")
-      assert :ok = Rclex.publish(%StdMsgs.Msg.String{data: "inline"}, topic_name, "name")
-      assert_receive :callback_started
-      assert Process.alive?(subscription_pid)
+          assert :ok = Rclex.start_publisher(StdMsgs.Msg.String, topic_name, "name")
+          assert :ok = Rclex.publish(%StdMsgs.Msg.String{data: "inline"}, topic_name, "name")
+          assert_receive :callback_started
+          :sys.get_state(subscription_pid)
+          assert Process.alive?(subscription_pid)
+        end)
+
+      assert log =~ "callback failed /name"
+      assert log =~ "callback failure"
     end
 
     test "latest_only drains queued messages and invokes the callback with the newest" do
@@ -497,7 +504,7 @@ defmodule RclexTest do
 
       assert :ok =
                Rclex.start_client(
-                 fn _response -> :ok end,
+                 fn _request, _response -> :ok end,
                  StdSrvs.Srv.SetBool,
                  service_name,
                  "name"
@@ -1166,6 +1173,7 @@ defmodule RclexTest do
   describe "setting action goals" do
     setup do
       me = self()
+      cancel_decision = start_supervised!({Agent, fn -> :accept end})
 
       execute_callback = fn %Action.LookupTransform.Goal{}, publish_feedback ->
         send(me, :started_execute_callback)
@@ -1190,9 +1198,7 @@ defmodule RclexTest do
         Rclex.execute_goal(goal_info_struct, action_type, action_name, name, namespace: namespace)
       end
 
-      cancel_callback = fn _goal_info ->
-        :accept
-      end
+      cancel_callback = fn _goal_info -> Agent.get(cancel_decision, & &1) end
 
       action_type = Action.LookupTransform
 
@@ -1239,7 +1245,8 @@ defmodule RclexTest do
       end)
 
       %{
-        action_type: action_type
+        action_type: action_type,
+        cancel_decision: cancel_decision
       }
     end
 
@@ -1326,7 +1333,9 @@ defmodule RclexTest do
 
     test "cancel_goal_async/5, execute_callback gets canceled", %{action_type: action_type} do
       me = self()
-      result_callback = fn status, result -> send(me, {:got_result, status, result.error}) end
+      result_callback = fn status, result -> send(me, {:got_result, status, result}) end
+      canceled_status = Rclex.Pkgs.ActionMsgs.Msg.GoalStatus.status_canceled()
+      default_result = %Action.LookupTransform.Result{}
 
       cancel_callback = fn return_code, goals_canceling ->
         send(me, {:canceled, return_code, goals_canceling})
@@ -1369,8 +1378,115 @@ defmodule RclexTest do
           assert_receive :feedback
           assert_receive {:canceled, 0, _}
           refute_receive :finished_execute_callback
-          assert_receive {:got_result, 5, _}
+          assert_receive {:got_result, ^canceled_status, ^default_result}
         end
+      end)
+    end
+
+    test "cancel_goal_async/5 returns a custom cancellation result", %{
+      action_type: action_type,
+      cancel_decision: cancel_decision
+    } do
+      me = self()
+
+      custom_result = %Action.LookupTransform.Result{
+        error: %TF2Error{error: 5, error_string: "canceled by user"}
+      }
+
+      Agent.update(cancel_decision, fn _decision -> {:accept, custom_result} end)
+
+      result_callback = fn status, result -> send(me, {:got_result, status, result}) end
+      cancel_callback = fn return_code, goals -> send(me, {:canceled, return_code, goals}) end
+      canceled_status = Rclex.Pkgs.ActionMsgs.Msg.GoalStatus.status_canceled()
+
+      capture_log(fn ->
+        assert {:ok, uuid} =
+                 Rclex.send_goal_async(
+                   %Action.LookupTransform.Goal{
+                     source_frame: "/source_frame",
+                     target_frame: "/target_frame"
+                   },
+                   "/lookup_transform",
+                   "name"
+                 )
+
+        assert :ok =
+                 Rclex.get_result_async(
+                   uuid,
+                   result_callback,
+                   action_type,
+                   "/lookup_transform",
+                   "name"
+                 )
+
+        assert_receive :goal_callback
+        assert_receive :started_execute_callback
+
+        assert :ok =
+                 Rclex.cancel_goal_async(
+                   uuid,
+                   cancel_callback,
+                   action_type,
+                   "/lookup_transform",
+                   "name"
+                 )
+
+        assert_receive {:canceled, 0, _}
+        refute_receive :finished_execute_callback
+        assert_receive {:got_result, ^canceled_status, ^custom_result}
+      end)
+    end
+
+    test "cancel_goal_async/5 keeps the goal active when cancellation is rejected", %{
+      action_type: action_type,
+      cancel_decision: cancel_decision
+    } do
+      me = self()
+      Agent.update(cancel_decision, fn _decision -> :reject end)
+
+      result_callback = fn status, result -> send(me, {:got_result, status, result}) end
+      cancel_callback = fn return_code, goals -> send(me, {:canceled, return_code, goals}) end
+      succeeded_status = Rclex.Pkgs.ActionMsgs.Msg.GoalStatus.status_succeeded()
+
+      capture_log(fn ->
+        assert {:ok, uuid} =
+                 Rclex.send_goal_async(
+                   %Action.LookupTransform.Goal{
+                     source_frame: "/source_frame",
+                     target_frame: "/target_frame"
+                   },
+                   "/lookup_transform",
+                   "name"
+                 )
+
+        assert :ok =
+                 Rclex.get_result_async(
+                   uuid,
+                   result_callback,
+                   action_type,
+                   "/lookup_transform",
+                   "name"
+                 )
+
+        assert_receive :goal_callback
+        assert_receive :started_execute_callback
+
+        assert :ok =
+                 Rclex.cancel_goal_async(
+                   uuid,
+                   cancel_callback,
+                   action_type,
+                   "/lookup_transform",
+                   "name"
+                 )
+
+        assert_receive {:canceled, 0, _}
+        assert_receive :finished_execute_callback, 500
+
+        assert_receive {:got_result, ^succeeded_status,
+                        %Action.LookupTransform.Result{
+                          error: %TF2Error{error: 4, error_string: "no error"}
+                        }}
       end)
     end
 
