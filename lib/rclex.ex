@@ -2715,6 +2715,41 @@ defmodule Rclex do
   end
 
   @doc """
+  Return known TF2 frames as structured data.
+
+  Each entry describes one child frame: its parent, broadcaster authority,
+  update rate, latest/oldest transform time, and buffer length. This is the
+  same data `tf2_all_frames_as_yaml/3` renders to text — use this instead when
+  a caller wants to consume the frame graph programmatically (for example, to
+  draw it) rather than parse YAML meant for diagnostics.
+
+  ### Parameters
+
+  - `buffer_name` - Buffer identifier.
+  - `name` - Node name used to resolve the buffer.
+
+  ### opts
+
+  - #{@namespace_doc}
+
+  ### Examples
+
+      iex> {:ok, frames} = Rclex.tf2_list_frames("main", "node")
+      iex> is_list(frames)
+      true
+  """
+  @doc section: :tf2
+  @spec tf2_list_frames(
+          buffer_name :: String.t() | atom(),
+          name :: String.t(),
+          opts :: [namespace: String.t()]
+        ) :: {:ok, [Rclex.Tf2.frame_info()]} | {:error, term()}
+  def tf2_list_frames(buffer_name, name, opts \\ [])
+      when (is_binary(buffer_name) or is_atom(buffer_name)) and is_binary(name) and is_list(opts) do
+    Rclex.Tf2.list_frames(buffer_name, name, opts)
+  end
+
+  @doc """
   Return known TF2 frames as YAML.
 
   The output is intended for diagnostics and mirrors the common TF2 frame-graph

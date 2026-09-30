@@ -9,17 +9,20 @@ defmodule Rclex.Tf2 do
   @type buffer_name :: String.t() | atom()
   @type opts :: keyword()
 
+  # An existing buffer is left untouched (including its cache_time_ns), matching
+  # the "ensure_" idiom used by start_node/start_publisher/start_subscription
+  # elsewhere in Rclex rather than erroring on a second call.
   @spec buffer_new(buffer_name(), String.t(), opts()) :: :ok | {:error, term()}
   def buffer_new(buffer_name, name, opts \\ []) do
     ensure_table!()
     ensure_io_table!()
     key = key(buffer_name, name, opts)
 
-    cache_time_sec = Keyword.get(opts, :cache_time_sec, @default_cache_time_sec)
-    cache_time_ns = max(0, trunc(cache_time_sec * 1_000_000_000))
-
     case :ets.lookup(@table, key) do
       [] ->
+        cache_time_sec = Keyword.get(opts, :cache_time_sec, @default_cache_time_sec)
+        cache_time_ns = max(0, trunc(cache_time_sec * 1_000_000_000))
+
         true =
           :ets.insert(@table, {
             key,
@@ -29,7 +32,7 @@ defmodule Rclex.Tf2 do
         :ok
 
       _ ->
-        {:error, :buffer_already_exists}
+        :ok
     end
   end
 
@@ -64,15 +67,33 @@ defmodule Rclex.Tf2 do
     end
   end
 
-  @spec all_frames_as_yaml(buffer_name(), String.t(), opts()) ::
-          {:ok, String.t()} | {:error, term()}
-  def all_frames_as_yaml(buffer_name, name, opts \\ []) do
+  @type frame_info :: %{
+          child: String.t(),
+          parent: String.t(),
+          broadcaster: String.t(),
+          rate: float(),
+          most_recent_transform: float(),
+          oldest_transform: float(),
+          buffer_length: float()
+        }
+
+  @spec list_frames(buffer_name(), String.t(), opts()) ::
+          {:ok, [frame_info()]} | {:error, term()}
+  def list_frames(buffer_name, name, opts \\ []) do
     ensure_table!()
     ensure_io_table!()
     key = key(buffer_name, name, opts)
 
     with {:ok, buffer} <- fetch_buffer(key) do
-      {:ok, all_frames_yaml(buffer)}
+      {:ok, frame_list(buffer)}
+    end
+  end
+
+  @spec all_frames_as_yaml(buffer_name(), String.t(), opts()) ::
+          {:ok, String.t()} | {:error, term()}
+  def all_frames_as_yaml(buffer_name, name, opts \\ []) do
+    with {:ok, frames} <- list_frames(buffer_name, name, opts) do
+      {:ok, render_frames_yaml(frames)}
     end
   end
 
@@ -646,30 +667,43 @@ defmodule Rclex.Tf2 do
     |> MapSet.to_list()
   end
 
-  defp all_frames_yaml(buffer) do
+  defp frame_list(buffer) do
     entries = frame_yaml_entries(buffer)
 
-    if map_size(entries) == 0 do
-      ""
-    else
-      entries
-      |> Map.keys()
-      |> Enum.sort()
-      |> Enum.flat_map(fn child ->
-        info = Map.fetch!(entries, child)
+    entries
+    |> Map.keys()
+    |> Enum.sort()
+    |> Enum.map(fn child ->
+      info = Map.fetch!(entries, child)
 
-        [
-          "#{child}:",
-          "  parent: #{info.parent}",
-          "  broadcaster: #{info.broadcaster}",
-          "  rate: #{float_to_string(info.rate)}",
-          "  most_recent_transform: #{float_to_string(info.most_recent_transform)}",
-          "  oldest_transform: #{float_to_string(info.oldest_transform)}",
-          "  buffer_length: #{float_to_string(info.buffer_length)}"
-        ]
-      end)
-      |> Enum.join("\n")
-    end
+      %{
+        child: child,
+        parent: info.parent,
+        broadcaster: info.broadcaster,
+        rate: info.rate,
+        most_recent_transform: info.most_recent_transform,
+        oldest_transform: info.oldest_transform,
+        buffer_length: info.buffer_length
+      }
+    end)
+  end
+
+  defp render_frames_yaml([]), do: ""
+
+  defp render_frames_yaml(frames) do
+    frames
+    |> Enum.flat_map(fn info ->
+      [
+        "#{info.child}:",
+        "  parent: #{info.parent}",
+        "  broadcaster: #{info.broadcaster}",
+        "  rate: #{float_to_string(info.rate)}",
+        "  most_recent_transform: #{float_to_string(info.most_recent_transform)}",
+        "  oldest_transform: #{float_to_string(info.oldest_transform)}",
+        "  buffer_length: #{float_to_string(info.buffer_length)}"
+      ]
+    end)
+    |> Enum.join("\n")
   end
 
   defp frame_yaml_entries(buffer) do

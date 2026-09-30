@@ -32,9 +32,9 @@ defmodule Rclex.Tf2Test do
   end
 
   describe "buffer lifecycle" do
-    test "creates, rejects duplicate, and destroys a buffer" do
+    test "creates idempotently, and destroys a buffer" do
       assert :ok = Rclex.tf2_buffer_new("main", "node")
-      assert {:error, :buffer_already_exists} = Rclex.tf2_buffer_new("main", "node")
+      assert :ok = Rclex.tf2_buffer_new("main", "node")
 
       assert :ok = Rclex.tf2_buffer_destroy("main", "node")
       assert {:error, :buffer_not_found} = Rclex.tf2_buffer_destroy("main", "node")
@@ -749,6 +749,78 @@ defmodule Rclex.Tf2Test do
 
       assert {:ok, yaml} = Rclex.tf2_all_frames_as_yaml("main", "node")
       assert yaml =~ "broadcaster: unknown"
+    end
+  end
+
+  describe "list_frames/3" do
+    setup do
+      assert :ok = Rclex.tf2_buffer_new("main", "node")
+      :ok
+    end
+
+    test "returns an empty list for an empty buffer" do
+      assert {:ok, []} = Rclex.tf2_list_frames("main", "node")
+    end
+
+    test "returns structured entries matching the yaml rendering" do
+      :ok =
+        Rclex.tf2_set_transform(
+          "main",
+          stamped_transform("map", "odom", 1, %{x: 0.0, y: 0.0, z: 0.0}),
+          "authority",
+          "node"
+        )
+
+      assert {:ok, [frame]} = Rclex.tf2_list_frames("main", "node")
+      assert frame.child == "odom"
+      assert frame.parent == "map"
+      assert frame.broadcaster == "authority"
+      assert is_float(frame.rate)
+      assert is_float(frame.most_recent_transform)
+      assert is_float(frame.oldest_transform)
+      assert is_float(frame.buffer_length)
+
+      assert {:ok, yaml} = Rclex.tf2_all_frames_as_yaml("main", "node")
+      assert yaml =~ "odom:"
+      assert yaml =~ "  parent: map"
+    end
+
+    test "sorts entries by child frame name" do
+      :ok =
+        Rclex.tf2_set_transform(
+          "main",
+          stamped_transform("map", "zeta", 1, %{x: 0.0, y: 0.0, z: 0.0}),
+          "authority",
+          "node"
+        )
+
+      :ok =
+        Rclex.tf2_set_transform(
+          "main",
+          stamped_transform("map", "alpha", 1, %{x: 0.0, y: 0.0, z: 0.0}),
+          "authority",
+          "node"
+        )
+
+      assert {:ok, frames} = Rclex.tf2_list_frames("main", "node")
+      assert Enum.map(frames, & &1.child) == ["alpha", "zeta"]
+    end
+
+    test "falls back to an unknown broadcaster when authority is empty" do
+      :ok =
+        Rclex.tf2_set_transform(
+          "main",
+          stamped_transform("a", "b", 1, %{x: 0.0, y: 0.0, z: 0.0}),
+          "",
+          "node"
+        )
+
+      assert {:ok, [frame]} = Rclex.tf2_list_frames("main", "node")
+      assert frame.broadcaster == "unknown"
+    end
+
+    test "returns an error for a missing buffer" do
+      assert {:error, :buffer_not_found} = Rclex.tf2_list_frames("absent", "node")
     end
   end
 end
