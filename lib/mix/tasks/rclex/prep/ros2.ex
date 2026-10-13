@@ -187,8 +187,18 @@ defmodule Mix.Tasks.Rclex.Prep.Ros2 do
     done
     """
 
-    ["run", "--rm", "-v", "#{dest_path}:/mnt", image, "bash", "-c", copy_script, "bash"] ++
-      source_patterns
+    [
+      "run",
+      "--rm",
+      "-v",
+      "#{dest_path}:/mnt",
+      "--entrypoint",
+      "bash",
+      image,
+      "-c",
+      copy_script,
+      "bash"
+    ] ++ source_patterns
   end
 
   @doc false
@@ -246,7 +256,8 @@ defmodule Mix.Tasks.Rclex.Prep.Ros2 do
     base_resources = [
       "/lib/#{dir_name}/libspdlog.so*",
       "/lib/#{dir_name}/libtinyxml2.so*",
-      "/lib/#{dir_name}/libfmt.so*"
+      "/lib/#{dir_name}/libfmt.so*",
+      "/opt/ros/#{distro}/opt/zenoh_cpp_vendor/lib/libzenohc.so*"
     ]
 
     if copy_openssl do
@@ -271,7 +282,7 @@ defmodule Mix.Tasks.Rclex.Prep.Ros2 do
 
   defp default_ros_prefix(_arch, _ros_distro), do: nil
 
-  defp default_install_prefix("arm32v7"), do: "/root/ros2_ws/install"
+  defp default_install_prefix("arm32v7"), do: "/ros2_ws/install"
   defp default_install_prefix(_arch), do: nil
 
   @doc false

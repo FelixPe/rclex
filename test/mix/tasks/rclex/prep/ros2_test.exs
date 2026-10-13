@@ -118,18 +118,19 @@ defmodule Mix.Tasks.Rclex.Prep.Ros2Test do
 
       args = Ros2.docker_copy_args("custom/ros:j azy", "/tmp/rootfs overlay", source_patterns)
 
-      assert Enum.take(args, 5) == [
+      assert Enum.take(args, 7) == [
                "run",
                "--rm",
                "-v",
                "/tmp/rootfs overlay:/mnt",
+               "--entrypoint",
+               "bash",
                "custom/ros:j azy"
              ]
 
       assert List.last(args) == "/ros2_ws/install/my_msgs/share"
       assert Enum.at(args, -2) == "/opt/ros/jazzy/share"
-      assert Enum.at(args, 5) == "bash"
-      assert Enum.at(args, 6) == "-c"
+      assert Enum.at(args, 7) == "-c"
     end
   end
 
@@ -140,7 +141,8 @@ defmodule Mix.Tasks.Rclex.Prep.Ros2Test do
       assert paths == [
                "/lib/x86_64-linux-gnu/libspdlog.so*",
                "/lib/x86_64-linux-gnu/libtinyxml2.so*",
-               "/lib/x86_64-linux-gnu/libfmt.so*"
+               "/lib/x86_64-linux-gnu/libfmt.so*",
+               "/opt/ros/jazzy/opt/zenoh_cpp_vendor/lib/libzenohc.so*"
              ]
     end
 
