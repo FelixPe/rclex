@@ -1,3 +1,6 @@
+#include <erl_nif.h>
+#include <stddef.h>
+
 #include "action_funcs.h" // IWYU pragma: keep
 #include "macros.h"
 #include "msg_funcs.h" // IWYU pragma: keep
@@ -18,8 +21,6 @@
 #include "srv_funcs.h" // IWYU pragma: keep
 #include "terms.h"
 #include "type_description.h"
-#include <erl_nif.h>
-#include <stddef.h>
 
 #define REGULAR_NIF 0
 /*

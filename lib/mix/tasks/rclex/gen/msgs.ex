@@ -289,23 +289,31 @@ defmodule Mix.Tasks.Rclex.Gen.Msgs do
 
   @doc false
   def generate_msg_funcs_h(types) do
-    Enum.map_join(types, fn {:msg_type, type} ->
-      [interfaces, interface_type, type] = String.split(type, "/")
-      file_path = Path.join([interfaces, interface_type, Util.to_down_snake(type)]) <> ".h"
-      function_prefix = Util.type_down_snake("#{interfaces}/#{interface_type}/#{type}")
+    headers =
+      Enum.map_join(types, fn {:msg_type, type} ->
+        [interfaces, interface_type, type] = String.split(type, "/")
+        file_path = Path.join([interfaces, interface_type, Util.to_down_snake(type)]) <> ".h"
+        function_prefix = Util.type_down_snake("#{interfaces}/#{interface_type}/#{type}")
 
-      """
-      #ifndef ROS_DISTRO_humble
-      ERL_NIF_TERM nif_#{function_prefix}_type_description(
-        ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
-      ERL_NIF_TERM nif_#{function_prefix}_type_description_sources(
-        ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
-      ERL_NIF_TERM nif_#{function_prefix}_type_hash(
-        ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
-      #endif
-      #include "pkgs/#{file_path}"
-      """
-    end)
+        """
+        #ifndef ROS_DISTRO_humble
+        ERL_NIF_TERM nif_#{function_prefix}_type_description(
+          ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
+        ERL_NIF_TERM nif_#{function_prefix}_type_description_sources(
+          ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
+        ERL_NIF_TERM nif_#{function_prefix}_type_hash(
+          ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
+        #endif
+        #include "pkgs/#{file_path}"
+        """
+      end)
+
+    """
+    #pragma once
+    #include <erl_nif.h>
+
+    #{headers}
+    """
   end
 
   @doc false
