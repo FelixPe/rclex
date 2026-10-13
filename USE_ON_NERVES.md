@@ -21,11 +21,12 @@ Currently, we have confirmed the following boards as the Nerves device that can 
 The below is the supported ROS 2 distribution and architecture that can operate rclex_on_nerves.
 The "support" colomn refers to its status of official support as the ROS 2 distribution.
 
-| `ROS_DISTRO` | arm64v8 | arm32v7 | support |
-| :--- | :--- | :---| :---|
-| humble | ○ | ○ | LTS until May 2027 |
-| galactic | ○ | - | until [v0.11.3](https://github.com/rclex/rclex/releases/tag/v0.11.3) |
-| foxy | ○ | ○ | until [v0.11.3](https://github.com/rclex/rclex/releases/tag/v0.11.3) |
+| `ROS_DISTRO` | arm64v8 | arm32v7 | amd64 | support |
+| :--- | :--- | :--- | :--- | :--- |
+| humble | ○ | ○ | ○ | LTS until May 2027 |
+| jazzy | ○ | ○ | ○ | LTS until May 2029 |
+| galactic | ○ | - | - | until [v0.11.3](https://github.com/rclex/rclex/releases/tag/v0.11.3) |
+| foxy | ○ | ○ | - | until [v0.11.3](https://github.com/rclex/rclex/releases/tag/v0.11.3) |
 
 ## Preliminaries
 
@@ -93,6 +94,34 @@ You may change the value of `--arch` according to the architecture of your targe
 export ROS_DISTRO=humble
 mix rclex.prep.ros2 --arch arm64v8
 ```
+
+For an amd64 Nerves target (`MIX_TARGET=x86_64` or `x86_64_rt`) using ROS Jazzy, the task selects `amd64` automatically. To stage custom message packages from a workspace install, configure a custom image and both source prefixes in `config/config.exs`:
+
+```elixir
+config :rclex, :ros2_prep,
+  image: "my-org/ros-jazzy:latest",
+  ros_prefix: "/opt/ros/jazzy",
+  install_prefix: "/ros2_ws/install",
+  copy_openssl: false
+```
+
+Then run:
+
+```
+export ROS_DISTRO=jazzy
+mix rclex.prep.ros2
+```
+
+The equivalent options can be passed directly to the task; command-line values override project config:
+
+```
+mix rclex.prep.ros2 --image my-org/ros-jazzy:latest --ros-prefix /opt/ros/jazzy --install-prefix /ros2_ws/install --no-copy-openssl
+```
+
+The ROS prefix and workspace install prefix may be merged (with `include`, `lib`, and `share` directly under the prefix) or isolated (those directories under package subdirectories).
+For `x86_64_rt`, the Nerves system already provides OpenSSL 3, so `copy_openssl: false` avoids staging duplicate OpenSSL libraries from the container. OpenSSL copying remains enabled by default for compatibility with other Nerves systems.
+
+Jazzy is also accepted for `arm64v8` and `arm32v7`. For `arm32v7`, provide an image containing an arm32 Jazzy installation; the configured image and install prefix must match the Nerves target architecture.
 
 > #### Note {: .warning }
 >

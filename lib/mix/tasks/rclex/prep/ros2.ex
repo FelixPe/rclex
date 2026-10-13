@@ -4,12 +4,26 @@ defmodule Mix.Tasks.Rclex.Prep.Ros2 do
   #{@shortdoc}
 
   ```
-  mix rclex.prep.ros2 --arch ARCH
+  mix rclex.prep.ros2 --arch ARCH [--image IMAGE] [--ros-prefix PATH] [--install-prefix PATH]
   ```
 
   ROS 2 resources will be prepared under .ros2.
 
-  An `--arch` option should be specified, option value is `arm64v8`, currently only supported.
+  An `--arch` option may be specified. Supported values are `arm64v8`, `amd64`, and `arm32v7`.
+
+  Project defaults can be configured in `config/config.exs` and overridden by command-line options:
+
+  ```elixir
+  config :rclex, :ros2_prep,
+    image: "my/ros:jazzy",
+    ros_prefix: "/opt/ros/jazzy",
+    install_prefix: "/ros2_ws/install",
+    copy_openssl: false
+  ```
+
+  The `:image`, `:ros_prefix`, `:install_prefix`, and `:copy_openssl` values are optional. Without
+  overrides, the task uses its architecture- and distro-specific defaults and copies OpenSSL libraries
+  for backwards compatibility. Install prefixes may be merged or isolated.
 
   ## Examples
 
@@ -24,13 +38,19 @@ defmodule Mix.Tasks.Rclex.Prep.Ros2 do
   ```
   mix rclex.prep.ros2
   ```
+
+  For an amd64 Nerves target using Jazzy and a custom workspace image:
+
+  ```
+  mix rclex.prep.ros2 --image my/ros:jazzy --ros-prefix /opt/ros/jazzy --install-prefix /ros2_ws/install --no-copy-openssl
+  ```
   """
 
   use Mix.Task
 
-  @arm64v8_ros_distros ["humble"]
-  @amd64_ros_distros ["humble"]
-  @arm32v7_ros_distros ["humble"]
+  @arm64v8_ros_distros ["humble", "jazzy"]
+  @amd64_ros_distros ["humble", "jazzy"]
+  @arm32v7_ros_distros ["humble", "jazzy"]
   @supported_ros_distros %{
     "arm64v8" => @arm64v8_ros_distros,
     "amd64" => @amd64_ros_distros,
@@ -38,9 +58,20 @@ defmodule Mix.Tasks.Rclex.Prep.Ros2 do
   }
   @supported_arch Map.keys(@supported_ros_distros)
 
-  @nerves_target_arch_map %{"rpi4" => "arm64v8", "rpi3" => "arm32v7"}
+  @nerves_target_arch_map %{
+    "rpi4" => "arm64v8",
+    "rpi3" => "arm32v7",
+    "x86_64" => "amd64",
+    "x86_64_rt" => "amd64"
+  }
 
-  @switches [arch: :string]
+  @switches [
+    arch: :string,
+    image: :string,
+    ros_prefix: :string,
+    install_prefix: :string,
+    copy_openssl: :boolean
+  ]
 
   @doc false
   def run(args) do
@@ -67,7 +98,7 @@ defmodule Mix.Tasks.Rclex.Prep.Ros2 do
     end
 
     ros_distro = System.get_env("ROS_DISTRO")
-    supported_ros_distros = Map.get(@supported_ros_distros, arch, [])
+    supported_ros_distros = supported_ros_distros(arch)
 
     if ros_distro not in supported_ros_distros do
       Mix.raise("""
@@ -76,7 +107,8 @@ defmodule Mix.Tasks.Rclex.Prep.Ros2 do
       """)
     end
 
-    # NOTE: If you implement the copy destination option, pass the path here.
+    config = Application.get_env(:rclex, :ros2_prep, [])
+    options = resolve_options(parsed_args, config, System.get_env("MIX_TARGET"), ros_distro)
     dest_dir_path = copy_dest_dir_path(arch, ros_distro)
 
     message = """
@@ -85,7 +117,15 @@ defmodule Mix.Tasks.Rclex.Prep.Ros2 do
     """
 
     if Mix.shell().yes?(String.trim_trailing(message)) do
-      copy_from_docker!(dest_dir_path, arch, ros_distro)
+      copy_from_docker!(
+        dest_dir_path,
+        arch,
+        ros_distro,
+        options.image,
+        options.ros_prefix,
+        options.install_prefix,
+        options.copy_openssl
+      )
     end
   end
 
@@ -105,64 +145,134 @@ defmodule Mix.Tasks.Rclex.Prep.Ros2 do
   end
 
   @doc false
+  def resolve_options(cli_options, project_config, mix_target, ros_distro) do
+    project_config =
+      if is_map(project_config), do: Map.to_list(project_config), else: project_config
+
+    options = Keyword.merge(project_config, cli_options)
+    arch = Keyword.get(options, :arch, Map.get(@nerves_target_arch_map, mix_target))
+
+    %{
+      arch: arch,
+      ros_distro: ros_distro,
+      image: Keyword.get(options, :image) || ros_docker_image_tag(arch, ros_distro),
+      ros_prefix: Keyword.get(options, :ros_prefix, default_ros_prefix(arch, ros_distro)),
+      install_prefix: Keyword.get(options, :install_prefix, default_install_prefix(arch)),
+      copy_openssl: Keyword.get(options, :copy_openssl, true)
+    }
+  end
+
+  @doc false
+  def supported_ros_distros(arch), do: Map.get(@supported_ros_distros, arch, [])
+
+  @doc false
+  def ros_resource_paths(ros_prefix, install_prefix) do
+    [ros_prefix, install_prefix]
+    |> Enum.reject(&is_nil/1)
+    |> Enum.flat_map(fn prefix ->
+      Enum.map(["include", "lib", "share"], &Path.join(prefix, &1)) ++
+        Enum.map(["include", "lib", "share"], &Path.join(prefix, "*/#{&1}"))
+    end)
+  end
+
+  @doc false
+  def docker_copy_args(image, dest_path, source_patterns) do
+    copy_script = """
+    set -e
+    for pattern in "$@"; do
+      mapfile -t matches < <(compgen -G "$pattern" || true)
+      for source in "${matches[@]}"; do
+        cp -rf "$source" /mnt/
+      done
+    done
+    """
+
+    ["run", "--rm", "-v", "#{dest_path}:/mnt", image, "bash", "-c", copy_script, "bash"] ++
+      source_patterns
+  end
+
+  @doc false
   def copy_from_docker!(dest_dir_path, arch, ros_distro) do
+    copy_from_docker!(
+      dest_dir_path,
+      arch,
+      ros_distro,
+      ros_docker_image_tag(arch, ros_distro),
+      default_ros_prefix(arch, ros_distro),
+      default_install_prefix(arch),
+      true
+    )
+  end
+
+  def copy_from_docker!(dest_dir_path, arch, ros_distro, image, ros_prefix, install_prefix) do
+    copy_from_docker!(dest_dir_path, arch, ros_distro, image, ros_prefix, install_prefix, true)
+  end
+
+  def copy_from_docker!(
+        dest_dir_path,
+        arch,
+        ros_distro,
+        image,
+        ros_prefix,
+        install_prefix,
+        copy_openssl
+      ) do
     dest_path = Path.join(dest_dir_path, "/opt/ros/#{ros_distro}")
     create_resources_directory!(dest_path, _git_ignore = true)
-    copy_ros_resources_from_docker!(dest_path, arch, ros_distro)
+    copy_ros_resources_from_docker!(dest_path, image, ros_prefix, install_prefix)
 
     dest_path = Path.join(dest_dir_path, "/opt/ros/#{ros_distro}/lib")
     create_resources_directory!(dest_path, _git_ignore = false)
-    copy_vendor_resources_from_docker!(dest_path, arch, ros_distro)
+    copy_vendor_resources_from_docker!(dest_path, image, arch, ros_distro, copy_openssl)
   end
 
-  defp copy_ros_resources_from_docker!(dest_path, arch, ros_distro)
-       when arch in ["arm64v8", "amd64"] do
-    [
-      "/opt/ros/#{ros_distro}/include",
-      "/opt/ros/#{ros_distro}/lib",
-      "/opt/ros/#{ros_distro}/share"
-    ]
-    |> Enum.map(fn src_path -> copy_from_docker_impl!(arch, ros_distro, src_path, dest_path) end)
+  defp copy_ros_resources_from_docker!(dest_path, image, ros_prefix, install_prefix) do
+    source_patterns = ros_resource_paths(ros_prefix, install_prefix)
+    copy_from_docker_impl!(image, source_patterns, dest_path)
   end
 
-  defp copy_ros_resources_from_docker!(dest_path, arch, ros_distro)
-       when arch in ["arm32v7"] do
-    [
-      "/root/ros2_ws/install/*/include",
-      "/root/ros2_ws/install/*/lib",
-      "/root/ros2_ws/install/*/share"
-    ]
-    |> Enum.map(fn src_path -> copy_from_docker_impl!(arch, ros_distro, src_path, dest_path) end)
+  defp copy_vendor_resources_from_docker!(dest_path, image, arch, ros_distro, copy_openssl) do
+    copy_from_docker_impl!(image, vendor_resources(arch, ros_distro, copy_openssl), dest_path)
   end
 
-  defp copy_vendor_resources_from_docker!(dest_path, arch, ros_distro)
-       when arch in ["arm64v8", "amd64", "arm32v7"] do
-    vendor_resources(arch, ros_distro)
-    |> Enum.map(fn src_path -> copy_from_docker_impl!(arch, ros_distro, src_path, dest_path) end)
+  defp vendor_resources(arch, distro, copy_openssl) do
+    vendor_resource_paths(arch, distro, copy_openssl)
   end
 
-  defp vendor_resources(arch, "humble") do
+  @doc false
+  def vendor_resource_paths(arch, distro, copy_openssl) when distro in ["humble", "jazzy"] do
     dir_name = arch_dir_name(arch)
 
-    [
+    base_resources = [
       "/lib/#{dir_name}/libspdlog.so*",
       "/lib/#{dir_name}/libtinyxml2.so*",
-      "/lib/#{dir_name}/libfmt.so*",
-      # humble needs OpenSSL 3.x which Nerves doesn't have
-      "/lib/#{dir_name}/libssl.so*",
-      "/lib/#{dir_name}/libcrypto.so*"
+      "/lib/#{dir_name}/libfmt.so*"
     ]
-  end
 
-  defp copy_from_docker_impl!(arch, ros_distro, src_path, dest_path) do
-    with true <- File.exists?(dest_path) do
-      docker_tag = ros_docker_image_tag(arch, ros_distro)
-      docker_command_args = ["run", "--rm", "-v", "#{dest_path}:/mnt", docker_tag]
-      copy_command = ["bash", "-c", "for s in #{src_path}; do cp -rf $s /mnt; done"]
-
-      {_, 0} = System.cmd("docker", docker_command_args ++ copy_command)
+    if copy_openssl do
+      base_resources ++
+        [
+          "/lib/#{dir_name}/libssl.so*",
+          "/lib/#{dir_name}/libcrypto.so*"
+        ]
+    else
+      base_resources
     end
   end
+
+  defp copy_from_docker_impl!(image, source_patterns, dest_path) do
+    with true <- File.exists?(dest_path) do
+      {_, 0} = System.cmd("docker", docker_copy_args(image, dest_path, source_patterns))
+    end
+  end
+
+  defp default_ros_prefix(arch, ros_distro) when arch in ["arm64v8", "amd64"],
+    do: "/opt/ros/#{ros_distro}"
+
+  defp default_ros_prefix(_arch, _ros_distro), do: nil
+
+  defp default_install_prefix("arm32v7"), do: "/root/ros2_ws/install"
+  defp default_install_prefix(_arch), do: nil
 
   @doc false
   def ros_docker_image_tag(arch, ros_distro)
