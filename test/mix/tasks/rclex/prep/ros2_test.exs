@@ -142,6 +142,10 @@ defmodule Mix.Tasks.Rclex.Prep.Ros2Test do
                "/lib/x86_64-linux-gnu/libspdlog.so*",
                "/lib/x86_64-linux-gnu/libtinyxml2.so*",
                "/lib/x86_64-linux-gnu/libfmt.so*",
+               "/lib/x86_64-linux-gnu/liblttng-ust*.so*",
+               "/lib/x86_64-linux-gnu/libnuma.so.1*",
+               "/usr/lib/x86_64-linux-gnu/libyaml-0.so*",
+               "/usr/lib/x86_64-linux-gnu/libyaml.so*",
                "/opt/ros/jazzy/opt/zenoh_cpp_vendor/lib/libzenohc.so*"
              ]
     end
