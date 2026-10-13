@@ -257,6 +257,8 @@ defmodule Mix.Tasks.Rclex.Prep.Ros2 do
       "/lib/#{dir_name}/libspdlog.so*",
       "/lib/#{dir_name}/libtinyxml2.so*",
       "/lib/#{dir_name}/libfmt.so*",
+      "/lib/#{dir_name}/liblttng-ust*.so*",
+      "/lib/#{dir_name}/libnuma.so.1*",
       "/usr/lib/#{dir_name}/libyaml-0.so*",
       "/usr/lib/#{dir_name}/libyaml.so*",
       "/opt/ros/#{distro}/opt/zenoh_cpp_vendor/lib/libzenohc.so*"
