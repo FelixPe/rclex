@@ -71,7 +71,7 @@ jobs:
       - name: Install native TF2 dependencies
         run: |
           apt-get update
-          apt-get install -y --no-install-recommends ros-${ROS_DISTRO}-tf2 ros-${ROS_DISTRO}-tf2-geometry-msgs libyaml-cpp-dev liborocos-kdl-dev
+          apt-get install -y --no-install-recommends ros-${ROS_DISTRO}-tf2 ros-${ROS_DISTRO}-tf2-geometry-msgs ros-${ROS_DISTRO}-xacro libyaml-cpp-dev liborocos-kdl-dev
 
       - name: mix format
         run: |
@@ -156,7 +156,7 @@ jobs:
       - name: Install native TF2 dependencies
         run: |
           apt-get update
-          apt-get install -y --no-install-recommends ros-${ROS_DISTRO}-tf2 ros-${ROS_DISTRO}-tf2-geometry-msgs libyaml-cpp-dev liborocos-kdl-dev
+          apt-get install -y --no-install-recommends ros-${ROS_DISTRO}-tf2 ros-${ROS_DISTRO}-tf2-geometry-msgs ros-${ROS_DISTRO}-xacro libyaml-cpp-dev liborocos-kdl-dev
 
       - name: mix compile
         run: |

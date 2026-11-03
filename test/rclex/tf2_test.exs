@@ -13,7 +13,9 @@ defmodule Rclex.Tf2Test do
     :ok = Application.ensure_started(:rclex)
 
     if :ets.whereis(@table) != :undefined do
-      :ets.delete_all_objects(@table)
+      Enum.each(:ets.tab2list(@table), fn {{buffer_name, name, namespace}, _resource} ->
+        Rclex.Tf2.buffer_destroy(buffer_name, name, namespace: namespace)
+      end)
     end
 
     :ok
@@ -34,6 +36,52 @@ defmodule Rclex.Tf2Test do
   end
 
   describe "buffer lifecycle" do
+    test "abrupt restart invalidates native handles before accepting new buffers" do
+      clock = start_supervised!({Rclex.Clock, name: :tf2_crash_clock, clock_type: :ros_time})
+      assert :ok = Rclex.Tf2.buffer_new("crash", "node", clock: clock)
+      assert [{_, resource}] = :ets.lookup(@table, {"crash", "node", "/"})
+
+      assert {:ok, request} =
+               Rclex.Tf2.lookup_transform_async("crash", "map", "missing", 0, 10.0, "node")
+
+      owner = Process.whereis(Rclex.Tf2)
+      monitor = Process.monitor(owner)
+
+      capture_log(fn ->
+        Process.exit(owner, :kill)
+        assert_receive {:DOWN, ^monitor, :process, ^owner, :killed}
+        new_owner = await_tf2_restart(owner)
+        assert :ok = GenServer.call(new_owner, :ensure_table)
+        assert {:error, {:buffer_not_found, _}} = Rclex.Nif.tf2_clear!(resource)
+        assert :ros_time = Rclex.Clock.clock_type(clock)
+        assert {:monitors, []} = Process.info(clock, :monitors)
+        assert_receive {:tf2_transform, ^request, {:error, :tf2_shutdown}}
+        refute_receive {:tf2_transform, ^request, _}, 10
+        assert :ok = Rclex.Tf2.buffer_new("crash", "node")
+        assert {:ok, []} = Rclex.Tf2.list_frames("crash", "node")
+      end)
+    end
+
+    test "supervised shutdown invalidates retained native buffer handles" do
+      assert :ok = Rclex.Tf2.buffer_new("shutdown", "node")
+      assert [{_, resource}] = :ets.lookup(@table, {"shutdown", "node", "/"})
+
+      assert {:ok, request} =
+               Rclex.Tf2.lookup_transform_async("shutdown", "map", "missing", 0, 10.0, "node")
+
+      owner = Process.whereis(Rclex.Tf2)
+      {:dictionary, dictionary} = Process.info(owner, :dictionary)
+      [supervisor | _] = Keyword.fetch!(dictionary, :"$ancestors")
+
+      try do
+        assert :ok = Supervisor.terminate_child(supervisor, Rclex.Tf2)
+        assert {:error, {:buffer_not_found, _}} = Rclex.Nif.tf2_clear!(resource)
+        assert_receive {:tf2_transform, ^request, {:error, :tf2_shutdown}}
+      after
+        assert {:ok, _pid} = Supervisor.restart_child(supervisor, Rclex.Tf2)
+      end
+    end
+
     test "Tf2 public module starts automatically with the application" do
       assert is_pid(Process.whereis(Rclex.Tf2))
       assert :ok = Rclex.Tf2.buffer_new("public_api", "node")
@@ -406,6 +454,15 @@ defmodule Rclex.Tf2Test do
       %{clock: clock}
     end
 
+    test "destroy releases the clock registration and allows rebinding", %{clock: clock} do
+      owner = Process.whereis(Rclex.Tf2)
+      assert {:monitors, [{:process, ^owner}]} = Process.info(clock, :monitors)
+      assert :ok = Rclex.Tf2.buffer_destroy("clocked", "node")
+      assert {:monitors, []} = Process.info(clock, :monitors)
+      assert :ok = Rclex.Tf2.buffer_new("clocked", "node", clock: clock)
+      assert {:monitors, [{:process, ^owner}]} = Process.info(clock, :monitors)
+    end
+
     test "backward jumps clear dynamic history but preserve static data", %{clock: clock} do
       assert :ok =
                Rclex.Tf2.set_transform(
@@ -466,6 +523,31 @@ defmodule Rclex.Tf2Test do
       assert :ok = Rclex.Tf2.buffer_new("async", "node")
       on_exit(fn -> Rclex.Tf2.buffer_destroy("async", "node") end)
       :ok
+    end
+
+    test "a busy cleanup owner does not cause duplicate async replies" do
+      assert {:ok, request} =
+               Rclex.Tf2.lookup_transform_async("async", "map", "sensor", 0, 10.0, "node")
+
+      cleanup = Process.whereis(Rclex.Tf2.Cleanup)
+      :ok = :sys.suspend(cleanup)
+
+      try do
+        assert :ok =
+                 Rclex.Tf2.set_transform_static(
+                   "async",
+                   stamped_transform("map", "sensor", 0, %{x: 4, y: 0, z: 0}),
+                   "auth",
+                   "node"
+                 )
+
+        refute_receive {:tf2_transform, ^request, _}, 5_500
+      after
+        :ok = :sys.resume(cleanup)
+      end
+
+      assert_receive {:tf2_transform, ^request, {:ok, _}}, 1_000
+      refute_receive {:tf2_transform, ^request, _}, 20
     end
 
     test "fixed-frame async lookup rechecks both time-qualified paths" do
@@ -706,6 +788,97 @@ defmodule Rclex.Tf2Test do
       %{name: name, namespace: namespace}
     end
 
+    test "supervised shutdown stops transport and unregisters clock bindings", %{name: name} do
+      clock = start_supervised!({Rclex.Clock, name: :tf2_shutdown_clock, clock_type: :ros_time})
+      assert :ok = Rclex.Tf2.buffer_new("clock_shutdown", name, clock: clock)
+      assert :ok = Rclex.Tf2.start_listener("clock_shutdown", name)
+      assert :ok = Rclex.Tf2.start_broadcaster(name)
+      owner = Process.whereis(Rclex.Tf2)
+      {:dictionary, dictionary} = Process.info(owner, :dictionary)
+      [supervisor | _] = Keyword.fetch!(dictionary, :"$ancestors")
+      message_type = Rclex.Pkgs.Tf2Msgs.Msg.TFMessage
+
+      capture_log(fn ->
+        try do
+          assert :ok = Supervisor.terminate_child(supervisor, Rclex.Tf2)
+          assert {:monitors, []} = Process.info(clock, :monitors)
+
+          for topic <- ["/tf", "/tf_static"] do
+            assert {:error, :not_found} = Rclex.stop_subscription(message_type, topic, name)
+            assert {:error, :not_found} = Rclex.stop_publisher(message_type, topic, name)
+          end
+        after
+          assert {:ok, _pid} = Supervisor.restart_child(supervisor, Rclex.Tf2)
+        end
+      end)
+    end
+
+    test "abrupt restart stops transport owned by the previous generation", %{name: name} do
+      assert :ok = Rclex.Tf2.start_listener("main", name)
+      assert :ok = Rclex.Tf2.start_broadcaster(name)
+      owner = Process.whereis(Rclex.Tf2)
+      message_type = Rclex.Pkgs.Tf2Msgs.Msg.TFMessage
+
+      capture_log(fn ->
+        Process.exit(owner, :kill)
+        new_owner = await_tf2_restart(owner)
+        assert :ok = GenServer.call(new_owner, :ensure_table)
+
+        for topic <- ["/tf", "/tf_static"] do
+          assert {:error, :not_found} = Rclex.stop_subscription(message_type, topic, name)
+          assert {:error, :not_found} = Rclex.stop_publisher(message_type, topic, name)
+        end
+      end)
+    end
+
+    test "failed transport starts preserve other buffers and can be retried", %{name: name} do
+      late_node = "late_tf_wire_node"
+      assert :ok = Rclex.Tf2.buffer_new("retry", late_node)
+
+      on_exit(fn ->
+        capture_log(fn ->
+          Rclex.Tf2.buffer_destroy("retry", late_node)
+          Rclex.stop_node(late_node)
+        end)
+      end)
+
+      assert {:error, _} = Rclex.Tf2.start_listener("retry", late_node)
+      assert {:error, _} = Rclex.Tf2.start_broadcaster(late_node)
+      assert {:ok, []} = Rclex.Tf2.list_frames("main", name)
+      assert :ok = Rclex.start_node(late_node)
+      assert :ok = Rclex.Tf2.start_listener("retry", late_node)
+      assert :ok = Rclex.Tf2.start_broadcaster(late_node)
+    end
+
+    test "concurrent lifecycle calls are idempotent and transport can restart", %{name: name} do
+      for operation <- [
+            fn -> Rclex.Tf2.start_listener("main", name) end,
+            fn -> Rclex.Tf2.start_broadcaster(name) end,
+            fn -> Rclex.Tf2.stop_listener("main", name) end,
+            fn -> Rclex.Tf2.stop_broadcaster(name) end
+          ] do
+        1..8
+        |> Task.async_stream(fn _index -> operation.() end, max_concurrency: 8)
+        |> Enum.each(fn result -> assert result == {:ok, :ok} end)
+      end
+
+      assert :ok = Rclex.Tf2.start_listener("main", name)
+      assert :ok = Rclex.Tf2.start_broadcaster(name)
+
+      transform = %TransformStamped{
+        header: %Header{frame_id: "restart_world", stamp: %Time{}},
+        child_frame_id: "restart_sensor",
+        transform: %Transform{translation: %Vector3{x: 4.0}, rotation: %Quaternion{w: 1.0}}
+      }
+
+      assert :ok = Rclex.Tf2.broadcast_static(transform, name)
+
+      assert {:ok, found} =
+               Rclex.Tf2.lookup_transform("main", "restart_world", "restart_sensor", 0, 1.0, name)
+
+      assert found.transform.translation.x == 4.0
+    end
+
     test "late listeners receive retained static transforms", %{name: name} do
       assert :ok = Rclex.Tf2.start_broadcaster(name)
 
@@ -765,6 +938,20 @@ defmodule Rclex.Tf2Test do
     siny_cosp = 2.0 * (w * z + x * y)
     cosy_cosp = 1.0 - 2.0 * (y * y + z * z)
     :math.atan2(siny_cosp, cosy_cosp)
+  end
+
+  defp await_tf2_restart(previous, attempts \\ 100)
+  defp await_tf2_restart(_previous, 0), do: flunk("Tf2 did not restart")
+
+  defp await_tf2_restart(previous, attempts) do
+    case Process.whereis(Rclex.Tf2) do
+      pid when is_pid(pid) and pid != previous ->
+        pid
+
+      _ ->
+        Process.sleep(10)
+        await_tf2_restart(previous, attempts - 1)
+    end
   end
 
   describe "operations on missing buffer" do

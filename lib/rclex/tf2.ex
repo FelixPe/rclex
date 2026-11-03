@@ -6,6 +6,15 @@ defmodule Rclex.Tf2 do
   Buffers are created explicitly with `buffer_new/3`; they outlive their callers.
   Native `tf2::BufferCore` owns transform history, graph traversal and interpolation.
   Lookups access native resources directly rather than passing through the GenServer.
+  ETS stores only the named-buffer registry. Listener/broadcaster metadata, clock
+  bindings and pending asynchronous requests live in GenServer state; transport
+  start/stop and buffer lifecycle operations are serialized there.
+
+  A supervised cleanup owner retains native handles and tracks transport and
+  accepted asynchronous requests. Graceful shutdown and abrupt registry death
+  invalidate old native buffers, stop transport and complete pending requests
+  with `{:error, :tf2_shutdown}`. A new registry generation waits for cleanup;
+  buffers and transport must then be explicitly recreated.
 
   Buffers are scoped by identifier, node name and `:namespace` (default `"/"`).
   Query timestamps are integer nanoseconds; zero requests the latest transform.
@@ -27,8 +36,9 @@ defmodule Rclex.Tf2 do
 
   use GenServer
 
+  alias Rclex.Tf2.Cleanup
+
   @table :rclex_tf2_buffers
-  @io_table :rclex_tf2_io
   @poll_ms 5
   @default_cache_time_sec 10.0
 
@@ -40,29 +50,73 @@ defmodule Rclex.Tf2 do
 
   @impl true
   def init(_opts) do
-    new_tables()
-    {:ok, %{pending: %{}}}
+    Process.flag(:trap_exit, true)
+    {:ok, cleanup} = Cleanup.attach()
+    cleanup_monitor = Process.monitor(cleanup)
+    new_table()
+
+    {:ok,
+     %{
+       pending: %{},
+       listeners: %{},
+       broadcasters: %{},
+       clocks: %{},
+       cleanup_monitor: cleanup_monitor
+     }}
+  end
+
+  @impl true
+  def terminate(_reason, state) do
+    if :ets.whereis(@table) != :undefined do
+      Enum.each(:ets.tab2list(@table), fn {_key, resource} ->
+        Rclex.Nif.tf2_buffer_destroy!(resource)
+      end)
+    end
+
+    Enum.each(state.pending, fn {request, _wait} ->
+      finish_wait(state, request, {:error, :tf2_shutdown})
+    end)
+
+    Enum.each(state.clocks, fn {resource, clock} ->
+      safe_rclex_call(fn -> Rclex.Clock.unregister_tf2_buffer(clock, resource) end)
+    end)
+
+    Enum.each(state.listeners, fn {_key, transport} -> stop_transport(:listener, transport) end)
+
+    Enum.each(state.broadcasters, fn {_key, transport} ->
+      stop_transport(:broadcaster, transport)
+    end)
+
+    safe_rclex_call(fn -> Cleanup.release() end)
+    :ok
   end
 
   @impl true
   def handle_call({:buffer_new, buffer_key, opts}, _from, state) do
-    result =
+    {result, state} =
       case :ets.lookup(@table, buffer_key) do
-        [] -> create_buffer(buffer_key, opts)
-        _ -> :ok
+        [] -> create_buffer(buffer_key, opts, state)
+        _ -> {:ok, state}
       end
 
     {:reply, result, state}
   end
 
-  def handle_call({:buffer_destroy, buffer_key}, _from, state) do
+  def handle_call(
+        {:buffer_destroy, {buffer_name, name, _namespace} = buffer_key, opts},
+        _from,
+        state
+      ) do
+    {_result, state} = do_stop_listener(buffer_name, name, opts, state)
+    {_result, state} = do_stop_broadcaster(name, opts, state)
+
     case :ets.take(@table, buffer_key) do
       [] ->
         {:reply, {:error, :buffer_not_found}, state}
 
       [{_, resource}] ->
-        unbind_clock(resource)
-        result = Rclex.Nif.tf2_buffer_destroy!(resource)
+        state = unbind_clock(resource, state)
+        result = Cleanup.buffer_destroy(resource)
 
         state =
           Enum.reduce(state.pending, state, fn {request, wait}, acc ->
@@ -73,9 +127,29 @@ defmodule Rclex.Tf2 do
     end
   end
 
-  def handle_call(:ensure_tables, _from, state) do
-    new_tables()
+  def handle_call(:ensure_table, _from, state) do
+    new_table()
     {:reply, :ok, state}
+  end
+
+  def handle_call({:start_listener, buffer_name, name, opts}, _from, state) do
+    {result, state} = do_start_listener(buffer_name, name, opts, state)
+    {:reply, result, state}
+  end
+
+  def handle_call({:stop_listener, buffer_name, name, opts}, _from, state) do
+    {result, state} = do_stop_listener(buffer_name, name, opts, state)
+    {:reply, result, state}
+  end
+
+  def handle_call({:start_broadcaster, name, opts}, _from, state) do
+    {result, state} = do_start_broadcaster(name, opts, state)
+    {:reply, result, state}
+  end
+
+  def handle_call({:stop_broadcaster, name, opts}, _from, state) do
+    {result, state} = do_stop_broadcaster(name, opts, state)
+    {:reply, result, state}
   end
 
   def handle_call({:wait, buffer_key, args, timeout, opts}, {caller, _tag}, state) do
@@ -92,6 +166,8 @@ defmodule Rclex.Tf2 do
                  :extrapolation_past,
                  :extrapolation_future
                ] ->
+            :ok = Cleanup.register_wait(request, caller)
+
             wait = %{
               resource: resource,
               args: args,
@@ -135,6 +211,10 @@ defmodule Rclex.Tf2 do
     {:noreply, finish_wait(state, request, {:error, :timeout})}
   end
 
+  def handle_info({:DOWN, monitor, :process, _pid, reason}, %{cleanup_monitor: monitor} = state) do
+    {:stop, {:cleanup_process_down, reason}, state}
+  end
+
   def handle_info({:DOWN, monitor, :process, _pid, _reason}, state) do
     state =
       Enum.reduce(state.pending, state, fn {request, wait}, acc ->
@@ -153,11 +233,26 @@ defmodule Rclex.Tf2 do
         Process.cancel_timer(wait.timer)
         Process.demonitor(wait.monitor, [:flush])
 
-        if result,
-          do: send(wait.caller, {:tf2_transform, request, native_result(result, wait.opts)})
+        complete_wait(request, wait, result)
 
         %{state | pending: pending}
     end
+  end
+
+  defp complete_wait(request, wait, result) do
+    result = if result, do: native_result(result, wait.opts)
+
+    case Cleanup.finish_wait(request, result) do
+      :ok ->
+        :ok
+
+      {:error, :tf2_shutdown} ->
+        if result, do: send(wait.caller, {:tf2_transform, request, result})
+    end
+  catch
+    :exit, _ ->
+      if result,
+        do: send(wait.caller, {:tf2_transform, request, native_result(result, wait.opts)})
   end
 
   defp finish_buffer_wait(state, resource, request, %{resource: resource}) do
@@ -175,31 +270,36 @@ defmodule Rclex.Tf2 do
 
   defp recheck_wait(state, _resource, _request, _wait), do: state
 
-  defp create_buffer(buffer_key, opts) do
+  defp create_buffer(buffer_key, opts, state) do
     cache_time = Keyword.get(opts, :cache_time_sec, @default_cache_time_sec)
-    create_buffer(buffer_key, opts, cache_time)
+    create_buffer(buffer_key, opts, cache_time, state)
   end
 
-  defp create_buffer(buffer_key, opts, cache_time)
+  defp create_buffer(buffer_key, opts, cache_time, state)
        when is_number(cache_time) and cache_time >= 0 do
-    with {:ok, resource} <- Rclex.Nif.tf2_buffer_new!(trunc(cache_time * 1_000_000_000)) do
-      case bind_clock(resource, opts) do
-        :ok ->
-          :ets.insert(@table, {buffer_key, resource})
-          :ok
+    case Cleanup.buffer_new(trunc(cache_time * 1_000_000_000)) do
+      {:ok, resource} ->
+        case bind_clock(resource, opts, state) do
+          {:ok, state} ->
+            :ets.insert(@table, {buffer_key, resource})
+            {:ok, state}
 
-        {:error, _} = error ->
-          Rclex.Nif.tf2_buffer_destroy!(resource)
-          error
-      end
+          {error, state} ->
+            Cleanup.buffer_destroy(resource)
+            {error, state}
+        end
+
+      error ->
+        {error, state}
     end
   end
 
-  defp create_buffer(_buffer_key, _opts, _cache_time), do: {:error, :invalid_cache_time}
+  defp create_buffer(_buffer_key, _opts, _cache_time, state),
+    do: {{:error, :invalid_cache_time}, state}
 
-  defp new_tables do
-    for table <- [@table, @io_table], :ets.whereis(table) == :undefined do
-      :ets.new(table, [
+  defp new_table do
+    if :ets.whereis(@table) == :undefined do
+      :ets.new(@table, [
         :named_table,
         :public,
         :set,
@@ -209,33 +309,29 @@ defmodule Rclex.Tf2 do
     end
   end
 
-  defp bind_clock(resource, opts) do
+  defp bind_clock(resource, opts, state) do
     case Keyword.get(opts, :clock) do
       nil ->
-        :ok
+        {:ok, state}
 
       server ->
         case GenServer.whereis(server) do
           nil ->
-            {:error, :clock_not_found}
+            {{:error, :clock_not_found}, state}
 
           pid ->
             :ok = Rclex.Clock.register_tf2_buffer(pid, resource)
-            :ets.insert(@io_table, {{:clock, resource}, pid})
-            :ok
+            {:ok, %{state | clocks: Map.put(state.clocks, resource, pid)}}
         end
     end
   catch
-    :exit, _ -> {:error, :clock_not_found}
+    :exit, _ -> {{:error, :clock_not_found}, state}
   end
 
-  defp unbind_clock(resource) do
-    case :ets.take(@io_table, {:clock, resource}) do
-      [{_, clock}] -> Rclex.Clock.unregister_tf2_buffer(clock, resource)
-      [] -> :ok
-    end
-  catch
-    :exit, _ -> :ok
+  defp unbind_clock(resource, state) do
+    {clock, clocks} = Map.pop(state.clocks, resource)
+    if clock, do: safe_rclex_call(fn -> Rclex.Clock.unregister_tf2_buffer(clock, resource) end)
+    %{state | clocks: clocks}
   end
 
   @doc ~S"""
@@ -288,14 +384,7 @@ defmodule Rclex.Tf2 do
   @spec buffer_destroy(buffer_name(), String.t(), opts()) :: :ok | {:error, term()}
   def buffer_destroy(buffer_name, name, opts \\ [])
       when (is_binary(buffer_name) or is_atom(buffer_name)) and is_binary(name) and is_list(opts) do
-    ensure_table!()
-    ensure_io_table!()
-    key = key(buffer_name, name, opts)
-
-    stop_listener(buffer_name, name, opts)
-    stop_broadcaster(name, opts)
-
-    GenServer.call(__MODULE__, {:buffer_destroy, key})
+    GenServer.call(__MODULE__, {:buffer_destroy, key(buffer_name, name, opts), opts})
   end
 
   @doc ~S"""
@@ -322,7 +411,6 @@ defmodule Rclex.Tf2 do
   def clear(buffer_name, name, opts \\ [])
       when (is_binary(buffer_name) or is_atom(buffer_name)) and is_binary(name) and is_list(opts) do
     ensure_table!()
-    ensure_io_table!()
     key = key(buffer_name, name, opts)
 
     with {:ok, buffer} <- fetch_buffer(key) do
@@ -369,7 +457,6 @@ defmodule Rclex.Tf2 do
   def list_frames(buffer_name, name, opts \\ [])
       when (is_binary(buffer_name) or is_atom(buffer_name)) and is_binary(name) and is_list(opts) do
     ensure_table!()
-    ensure_io_table!()
     key = key(buffer_name, name, opts)
 
     with {:ok, buffer} <- fetch_buffer(key) do
@@ -439,7 +526,6 @@ defmodule Rclex.Tf2 do
       when (is_binary(buffer_name) or is_atom(buffer_name)) and is_binary(target_frame) and
              is_binary(source_frame) and is_binary(name) and is_list(opts) do
     ensure_table!()
-    ensure_io_table!()
     key = key(buffer_name, name, opts)
 
     with {:ok, buffer} <- fetch_buffer(key),
@@ -485,7 +571,6 @@ defmodule Rclex.Tf2 do
              (is_map(transform_stamped) or is_struct(transform_stamped)) and is_binary(authority) and
              is_binary(name) and is_list(opts) do
     ensure_table!()
-    ensure_io_table!()
     key = key(buffer_name, name, opts)
 
     with {:ok, buffer} <- fetch_buffer(key),
@@ -541,7 +626,6 @@ defmodule Rclex.Tf2 do
              (is_map(transform_stamped) or is_struct(transform_stamped)) and is_binary(authority) and
              is_binary(name) and is_list(opts) do
     ensure_table!()
-    ensure_io_table!()
     key = key(buffer_name, name, opts)
 
     with {:ok, buffer} <- fetch_buffer(key),
@@ -614,7 +698,6 @@ defmodule Rclex.Tf2 do
              is_binary(source_frame) and is_integer(time_ns) and is_number(timeout_sec) and
              is_binary(name) and is_list(opts) do
     ensure_table!()
-    ensure_io_table!()
     key = key(buffer_name, name, opts)
     return_debug_tuple = Keyword.get(opts, :return_debug_tuple, false)
 
@@ -696,7 +779,6 @@ defmodule Rclex.Tf2 do
              is_binary(source_frame) and is_integer(time_ns) and is_number(timeout_sec) and
              is_binary(name) and is_list(opts) do
     ensure_table!()
-    ensure_io_table!()
     key = key(buffer_name, name, opts)
 
     query(key, :lookup_transform, [target_frame, source_frame, time_ns], timeout_sec)
@@ -787,6 +869,8 @@ defmodule Rclex.Tf2 do
   Returns `{:ok, request_ref}` and delivers `{:tf2_transform, request_ref, result}`
   to the caller. The timeout is in monotonic wall-time seconds, including when
   ROS time is paused. Pending requests are removed when the caller exits.
+  Registry shutdown or restart completes accepted requests with
+  `{:error, :tf2_shutdown}` rather than leaving callers waiting.
   """
   @spec lookup_transform_async(
           buffer_name(),
@@ -894,16 +978,19 @@ defmodule Rclex.Tf2 do
   @spec start_listener(buffer_name(), String.t(), opts()) :: :ok | {:error, term()}
   def start_listener(buffer_name, name, opts \\ [])
       when (is_binary(buffer_name) or is_atom(buffer_name)) and is_binary(name) and is_list(opts) do
-    ensure_table!()
-    ensure_io_table!()
+    GenServer.call(__MODULE__, {:start_listener, buffer_name, name, opts})
+  end
 
-    namespace = Keyword.get(opts, :namespace, "/")
+  defp do_start_listener(buffer_name, name, opts, state) do
     authority = Keyword.get(opts, :authority, "tf_listener")
 
     with :ok <- ensure_tf_message_type_available(opts),
          {:ok, _} <- fetch_buffer(key(buffer_name, name, opts)),
-         :ok <- ensure_subscription(:tf, buffer_name, name, namespace, authority, opts) do
-      ensure_subscription(:tf_static, buffer_name, name, namespace, authority, opts)
+         {:ok, state} <- ensure_subscription(:tf, buffer_name, name, authority, opts, state) do
+      ensure_subscription(:tf_static, buffer_name, name, authority, opts, state)
+    else
+      {:error, _} = error -> {error, state}
+      {error, state} -> {error, state}
     end
   end
 
@@ -918,24 +1005,37 @@ defmodule Rclex.Tf2 do
   @spec stop_listener(buffer_name(), String.t(), opts()) :: :ok | {:error, term()}
   def stop_listener(buffer_name, name, opts \\ [])
       when (is_binary(buffer_name) or is_atom(buffer_name)) and is_binary(name) and is_list(opts) do
-    ensure_table!()
-    ensure_io_table!()
+    GenServer.call(__MODULE__, {:stop_listener, buffer_name, name, opts})
+  end
 
-    with :ok <- ensure_tf_message_type_available(opts) do
-      tf_message_type = tf_message_type_module(opts)
+  defp do_stop_listener(buffer_name, name, opts, state) do
+    case ensure_tf_message_type_available(opts) do
+      :ok ->
+        tf_message_type = tf_message_type_module(opts)
 
-      _ = safe_rclex_call(fn -> Rclex.stop_subscription(tf_message_type, "/tf", name, opts) end)
+        buffer_key = key(buffer_name, name, opts)
 
-      _ =
-        safe_rclex_call(fn ->
-          Rclex.stop_subscription(tf_message_type, "/tf_static", name, opts)
-        end)
+        for topic_kind <- [:tf, :tf_static] do
+          transport =
+            Map.get(state.listeners, {buffer_key, topic_kind}, %{
+              message_type: tf_message_type,
+              topic: topic_name(topic_kind),
+              name: name,
+              opts: opts
+            })
 
-      namespace = Keyword.get(opts, :namespace, "/")
-      _ = :ets.delete(@io_table, {:listener, buffer_name, name, namespace, :tf})
-      _ = :ets.delete(@io_table, {:listener, buffer_name, name, namespace, :tf_static})
+          stop_transport(:listener, transport)
+        end
 
-      :ok
+        listeners =
+          state.listeners
+          |> Map.delete({buffer_key, :tf})
+          |> Map.delete({buffer_key, :tf_static})
+
+        {:ok, %{state | listeners: listeners}}
+
+      error ->
+        {error, state}
     end
   end
 
@@ -953,12 +1053,16 @@ defmodule Rclex.Tf2 do
   """
   @spec start_broadcaster(String.t(), opts()) :: :ok | {:error, term()}
   def start_broadcaster(name, opts \\ []) when is_binary(name) and is_list(opts) do
-    ensure_table!()
-    ensure_io_table!()
+    GenServer.call(__MODULE__, {:start_broadcaster, name, opts})
+  end
 
+  defp do_start_broadcaster(name, opts, state) do
     with :ok <- ensure_tf_message_type_available(opts),
-         :ok <- ensure_publisher(:tf, name, opts) do
-      ensure_publisher(:tf_static, name, opts)
+         {:ok, state} <- ensure_publisher(:tf, name, opts, state) do
+      ensure_publisher(:tf_static, name, opts, state)
+    else
+      {:error, _} = error -> {error, state}
+      {error, state} -> {error, state}
     end
   end
 
@@ -972,21 +1076,36 @@ defmodule Rclex.Tf2 do
   """
   @spec stop_broadcaster(String.t(), opts()) :: :ok | {:error, term()}
   def stop_broadcaster(name, opts \\ []) when is_binary(name) and is_list(opts) do
-    ensure_table!()
-    ensure_io_table!()
+    GenServer.call(__MODULE__, {:stop_broadcaster, name, opts})
+  end
 
-    with :ok <- ensure_tf_message_type_available(opts) do
-      tf_message_type = tf_message_type_module(opts)
-      _ = safe_rclex_call(fn -> Rclex.stop_publisher(tf_message_type, "/tf", name, opts) end)
+  defp do_stop_broadcaster(name, opts, state) do
+    case ensure_tf_message_type_available(opts) do
+      :ok ->
+        tf_message_type = tf_message_type_module(opts)
+        namespace = Keyword.get(opts, :namespace, "/")
 
-      _ =
-        safe_rclex_call(fn -> Rclex.stop_publisher(tf_message_type, "/tf_static", name, opts) end)
+        for topic_kind <- [:tf, :tf_static] do
+          transport =
+            Map.get(state.broadcasters, {name, namespace, topic_kind}, %{
+              message_type: tf_message_type,
+              topic: topic_name(topic_kind),
+              name: name,
+              opts: opts
+            })
 
-      namespace = Keyword.get(opts, :namespace, "/")
-      _ = :ets.delete(@io_table, {:broadcaster, name, namespace, :tf})
-      _ = :ets.delete(@io_table, {:broadcaster, name, namespace, :tf_static})
+          stop_transport(:broadcaster, transport)
+        end
 
-      :ok
+        broadcasters =
+          state.broadcasters
+          |> Map.delete({name, namespace, :tf})
+          |> Map.delete({name, namespace, :tf_static})
+
+        {:ok, %{state | broadcasters: broadcasters}}
+
+      error ->
+        {error, state}
     end
   end
 
@@ -996,6 +1115,15 @@ defmodule Rclex.Tf2 do
     catch
       :exit, _ -> :ok
     end
+  end
+
+  defp stop_transport(kind, transport) do
+    case Cleanup.stop_transport(kind, transport) do
+      {:error, :tf2_shutdown} -> Cleanup.stop_endpoint(kind, transport)
+      result -> result
+    end
+  catch
+    :exit, _ -> Cleanup.stop_endpoint(kind, transport)
   end
 
   @doc ~S"""
@@ -1252,11 +1380,10 @@ defmodule Rclex.Tf2 do
   end
 
   defp ensure_table!, do: ensure_table!(@table)
-  defp ensure_io_table!, do: ensure_table!(@io_table)
 
   defp ensure_table!(table) do
     if :ets.whereis(table) == :undefined do
-      GenServer.call(__MODULE__, :ensure_tables)
+      GenServer.call(__MODULE__, :ensure_table)
     end
   end
 
@@ -1280,73 +1407,66 @@ defmodule Rclex.Tf2 do
     end
   end
 
-  defp ensure_subscription(topic_kind, buffer_name, name, namespace, authority, opts) do
-    io_key = {:listener, buffer_name, name, namespace, topic_kind}
+  defp ensure_subscription(topic_kind, buffer_name, name, authority, opts, state) do
+    listener_key = {key(buffer_name, name, opts), topic_kind}
 
-    case :ets.lookup(@io_table, io_key) do
-      [] ->
-        tf_message_type = tf_message_type_module(opts)
-        topic = topic_name(topic_kind)
+    if Map.has_key?(state.listeners, listener_key) do
+      {:ok, state}
+    else
+      tf_message_type = tf_message_type_module(opts)
+      topic = topic_name(topic_kind)
 
-        callback = fn msg ->
-          ingest_tf_message(msg, topic_kind == :tf_static, buffer_name, name, opts, authority)
-        end
+      callback = fn msg ->
+        ingest_tf_message(msg, topic_kind == :tf_static, buffer_name, name, opts, authority)
+      end
 
-        case Rclex.start_subscription(
-               callback,
-               tf_message_type,
-               topic,
-               name,
-               topic_options(topic_kind, :listener, opts)
-             ) do
-          :ok ->
-            true = :ets.insert(@io_table, {io_key, true})
-            :ok
+      transport = %{
+        message_type: tf_message_type,
+        topic: topic,
+        name: name,
+        opts: topic_options(topic_kind, :listener, opts)
+      }
 
-          {:error, :already_started} ->
-            true = :ets.insert(@io_table, {io_key, true})
-            :ok
-
-          {:error, reason} ->
-            {:error, reason}
-        end
-
-      _ ->
-        :ok
+      result = Cleanup.start_transport(:listener, transport, callback)
+      record_transport_start(result, :listeners, listener_key, transport, state)
     end
   end
 
-  defp ensure_publisher(topic_kind, name, opts) do
+  defp ensure_publisher(topic_kind, name, opts, state) do
     namespace = Keyword.get(opts, :namespace, "/")
-    io_key = {:broadcaster, name, namespace, topic_kind}
+    broadcaster_key = {name, namespace, topic_kind}
 
-    case :ets.lookup(@io_table, io_key) do
-      [] ->
-        tf_message_type = tf_message_type_module(opts)
-        topic = topic_name(topic_kind)
+    if Map.has_key?(state.broadcasters, broadcaster_key) do
+      {:ok, state}
+    else
+      tf_message_type = tf_message_type_module(opts)
+      topic = topic_name(topic_kind)
 
-        case Rclex.start_publisher(
-               tf_message_type,
-               topic,
-               name,
-               topic_options(topic_kind, :broadcaster, opts)
-             ) do
-          :ok ->
-            true = :ets.insert(@io_table, {io_key, true})
-            :ok
+      transport = %{
+        message_type: tf_message_type,
+        topic: topic,
+        name: name,
+        opts: topic_options(topic_kind, :broadcaster, opts)
+      }
 
-          {:error, :already_started} ->
-            true = :ets.insert(@io_table, {io_key, true})
-            :ok
-
-          {:error, reason} ->
-            {:error, reason}
-        end
-
-      _ ->
-        :ok
+      result = Cleanup.start_transport(:broadcaster, transport)
+      record_transport_start(result, :broadcasters, broadcaster_key, transport, state)
     end
   end
+
+  defp record_transport_start(result, collection, transport_key, transport, state)
+       when result in [:ok, {:error, :already_started}] do
+    {:ok, Map.update!(state, collection, &Map.put(&1, transport_key, transport))}
+  end
+
+  defp record_transport_start(
+         {:error, _} = error,
+         _collection,
+         _transport_key,
+         _transport,
+         state
+       ),
+       do: {error, state}
 
   defp topic_name(:tf), do: "/tf"
   defp topic_name(:tf_static), do: "/tf_static"
@@ -1365,7 +1485,6 @@ defmodule Rclex.Tf2 do
 
   defp publish_tf_message(transform_stamped_or_list, topic, name, opts) do
     ensure_table!()
-    ensure_io_table!()
 
     with :ok <- ensure_tf_message_type_available(opts) do
       tf_message_type = tf_message_type_module(opts)
