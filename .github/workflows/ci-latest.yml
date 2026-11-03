@@ -68,6 +68,11 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-${{ matrix.dockertags }}-mix-
 
+      - name: Install native TF2 dependencies
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends ros-${ROS_DISTRO}-tf2 ros-${ROS_DISTRO}-tf2-geometry-msgs libyaml-cpp-dev liborocos-kdl-dev
+
       - name: mix format
         run: |
           source /opt/ros/${ROS_DISTRO}/setup.bash
@@ -147,6 +152,11 @@ jobs:
           key: ${{ runner.os }}-${{ matrix.dockertags }}-mix-${{ hashFiles('**/mix.lock') }}
           restore-keys: |
             ${{ runner.os }}-${{ matrix.dockertags }}-mix-
+
+      - name: Install native TF2 dependencies
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends ros-${ROS_DISTRO}-tf2 ros-${ROS_DISTRO}-tf2-geometry-msgs libyaml-cpp-dev liborocos-kdl-dev
 
       - name: mix compile
         run: |

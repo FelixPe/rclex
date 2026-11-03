@@ -7,6 +7,7 @@ defmodule Rclex.Application do
     children = [
       {Rclex.Context, []},
       {Rclex.NodesSupervisor, []},
+      {Rclex.Tf2, []},
       {PartitionSupervisor, child_spec: Task.Supervisor, name: Rclex.TaskSupervisors}
     ]
 

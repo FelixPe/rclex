@@ -16,6 +16,34 @@ defmodule Rclex.Nif do
     :erlang.nif_error(:nif_not_loaded)
   end
 
+  def tf2_buffer_new!(_cache_time_ns), do: :erlang.nif_error(:nif_not_loaded)
+  def tf2_buffer_destroy!(_buffer), do: :erlang.nif_error(:nif_not_loaded)
+  def tf2_clear!(_buffer), do: :erlang.nif_error(:nif_not_loaded)
+
+  def tf2_set_transform!(_buffer, _transform, _authority, _is_static),
+    do: :erlang.nif_error(:nif_not_loaded)
+
+  def tf2_lookup_transform!(_buffer, _target, _source, _time_ns),
+    do: :erlang.nif_error(:nif_not_loaded)
+
+  def tf2_lookup_transform!(_buffer, _target, _target_time, _source, _source_time, _fixed),
+    do: :erlang.nif_error(:nif_not_loaded)
+
+  def tf2_can_transform!(_buffer, _target, _source, _time_ns),
+    do: :erlang.nif_error(:nif_not_loaded)
+
+  def tf2_can_transform!(_buffer, _target, _target_time, _source, _source_time, _fixed),
+    do: :erlang.nif_error(:nif_not_loaded)
+
+  def tf2_all_frames_as_yaml!(_buffer), do: :erlang.nif_error(:nif_not_loaded)
+  def tf2_list_frames!(_buffer), do: :erlang.nif_error(:nif_not_loaded)
+
+  def tf2_get_latest_common_time!(_buffer, _target, _source),
+    do: :erlang.nif_error(:nif_not_loaded)
+
+  def tf2_transform!(_buffer, _message, _target, _kind),
+    do: :erlang.nif_error(:nif_not_loaded)
+
   def test_raise_with_message!() do
     :erlang.nif_error(:nif_not_loaded)
   end

@@ -135,6 +135,21 @@ defmodule Mix.Tasks.Rclex.Prep.Ros2Test do
   end
 
   describe "vendor_resource_paths/3" do
+    test "includes native TF2 runtime libraries and conversion headers" do
+      paths = Ros2.vendor_resource_paths("amd64", "jazzy", false)
+      assert "/usr/lib/x86_64-linux-gnu/libyaml-cpp.so*" in paths
+      assert "/usr/lib/x86_64-linux-gnu/liborocos-kdl.so*" in paths
+      assert Ros2.native_header_resource_paths() == ["/usr/include/yaml-cpp", "/usr/include/kdl"]
+    end
+
+    test "reports missing native dependencies with image setup guidance" do
+      assert_raise Mix.Error, ~r/TF2.*tf2-geometry-msgs/s, fn ->
+        Ros2.validate_tf2_resources!(
+          Path.join(System.tmp_dir!(), "rclex_missing_tf2_#{System.unique_integer([:positive])}")
+        )
+      end
+    end
+
     test "can omit OpenSSL when the Nerves system already provides it" do
       paths = Ros2.vendor_resource_paths("amd64", "jazzy", false)
 
@@ -146,6 +161,8 @@ defmodule Mix.Tasks.Rclex.Prep.Ros2Test do
                "/lib/x86_64-linux-gnu/libnuma.so.1*",
                "/usr/lib/x86_64-linux-gnu/libyaml-0.so*",
                "/usr/lib/x86_64-linux-gnu/libyaml.so*",
+               "/usr/lib/x86_64-linux-gnu/libyaml-cpp.so*",
+               "/usr/lib/x86_64-linux-gnu/liborocos-kdl.so*",
                "/opt/ros/jazzy/opt/zenoh_cpp_vendor/lib/libzenohc.so*"
              ]
     end

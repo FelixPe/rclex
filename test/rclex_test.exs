@@ -2656,30 +2656,6 @@ defmodule RclexTest do
       assert :ok = Rclex.remove_pre_set_parameters_callback(node, cb)
     end
 
-    test "tf2_start_listener/tf2_stop_listener wrappers", %{node: node} do
-      :ok = Rclex.tf2_buffer_new("wrapper_buffer", node)
-
-      capture_log(fn ->
-        result = Rclex.tf2_start_listener("wrapper_buffer", node)
-        # When tf message type module is available, listener succeeds; otherwise
-        # we get an error indicating the type is not generated.
-        assert result == :ok or match?({:error, _}, result)
-
-        stop_result = Rclex.tf2_stop_listener("wrapper_buffer", node)
-        assert stop_result == :ok or match?({:error, _}, stop_result)
-      end)
-    end
-
-    test "tf2_start_broadcaster/tf2_stop_broadcaster wrappers", %{node: node} do
-      capture_log(fn ->
-        result = Rclex.tf2_start_broadcaster(node)
-        assert result == :ok or match?({:error, _}, result)
-
-        stop_result = Rclex.tf2_stop_broadcaster(node)
-        assert stop_result == :ok or match?({:error, _}, stop_result)
-      end)
-    end
-
     test "parameter client lifecycle wrappers" do
       server = "wrap_param_server"
       client = "wrap_param_client"

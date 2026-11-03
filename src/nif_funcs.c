@@ -20,6 +20,7 @@
 #include "resource_types.h"
 #include "srv_funcs.h" // IWYU pragma: keep
 #include "terms.h"
+#include "tf2_buffer.h"
 #include "type_description.h"
 
 #define REGULAR_NIF 0
@@ -34,8 +35,23 @@
 #define nif_regular_func(name, arity)                                                              \
   { #name "!", arity, nif_##name, REGULAR_NIF }
 
+#define nif_cpu_bound_func(name, arity)                                                            \
+  { #name "!", arity, nif_##name, ERL_NIF_DIRTY_JOB_CPU_BOUND }
+
 static ErlNifFunc nif_funcs[] = {
     // clang-format off
+    nif_cpu_bound_func(tf2_buffer_new, 1),
+    nif_cpu_bound_func(tf2_buffer_destroy, 1),
+    nif_cpu_bound_func(tf2_clear, 1),
+    nif_cpu_bound_func(tf2_set_transform, 4),
+    nif_cpu_bound_func(tf2_lookup_transform, 4),
+    nif_cpu_bound_func(tf2_lookup_transform, 6),
+    nif_cpu_bound_func(tf2_can_transform, 4),
+    nif_cpu_bound_func(tf2_can_transform, 6),
+    nif_cpu_bound_func(tf2_all_frames_as_yaml, 1),
+    nif_cpu_bound_func(tf2_list_frames, 1),
+    nif_cpu_bound_func(tf2_get_latest_common_time, 3),
+    nif_cpu_bound_func(tf2_transform, 4),
     nif_regular_func(test_raise, 0),
     nif_regular_func(test_raise_with_message, 0),
     nif_regular_func(test_qos_profile, 1),
@@ -193,6 +209,7 @@ static int load(ErlNifEnv *env, void **priv_data, ERL_NIF_TERM load_info) {
   // open_resource_types/2 the 2nd argument is module_str, but document says following.
   // > Argument module_str is not (yet) used and must be NULL
   if (open_resource_types(env, NULL) != 0) return 1;
+  if (open_tf2_resource_type(env) != 0) return 1;
 
   return 0;
 }

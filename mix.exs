@@ -74,6 +74,8 @@ defmodule Rclex.MixProject do
         "mix.exs",
         "README.md",
         "README_ja.md",
+        "ARCHITECTURE.md",
+        "tf2.md",
         "LICENSE",
         "CHANGELOG.md",
         "Makefile"
@@ -85,7 +87,14 @@ defmodule Rclex.MixProject do
 
   defp docs() do
     [
-      extras: ["README.md", "README_ja.md", "USE_ON_NERVES.md", "CHANGELOG.md"],
+      extras: [
+        "README.md",
+        "README_ja.md",
+        "ARCHITECTURE.md",
+        "tf2.md",
+        "USE_ON_NERVES.md",
+        "CHANGELOG.md"
+      ],
       main: "readme",
       source_ref: "v#{@version}",
       source_url: @source_url,
@@ -108,7 +117,7 @@ defmodule Rclex.MixProject do
   end
 
   defp format_c(_args) do
-    file_names = File.ls!("src") |> Enum.filter(&String.ends_with?(&1, [".c", ".h"]))
+    file_names = File.ls!("src") |> Enum.filter(&String.ends_with?(&1, [".c", ".cpp", ".h"]))
     [formatter | args] = ~w"clang-format -i --Werror" ++ file_names
 
     case System.find_executable(formatter) do

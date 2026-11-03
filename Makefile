@@ -20,6 +20,7 @@ PRIV_DIR = $(MIX_APP_PATH)/priv
 NIF_SO = $(PRIV_DIR)/rclex.so
 
 CFLAGS  += -O2 -Wall -Wextra -pedantic -fPIC -I$(SRC_DIR)
+CXXFLAGS += -O2 -Wall -Wextra -pedantic -fPIC -std=c++17 -I$(SRC_DIR)
 LDFLAGS += -shared
 
 $(info    ERTS_INCLUDE_DIR is $(ERTS_INCLUDE_DIR))
@@ -39,10 +40,16 @@ endif
 
 ROS_LDFLAGS ?= -L$(ROS_DIR)/lib
 ROS_LDFLAGS += -lrcl -lrcl_action -laction_msgs__rosidl_generator_c -laction_msgs__rosidl_typesupport_c
+ROS_CFLAGS += -I$(ROS_DIR)/include/tf2 -I$(ROS_DIR)/include/geometry_msgs -I$(ROS_DIR)/include/std_msgs -I$(ROS_DIR)/include/rosidl_runtime_cpp
+ROS_LDFLAGS += -ltf2 -lyaml-cpp
+ROS_CFLAGS += -I$(ROS_DIR)/include/tf2_geometry_msgs -I$(ROS_DIR)/include/tf2_ros -I$(ROS_DIR)/include
+ROS_LDFLAGS += -lorocos-kdl
+ROS_CPP_CFLAGS = $(ROS_CFLAGS) $(addprefix -I,$(wildcard $(ROS_DIR)/include/*))
 
 SRC_C  = $(wildcard $(SRC_DIR)/*.c)
+SRC_CPP = $(wildcard $(SRC_DIR)/*.cpp)
 SRC_H  = $(wildcard $(SRC_DIR)/*.h)
-OBJ    = $(SRC_C:$(SRC_DIR)/%.c=$(OBJ_DIR)/%.o)
+OBJ    = $(SRC_C:$(SRC_DIR)/%.c=$(OBJ_DIR)/%.o) $(SRC_CPP:$(SRC_DIR)/%.cpp=$(OBJ_DIR)/%.o)
 
 # ROS 2 package-related setting, especially for msg types
 MSG_PKGS = $(patsubst src/pkgs/%/msg,%,$(wildcard src/pkgs/*/msg))
@@ -99,7 +106,11 @@ all: $(OBJ_DIR) $(PRIV_DIR) $(MSG_OBJ_DIR) $(SRV_OBJ_DIR) $(ACTION_OBJ_DIR) $(MS
 
 $(NIF_SO): $(OBJ)
 	@echo "$(COLOUR_BLUE)Linking $@$(END_COLOUR)"
-	@$(CC) -o $@ $^ $(LDFLAGS) $(ERL_LDFLAGS) $(ROS_LDFLAGS)
+	@$(CXX) -o $@ $^ $(LDFLAGS) $(ERL_LDFLAGS) $(ROS_LDFLAGS)
+
+$(OBJ_DIR)/%.o: $(SRC_DIR)/%.cpp Makefile $(SRC_H)
+	@echo "$(COLOUR_BLUE)Compiling $@$(END_COLOUR)"
+	@$(CXX) -DROS_DISTRO_$(ROS_DISTRO) -o $@ -c $(CXXFLAGS) $(ERL_CFLAGS) $(ROS_CPP_CFLAGS) $<
 
 $(OBJ_DIR)/%.o: $(SRC_DIR)/%.c Makefile $(SRC_H)
 	@echo "$(COLOUR_BLUE)Compiling $@$(END_COLOUR)"

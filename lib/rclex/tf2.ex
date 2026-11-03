@@ -1,5 +1,31 @@
 defmodule Rclex.Tf2 do
-  @moduledoc false
+  @moduledoc """
+  ROS 2 transform buffers, listeners, broadcasters and stamped-geometry operations.
+
+  The application automatically starts and supervises this module's registry.
+  Buffers are created explicitly with `buffer_new/3`; they outlive their callers.
+  Native `tf2::BufferCore` owns transform history, graph traversal and interpolation.
+  Lookups access native resources directly rather than passing through the GenServer.
+
+  Buffers are scoped by identifier, node name and `:namespace` (default `"/"`).
+  Query timestamps are integer nanoseconds; zero requests the latest transform.
+  Wait deadlines use monotonic wall-time seconds, including when ROS time is paused.
+  Fixed-frame query helpers accept `:timeout_sec` in their options.
+
+  Set `error_details: true` to retain native errors as `{:error, {kind, message}}`.
+  Asynchronous lookups return `{:ok, request_ref}` and send the caller
+  `{:tf2_transform, request_ref, result}`. Use `cancel_wait/1` to cancel a pending request.
+
+  A `:clock` option binds a new buffer to an `Rclex.Clock` server. Backward jumps and
+  ROS-time activation changes clear dynamic history; static transforms survive.
+  `clear/3` also preserves static transforms. Destroy the buffer to discard all data.
+
+  Listeners and broadcasters use reliable QoS, with transient-local durability on
+  `/tf_static`. Override profiles with `:tf_qos`, `:tf_static_qos` or the shared `:qos`.
+  Native TF2 and generated `tf2_msgs/msg/TFMessage` support are required for transport.
+  """
+
+  use GenServer
 
   @table :rclex_tf2_buffers
   @io_table :rclex_tf2_io
@@ -9,35 +35,259 @@ defmodule Rclex.Tf2 do
   @type buffer_name :: String.t() | atom()
   @type opts :: keyword()
 
-  # An existing buffer is left untouched (including its cache_time_ns), matching
-  # the "ensure_" idiom used by start_node/start_publisher/start_subscription
-  # elsewhere in Rclex rather than erroring on a second call.
-  @spec buffer_new(buffer_name(), String.t(), opts()) :: :ok | {:error, term()}
-  def buffer_new(buffer_name, name, opts \\ []) do
-    ensure_table!()
-    ensure_io_table!()
-    key = key(buffer_name, name, opts)
+  @doc false
+  def start_link(opts), do: GenServer.start_link(__MODULE__, opts, name: __MODULE__)
 
-    case :ets.lookup(@table, key) do
+  @impl true
+  def init(_opts) do
+    new_tables()
+    {:ok, %{pending: %{}}}
+  end
+
+  @impl true
+  def handle_call({:buffer_new, buffer_key, opts}, _from, state) do
+    result =
+      case :ets.lookup(@table, buffer_key) do
+        [] -> create_buffer(buffer_key, opts)
+        _ -> :ok
+      end
+
+    {:reply, result, state}
+  end
+
+  def handle_call({:buffer_destroy, buffer_key}, _from, state) do
+    case :ets.take(@table, buffer_key) do
       [] ->
-        cache_time_sec = Keyword.get(opts, :cache_time_sec, @default_cache_time_sec)
-        cache_time_ns = max(0, trunc(cache_time_sec * 1_000_000_000))
+        {:reply, {:error, :buffer_not_found}, state}
 
-        true =
-          :ets.insert(@table, {
-            key,
-            %{dynamic: %{}, static: %{}, cache_time_ns: cache_time_ns}
-          })
+      [{_, resource}] ->
+        unbind_clock(resource)
+        result = Rclex.Nif.tf2_buffer_destroy!(resource)
 
-        :ok
+        state =
+          Enum.reduce(state.pending, state, fn {request, wait}, acc ->
+            finish_buffer_wait(acc, resource, request, wait)
+          end)
 
-      _ ->
-        :ok
+        {:reply, result, state}
     end
   end
 
+  def handle_call(:ensure_tables, _from, state) do
+    new_tables()
+    {:reply, :ok, state}
+  end
+
+  def handle_call({:wait, buffer_key, args, timeout, opts}, {caller, _tag}, state) do
+    case fetch_buffer(buffer_key) do
+      {:ok, resource} ->
+        request = make_ref()
+
+        case apply(Rclex.Nif, :tf2_lookup_transform!, [resource | args]) do
+          {:error, {kind, _}}
+          when kind in [
+                 :lookup,
+                 :connectivity,
+                 :extrapolation,
+                 :extrapolation_past,
+                 :extrapolation_future
+               ] ->
+            wait = %{
+              resource: resource,
+              args: args,
+              caller: caller,
+              opts: opts,
+              monitor: Process.monitor(caller),
+              timer: Process.send_after(self(), {:wait_timeout, request}, trunc(timeout * 1_000))
+            }
+
+            {:reply, {:ok, request}, %{state | pending: Map.put(state.pending, request, wait)}}
+
+          result ->
+            send(caller, {:tf2_transform, request, native_result(result, opts)})
+            {:reply, {:ok, request}, state}
+        end
+
+      error ->
+        {:reply, error, state}
+    end
+  end
+
+  def handle_call({:cancel_wait, request}, {caller, _tag}, state) do
+    case Map.get(state.pending, request) do
+      %{caller: ^caller} -> {:reply, :ok, finish_wait(state, request, nil)}
+      _ -> {:reply, {:error, :wait_not_found}, state}
+    end
+  end
+
+  @impl true
+  def handle_cast({:new_transform, resource}, state) do
+    state =
+      Enum.reduce(state.pending, state, fn {request, wait}, acc ->
+        recheck_wait(acc, resource, request, wait)
+      end)
+
+    {:noreply, state}
+  end
+
+  @impl true
+  def handle_info({:wait_timeout, request}, state) do
+    {:noreply, finish_wait(state, request, {:error, :timeout})}
+  end
+
+  def handle_info({:DOWN, monitor, :process, _pid, _reason}, state) do
+    state =
+      Enum.reduce(state.pending, state, fn {request, wait}, acc ->
+        if wait.monitor == monitor, do: finish_wait(acc, request, nil), else: acc
+      end)
+
+    {:noreply, state}
+  end
+
+  defp finish_wait(state, request, result) do
+    case Map.pop(state.pending, request) do
+      {nil, _} ->
+        state
+
+      {wait, pending} ->
+        Process.cancel_timer(wait.timer)
+        Process.demonitor(wait.monitor, [:flush])
+
+        if result,
+          do: send(wait.caller, {:tf2_transform, request, native_result(result, wait.opts)})
+
+        %{state | pending: pending}
+    end
+  end
+
+  defp finish_buffer_wait(state, resource, request, %{resource: resource}) do
+    finish_wait(state, request, {:error, :buffer_not_found})
+  end
+
+  defp finish_buffer_wait(state, _resource, _request, _wait), do: state
+
+  defp recheck_wait(state, resource, request, %{resource: resource} = wait) do
+    case apply(Rclex.Nif, :tf2_lookup_transform!, [resource | wait.args]) do
+      {:ok, _} = result -> finish_wait(state, request, result)
+      _ -> state
+    end
+  end
+
+  defp recheck_wait(state, _resource, _request, _wait), do: state
+
+  defp create_buffer(buffer_key, opts) do
+    cache_time = Keyword.get(opts, :cache_time_sec, @default_cache_time_sec)
+    create_buffer(buffer_key, opts, cache_time)
+  end
+
+  defp create_buffer(buffer_key, opts, cache_time)
+       when is_number(cache_time) and cache_time >= 0 do
+    with {:ok, resource} <- Rclex.Nif.tf2_buffer_new!(trunc(cache_time * 1_000_000_000)) do
+      case bind_clock(resource, opts) do
+        :ok ->
+          :ets.insert(@table, {buffer_key, resource})
+          :ok
+
+        {:error, _} = error ->
+          Rclex.Nif.tf2_buffer_destroy!(resource)
+          error
+      end
+    end
+  end
+
+  defp create_buffer(_buffer_key, _opts, _cache_time), do: {:error, :invalid_cache_time}
+
+  defp new_tables do
+    for table <- [@table, @io_table], :ets.whereis(table) == :undefined do
+      :ets.new(table, [
+        :named_table,
+        :public,
+        :set,
+        read_concurrency: true,
+        write_concurrency: true
+      ])
+    end
+  end
+
+  defp bind_clock(resource, opts) do
+    case Keyword.get(opts, :clock) do
+      nil ->
+        :ok
+
+      server ->
+        case GenServer.whereis(server) do
+          nil ->
+            {:error, :clock_not_found}
+
+          pid ->
+            :ok = Rclex.Clock.register_tf2_buffer(pid, resource)
+            :ets.insert(@io_table, {{:clock, resource}, pid})
+            :ok
+        end
+    end
+  catch
+    :exit, _ -> {:error, :clock_not_found}
+  end
+
+  defp unbind_clock(resource) do
+    case :ets.take(@io_table, {:clock, resource}) do
+      [{_, clock}] -> Rclex.Clock.unregister_tf2_buffer(clock, resource)
+      [] -> :ok
+    end
+  catch
+    :exit, _ -> :ok
+  end
+
+  @doc ~S"""
+  Create a TF2 buffer identified by `buffer_name` for a node.
+
+  This buffer stores dynamic and static transforms and is queried by frame names.
+  Storage, graph traversal and interpolation use the installed ROS 2 C++
+  `tf2::BufferCore`. The buffer outlives the process creating it.
+
+  ### Parameters
+
+  - `buffer_name` - Public identifier for the TF buffer (for example `"main"`).
+  - `name` - Node name used to scope the buffer owner.
+
+  ### opts
+
+  - `:namespace` must lead with "/". if not specified, the default is "/"
+  - `:cache_time_sec` cache duration for dynamic transforms in seconds (`float`), default `10.0`.
+  - `:clock` optional `Rclex.Clock` server. Backward jumps and ROS-time activation
+    changes clear dynamic history, preserving static transforms.
+
+  ### Examples
+
+      iex> Rclex.Tf2.buffer_new("main", "node", namespace: "/robot")
+      :ok
+  """
+  @spec buffer_new(buffer_name(), String.t(), opts()) :: :ok | {:error, term()}
+  def buffer_new(buffer_name, name, opts \\ [])
+      when (is_binary(buffer_name) or is_atom(buffer_name)) and is_binary(name) and is_list(opts) do
+    GenServer.call(__MODULE__, {:buffer_new, key(buffer_name, name, opts), opts})
+  end
+
+  @doc ~S"""
+  Destroy a TF2 buffer identified by `buffer_name` for a node.
+
+  ### Parameters
+
+  - `buffer_name` - Buffer identifier passed to `buffer_new/3`.
+  - `name` - Node name used when creating the buffer.
+
+  ### opts
+
+  - `:namespace` must lead with "/". if not specified, the default is "/"
+
+  ### Examples
+
+      iex> Rclex.Tf2.buffer_destroy("main", "node", namespace: "/robot")
+      :ok
+  """
   @spec buffer_destroy(buffer_name(), String.t(), opts()) :: :ok | {:error, term()}
-  def buffer_destroy(buffer_name, name, opts \\ []) do
+  def buffer_destroy(buffer_name, name, opts \\ [])
+      when (is_binary(buffer_name) or is_atom(buffer_name)) and is_binary(name) and is_list(opts) do
     ensure_table!()
     ensure_io_table!()
     key = key(buffer_name, name, opts)
@@ -45,25 +295,38 @@ defmodule Rclex.Tf2 do
     stop_listener(buffer_name, name, opts)
     stop_broadcaster(name, opts)
 
-    case :ets.lookup(@table, key) do
-      [] ->
-        {:error, :buffer_not_found}
-
-      _ ->
-        true = :ets.delete(@table, key)
-        :ok
-    end
+    GenServer.call(__MODULE__, {:buffer_destroy, key})
   end
 
+  @doc ~S"""
+  Clear dynamic TF2 history from a buffer.
+
+  Matches native `tf2::BufferCore.clear()`: static transforms and registered frame
+  names survive. Destroy and recreate the buffer to discard all data.
+
+  ### Parameters
+
+  - `buffer_name` - Buffer identifier.
+  - `name` - Node name used to resolve the buffer.
+
+  ### opts
+
+  - `:namespace` must lead with "/". if not specified, the default is "/"
+
+  ### Examples
+
+      iex> Rclex.Tf2.clear("main", "node", namespace: "/robot")
+      :ok
+  """
   @spec clear(buffer_name(), String.t(), opts()) :: :ok | {:error, term()}
-  def clear(buffer_name, name, opts \\ []) do
+  def clear(buffer_name, name, opts \\ [])
+      when (is_binary(buffer_name) or is_atom(buffer_name)) and is_binary(name) and is_list(opts) do
     ensure_table!()
     ensure_io_table!()
     key = key(buffer_name, name, opts)
 
     with {:ok, buffer} <- fetch_buffer(key) do
-      true = :ets.insert(@table, {key, %{buffer | dynamic: %{}, static: %{}}})
-      :ok
+      Rclex.Nif.tf2_clear!(buffer) |> native_result(opts)
     end
   end
 
@@ -77,43 +340,150 @@ defmodule Rclex.Tf2 do
           buffer_length: float()
         }
 
+  @doc ~S"""
+  Return known TF2 frames as structured data.
+
+  Each entry describes one child frame: its parent, broadcaster authority,
+  update rate, latest/oldest transform time, and buffer length. This is the
+  same data `all_frames_as_yaml/3` renders to text — use this instead when
+  a caller wants to consume the frame graph programmatically (for example, to
+  draw it) rather than parse YAML meant for diagnostics.
+
+  ### Parameters
+
+  - `buffer_name` - Buffer identifier.
+  - `name` - Node name used to resolve the buffer.
+
+  ### opts
+
+  - `:namespace` must lead with "/". if not specified, the default is "/"
+
+  ### Examples
+
+      iex> {:ok, frames} = Rclex.Tf2.list_frames("main", "node")
+      iex> is_list(frames)
+      true
+  """
   @spec list_frames(buffer_name(), String.t(), opts()) ::
           {:ok, [frame_info()]} | {:error, term()}
-  def list_frames(buffer_name, name, opts \\ []) do
+  def list_frames(buffer_name, name, opts \\ [])
+      when (is_binary(buffer_name) or is_atom(buffer_name)) and is_binary(name) and is_list(opts) do
     ensure_table!()
     ensure_io_table!()
     key = key(buffer_name, name, opts)
 
     with {:ok, buffer} <- fetch_buffer(key) do
-      {:ok, frame_list(buffer)}
+      Rclex.Nif.tf2_list_frames!(buffer) |> native_result(opts)
     end
   end
 
+  @doc ~S"""
+  Return known TF2 frames as YAML.
+
+  The output is intended for diagnostics and mirrors the common TF2 frame-graph
+  style: entries include parent frame, broadcaster, rate, latest/oldest
+  transform time, and buffer length.
+
+  ### Parameters
+
+  - `buffer_name` - Buffer identifier.
+  - `name` - Node name used to resolve the buffer.
+
+  ### opts
+
+  - `:namespace` must lead with "/". if not specified, the default is "/"
+
+  ### Examples
+
+      iex> {:ok, yaml} = Rclex.Tf2.all_frames_as_yaml("main", "node")
+      iex> is_binary(yaml)
+      true
+  """
   @spec all_frames_as_yaml(buffer_name(), String.t(), opts()) ::
           {:ok, String.t()} | {:error, term()}
-  def all_frames_as_yaml(buffer_name, name, opts \\ []) do
-    with {:ok, frames} <- list_frames(buffer_name, name, opts) do
-      {:ok, render_frames_yaml(frames)}
+  def all_frames_as_yaml(buffer_name, name, opts \\ [])
+      when (is_binary(buffer_name) or is_atom(buffer_name)) and is_binary(name) and is_list(opts) do
+    ensure_table!()
+
+    with {:ok, buffer} <- fetch_buffer(key(buffer_name, name, opts)) do
+      Rclex.Nif.tf2_all_frames_as_yaml!(buffer) |> native_result(opts)
     end
   end
 
+  @doc ~S"""
+  Return latest common timestamp (ns) between two frames.
+
+  This follows the TF2 "latest common time" concept and is useful when
+  performing `time_ns = 0` (latest) lookups.
+
+  ### Parameters
+
+  - `buffer_name` - Buffer identifier.
+  - `target_frame` - Destination frame.
+  - `source_frame` - Source frame.
+  - `name` - Node name used to resolve the buffer.
+
+  ### opts
+
+  - `:namespace` must lead with "/". if not specified, the default is "/"
+
+  ### Examples
+
+      iex> {:ok, ns} = Rclex.Tf2.get_latest_common_time("main", "map", "base_link", "node")
+      iex> is_integer(ns)
+      true
+  """
   @spec get_latest_common_time(buffer_name(), String.t(), String.t(), String.t(), opts()) ::
           {:ok, integer()} | {:error, term()}
-  def get_latest_common_time(buffer_name, target_frame, source_frame, name, opts \\ []) do
+  def get_latest_common_time(buffer_name, target_frame, source_frame, name, opts \\ [])
+      when (is_binary(buffer_name) or is_atom(buffer_name)) and is_binary(target_frame) and
+             is_binary(source_frame) and is_binary(name) and is_list(opts) do
     ensure_table!()
     ensure_io_table!()
     key = key(buffer_name, name, opts)
 
     with {:ok, buffer} <- fetch_buffer(key),
-         :ok <- validate_frame_ids(target_frame, source_frame),
-         :ok <- ensure_known_frames(buffer, target_frame, source_frame) do
-      latest_common_time_ns(buffer, target_frame, source_frame)
+         :ok <- validate_frame_ids(target_frame, source_frame) do
+      Rclex.Nif.tf2_get_latest_common_time!(buffer, target_frame, source_frame)
+      |> native_result(opts)
     end
   end
 
+  @doc ~S"""
+    Insert or update a TF2 transform in the buffer.
+
+  Dynamic transforms are time-aware and can be interpolated for lookup queries.
+
+  ### Parameters
+
+  - `buffer_name` - Buffer identifier.
+  - `transform_stamped` - Map/struct compatible with `geometry_msgs/TransformStamped` shape.
+  - `authority` - Optional broadcaster identifier for diagnostics.
+  - `name` - Node name used to resolve the buffer.
+
+  ### opts
+
+  - `:namespace` must lead with "/". if not specified, the default is "/"
+
+  ### Examples
+
+      iex> ts = %{
+      ...>   header: %{frame_id: "map", stamp: %{sec: 10, nanosec: 0}},
+      ...>   child_frame_id: "base_link",
+      ...>   transform: %{
+      ...>     translation: %{x: 1.0, y: 0.0, z: 0.0},
+      ...>     rotation: %{w: 1.0, x: 0.0, y: 0.0, z: 0.0}
+      ...>   }
+      ...> }
+      iex> Rclex.Tf2.set_transform("main", ts, "odometry", "node", namespace: "/robot")
+      :ok
+  """
   @spec set_transform(buffer_name(), map() | struct(), String.t(), String.t(), opts()) ::
           :ok | {:error, term()}
-  def set_transform(buffer_name, transform_stamped, authority \\ "", name, opts \\ []) do
+  def set_transform(buffer_name, transform_stamped, authority \\ "", name, opts \\ [])
+      when (is_binary(buffer_name) or is_atom(buffer_name)) and
+             (is_map(transform_stamped) or is_struct(transform_stamped)) and is_binary(authority) and
+             is_binary(name) and is_list(opts) do
     ensure_table!()
     ensure_io_table!()
     key = key(buffer_name, name, opts)
@@ -123,35 +493,105 @@ defmodule Rclex.Tf2 do
          {:ok, stamp_ns} <- extract_stamp_ns(transform_stamped),
          {:ok, normalized_tf} <- normalize_transform(transform_stamped),
          :ok <- validate_quaternion(normalized_tf.rotation) do
-      sample = %{stamp_ns: stamp_ns, transform: normalized_tf, authority: authority}
-      samples = Map.get(buffer.dynamic, edge, [])
-      updated_samples = samples |> insert_sample(sample) |> trim_samples(buffer.cache_time_ns)
-
-      updated_dynamic = Map.put(buffer.dynamic, edge, updated_samples)
-      true = :ets.insert(@table, {key, %{buffer | dynamic: updated_dynamic}})
-      :ok
+      Rclex.Nif.tf2_set_transform!(
+        buffer,
+        native_transform(edge, stamp_ns, normalized_tf),
+        authority,
+        false
+      )
+      |> notify_transform(buffer)
+      |> native_result(opts)
     end
   end
 
+  @doc ~S"""
+  Insert or update a static TF2 transform in the buffer.
+
+  Static transforms are treated as valid across time and are not subject to
+  dynamic cache extrapolation behavior.
+
+  ### Parameters
+
+  - `buffer_name` - Buffer identifier.
+  - `transform_stamped` - Map/struct compatible with `geometry_msgs/TransformStamped` shape.
+  - `authority` - Optional broadcaster identifier for diagnostics.
+  - `name` - Node name used to resolve the buffer.
+
+  ### opts
+
+  - `:namespace` must lead with "/". if not specified, the default is "/"
+
+  ### Examples
+
+      iex> ts = %{
+      ...>   header: %{frame_id: "base_link", stamp: %{sec: 0, nanosec: 0}},
+      ...>   child_frame_id: "camera_link",
+      ...>   transform: %{
+      ...>     translation: %{x: 0.2, y: 0.0, z: 0.1},
+      ...>     rotation: %{w: 1.0, x: 0.0, y: 0.0, z: 0.0}
+      ...>   }
+      ...> }
+      iex> Rclex.Tf2.set_transform_static("main", ts, "urdf", "node")
+      :ok
+  """
   @spec set_transform_static(buffer_name(), map() | struct(), String.t(), String.t(), opts()) ::
           :ok | {:error, term()}
-  def set_transform_static(buffer_name, transform_stamped, authority \\ "", name, opts \\ []) do
+  def set_transform_static(buffer_name, transform_stamped, authority \\ "", name, opts \\ [])
+      when (is_binary(buffer_name) or is_atom(buffer_name)) and
+             (is_map(transform_stamped) or is_struct(transform_stamped)) and is_binary(authority) and
+             is_binary(name) and is_list(opts) do
     ensure_table!()
     ensure_io_table!()
     key = key(buffer_name, name, opts)
 
     with {:ok, buffer} <- fetch_buffer(key),
          {:ok, edge} <- extract_edge(transform_stamped),
+         {:ok, stamp_ns} <- extract_stamp_ns(transform_stamped),
          {:ok, normalized_tf} <- normalize_transform(transform_stamped),
          :ok <- validate_quaternion(normalized_tf.rotation) do
-      updated_static =
-        Map.put(buffer.static, edge, %{transform: normalized_tf, authority: authority})
-
-      true = :ets.insert(@table, {key, %{buffer | static: updated_static}})
-      :ok
+      Rclex.Nif.tf2_set_transform!(
+        buffer,
+        native_transform(edge, stamp_ns, normalized_tf),
+        authority,
+        true
+      )
+      |> notify_transform(buffer)
+      |> native_result(opts)
     end
   end
 
+  @doc ~S"""
+  Check whether a TF2 transform is available within timeout.
+
+  `timeout_sec` is in seconds (`float`).
+
+  `time_ns` semantics:
+
+  - `0` => latest common time lookup
+  - `> 0` => lookup at specific timestamp (ns)
+
+  ### Parameters
+
+  - `buffer_name` - Buffer identifier.
+  - `target_frame` - Destination frame.
+  - `source_frame` - Source frame.
+  - `time_ns` - Query timestamp in nanoseconds (`0` means latest).
+  - `timeout_sec` - Maximum wait duration in seconds.
+  - `name` - Node name used to resolve the buffer.
+
+  ### opts
+
+  - `:namespace` must lead with "/". if not specified, the default is "/"
+  - `:return_debug_tuple` when `true`, returns `{boolean, reason}`.
+
+  ### Examples
+
+      iex> Rclex.Tf2.can_transform?("main", "map", "base_link", 0, 0.1, "node")
+      true
+
+      iex> Rclex.Tf2.can_transform?("main", "map", "unknown", 0, 0.0, "node", return_debug_tuple: true)
+      {false, "frame connectivity failed"}
+  """
   @spec can_transform?(
           buffer_name(),
           String.t(),
@@ -169,28 +609,18 @@ defmodule Rclex.Tf2 do
         timeout_sec \\ 0.0,
         name,
         opts \\ []
-      ) do
+      )
+      when (is_binary(buffer_name) or is_atom(buffer_name)) and is_binary(target_frame) and
+             is_binary(source_frame) and is_integer(time_ns) and is_number(timeout_sec) and
+             is_binary(name) and is_list(opts) do
     ensure_table!()
     ensure_io_table!()
     key = key(buffer_name, name, opts)
     return_debug_tuple = Keyword.get(opts, :return_debug_tuple, false)
 
     with {:ok, _} <- fetch_buffer(key) do
-      deadline = deadline_ms(timeout_sec)
-
-      result =
-        wait_until(deadline, :lookup, fn ->
-          probe_can_transform(key, target_frame, source_frame, time_ns)
-        end)
-
-      can_transform_result(result, return_debug_tuple)
-    end
-  end
-
-  defp probe_can_transform(key, target_frame, source_frame, time_ns) do
-    case lookup_internal(key, target_frame, source_frame, time_ns) do
-      {:ok, _} -> {:ok, true}
-      {:error, reason} -> {:retry, reason}
+      query(key, :can_transform, [target_frame, source_frame, time_ns], timeout_sec)
+      |> can_transform_result(return_debug_tuple)
     end
   end
 
@@ -199,6 +629,51 @@ defmodule Rclex.Tf2 do
   defp can_transform_result({:error, reason}, true), do: {false, reason_to_string(reason)}
   defp can_transform_result({:error, _reason}, false), do: false
 
+  @doc ~S"""
+  Lookup a TF2 transform within timeout.
+
+  `timeout_sec` is in seconds (`float`).
+
+  `time_ns` semantics:
+
+  - `0` => latest common time lookup
+  - `> 0` => lookup at specific timestamp (ns)
+
+  Set `error_details: true` to retain the upstream message as `{:error, {kind, message}}`.
+  Native versions may return `:extrapolation` when insufficient history prevents a
+  more specific classification. Timeouts use monotonic wall time, even with paused ROS time.
+
+  Possible errors include connectivity and extrapolation (`:extrapolation_past`
+  or `:extrapolation_future`) depending on the query time and cached data.
+
+  ### Parameters
+
+  - `buffer_name` - Buffer identifier.
+  - `target_frame` - Destination frame.
+  - `source_frame` - Source frame.
+  - `time_ns` - Query timestamp in nanoseconds (`0` means latest).
+  - `timeout_sec` - Maximum wait duration in seconds.
+  - `name` - Node name used to resolve the buffer.
+
+  ### opts
+
+  - `:namespace` must lead with "/". if not specified, the default is "/"
+
+  ### Examples
+
+      iex> {:ok, tf} =
+      ...>   Rclex.Tf2.lookup_transform(
+      ...>     "main",
+      ...>     "map",
+      ...>     "base_link",
+      ...>     0,
+      ...>     0.1,
+      ...>     "node",
+      ...>     namespace: "/robot"
+      ...>   )
+      iex> tf.header.frame_id
+      "map"
+  """
   @spec lookup_transform(
           buffer_name(),
           String.t(),
@@ -216,22 +691,209 @@ defmodule Rclex.Tf2 do
         timeout_sec \\ 0.0,
         name,
         opts \\ []
-      ) do
+      )
+      when (is_binary(buffer_name) or is_atom(buffer_name)) and is_binary(target_frame) and
+             is_binary(source_frame) and is_integer(time_ns) and is_number(timeout_sec) and
+             is_binary(name) and is_list(opts) do
     ensure_table!()
     ensure_io_table!()
     key = key(buffer_name, name, opts)
-    deadline = deadline_ms(timeout_sec)
 
-    wait_until(deadline, :lookup, fn ->
-      case lookup_internal(key, target_frame, source_frame, time_ns) do
-        {:ok, transform} -> {:ok, transform}
-        {:error, reason} -> {:retry, reason}
-      end
-    end)
+    query(key, :lookup_transform, [target_frame, source_frame, time_ns], timeout_sec)
+    |> native_result(opts)
   end
 
+  @doc ~S"""
+  Looks up a transform using separate source and target times through a fixed frame.
+
+  Times are nanoseconds; zero requests the latest available time. Native tf2 errors
+  are returned as atoms, or `{:error, {kind, message}}` with `error_details: true`.
+  Set `timeout_sec: seconds` in options to wait (default `0.0`). This is a monotonic
+  wall-time deadline and does not block a BEAM scheduler.
+  """
+  @spec lookup_transform_full(
+          buffer_name(),
+          String.t(),
+          integer(),
+          String.t(),
+          integer(),
+          String.t(),
+          String.t(),
+          opts()
+        ) :: {:ok, map()} | {:error, term()}
+  def lookup_transform_full(
+        buffer_name,
+        target,
+        target_time,
+        source,
+        source_time,
+        fixed,
+        name,
+        opts \\ []
+      ) do
+    ensure_table!()
+
+    query(
+      key(buffer_name, name, opts),
+      :lookup_transform,
+      [target, target_time, source, source_time, fixed],
+      Keyword.get(opts, :timeout_sec, 0.0)
+    )
+    |> native_result(opts)
+  end
+
+  @doc ~S"""
+  Checks transform availability using separate source and target times through a fixed frame.
+
+  Set `return_debug_tuple: true` to receive `{available?, upstream_reason}`.
+  Set `timeout_sec: seconds` to wait for availability (default `0.0`).
+  """
+  @spec can_transform_full?(
+          buffer_name(),
+          String.t(),
+          integer(),
+          String.t(),
+          integer(),
+          String.t(),
+          String.t(),
+          opts()
+        ) :: boolean() | {boolean(), String.t()} | {:error, term()}
+  def can_transform_full?(
+        buffer_name,
+        target,
+        target_time,
+        source,
+        source_time,
+        fixed,
+        name,
+        opts \\ []
+      ) do
+    ensure_table!()
+
+    with {:ok, _} <- fetch_buffer(key(buffer_name, name, opts)) do
+      query(
+        key(buffer_name, name, opts),
+        :can_transform,
+        [target, target_time, source, source_time, fixed],
+        Keyword.get(opts, :timeout_sec, 0.0)
+      )
+      |> can_transform_result(Keyword.get(opts, :return_debug_tuple, false))
+    end
+  end
+
+  @doc ~S"""
+  Waits asynchronously for a native TF2 lookup.
+
+  Returns `{:ok, request_ref}` and delivers `{:tf2_transform, request_ref, result}`
+  to the caller. The timeout is in monotonic wall-time seconds, including when
+  ROS time is paused. Pending requests are removed when the caller exits.
+  """
+  @spec lookup_transform_async(
+          buffer_name(),
+          String.t(),
+          String.t(),
+          integer(),
+          number(),
+          String.t(),
+          opts()
+        ) ::
+          {:ok, reference()} | {:error, term()}
+  def lookup_transform_async(
+        buffer_name,
+        target,
+        source,
+        time_ns,
+        timeout_sec \\ 5.0,
+        name,
+        opts \\ []
+      ) do
+    start_wait(buffer_name, [target, source, time_ns], timeout_sec, name, opts)
+  end
+
+  @doc ~S"""
+  Waits asynchronously for a lookup with separate source and target times through a fixed frame.
+
+  Uses the same reply message and cancellation contract as `lookup_transform_async/7`.
+  Configure the deadline with `timeout_sec: seconds` in options (default `5.0`).
+  """
+  @spec lookup_transform_full_async(
+          buffer_name(),
+          String.t(),
+          integer(),
+          String.t(),
+          integer(),
+          String.t(),
+          String.t(),
+          opts()
+        ) :: {:ok, reference()} | {:error, term()}
+  def lookup_transform_full_async(
+        buffer_name,
+        target,
+        target_time,
+        source,
+        source_time,
+        fixed,
+        name,
+        opts \\ []
+      ) do
+    start_wait(
+      buffer_name,
+      [target, target_time, source, source_time, fixed],
+      Keyword.get(opts, :timeout_sec, 5.0),
+      name,
+      opts
+    )
+  end
+
+  defp start_wait(buffer_name, args, timeout_sec, name, opts) do
+    if is_number(timeout_sec) and timeout_sec >= 0 and timeout_sec <= 4_294_967 do
+      GenServer.call(__MODULE__, {:wait, key(buffer_name, name, opts), args, timeout_sec, opts})
+    else
+      {:error, :invalid_timeout}
+    end
+  end
+
+  @doc ~S"""
+  Cancels a pending TF2 wait owned by the caller.
+
+  Returns `:ok` if cancelled, or `{:error, :wait_not_found}` if it already completed,
+  was cancelled, or belongs to another process. A reply already delivered is not retracted.
+  """
+  @spec cancel_wait(reference()) :: :ok | {:error, :wait_not_found}
+  def cancel_wait(request), do: GenServer.call(__MODULE__, {:cancel_wait, request})
+
+  defp notify_transform(:ok, buffer) do
+    GenServer.cast(__MODULE__, {:new_transform, buffer})
+    :ok
+  end
+
+  defp notify_transform(result, _buffer), do: result
+
+  @doc ~S"""
+  Start TF topic listeners for `/tf` and `/tf_static` and feed incoming transforms
+  into the specified TF2 buffer.
+
+  This is the ROS transport counterpart to `set_transform/5` and
+  `set_transform_static/5`.
+
+  ### Parameters
+
+  - `buffer_name` - TF2 buffer identifier.
+  - `name` - Node name that owns the subscriptions.
+
+  ### opts
+
+  - `:namespace` must lead with "/". if not specified, the default is "/"
+  - `:authority` authority string attached to ingested transforms (default `"tf_listener"`).
+  - `:tf_message_type_module` overrides the generated `tf2_msgs/msg/TFMessage` module.
+
+  ### Notes
+
+  Requires generated message type `tf2_msgs/msg/TFMessage`.
+  """
   @spec start_listener(buffer_name(), String.t(), opts()) :: :ok | {:error, term()}
-  def start_listener(buffer_name, name, opts \\ []) do
+  def start_listener(buffer_name, name, opts \\ [])
+      when (is_binary(buffer_name) or is_atom(buffer_name)) and is_binary(name) and is_list(opts) do
     ensure_table!()
     ensure_io_table!()
 
@@ -245,8 +907,17 @@ defmodule Rclex.Tf2 do
     end
   end
 
+  @doc ~S"""
+  Stop TF topic listeners (`/tf`, `/tf_static`) for the given buffer and node.
+
+  ### opts
+
+  - `:namespace` must lead with "/". if not specified, the default is "/"
+  - `:tf_message_type_module` overrides the generated `tf2_msgs/msg/TFMessage` module.
+  """
   @spec stop_listener(buffer_name(), String.t(), opts()) :: :ok | {:error, term()}
-  def stop_listener(buffer_name, name, opts \\ []) do
+  def stop_listener(buffer_name, name, opts \\ [])
+      when (is_binary(buffer_name) or is_atom(buffer_name)) and is_binary(name) and is_list(opts) do
     ensure_table!()
     ensure_io_table!()
 
@@ -268,8 +939,20 @@ defmodule Rclex.Tf2 do
     end
   end
 
+  @doc ~S"""
+  Start TF topic publishers for `/tf` and `/tf_static`.
+
+  ### Parameters
+
+  - `name` - Node name that owns the publishers.
+
+  ### opts
+
+  - `:namespace` must lead with "/". if not specified, the default is "/"
+  - `:tf_message_type_module` overrides the generated `tf2_msgs/msg/TFMessage` module.
+  """
   @spec start_broadcaster(String.t(), opts()) :: :ok | {:error, term()}
-  def start_broadcaster(name, opts \\ []) do
+  def start_broadcaster(name, opts \\ []) when is_binary(name) and is_list(opts) do
     ensure_table!()
     ensure_io_table!()
 
@@ -279,8 +962,16 @@ defmodule Rclex.Tf2 do
     end
   end
 
+  @doc ~S"""
+  Stop TF topic publishers for `/tf` and `/tf_static`.
+
+  ### opts
+
+  - `:namespace` must lead with "/". if not specified, the default is "/"
+  - `:tf_message_type_module` overrides the generated `tf2_msgs/msg/TFMessage` module.
+  """
   @spec stop_broadcaster(String.t(), opts()) :: :ok | {:error, term()}
-  def stop_broadcaster(name, opts \\ []) do
+  def stop_broadcaster(name, opts \\ []) when is_binary(name) and is_list(opts) do
     ensure_table!()
     ensure_io_table!()
 
@@ -307,477 +998,142 @@ defmodule Rclex.Tf2 do
     end
   end
 
+  @doc ~S"""
+  Publish one or more dynamic transforms to `/tf`.
+
+  ### Parameters
+
+  - `transform_stamped_or_list` - A `TransformStamped`-compatible map/struct or a list of them.
+  - `name` - Node name that owns the publisher.
+
+  ### opts
+
+  - `:namespace` must lead with "/". if not specified, the default is "/"
+  - `:tf_message_type_module` overrides the generated `tf2_msgs/msg/TFMessage` module.
+  """
   @spec broadcast_dynamic([map() | struct()] | map() | struct(), String.t(), opts()) ::
           :ok | {:error, term()}
-  def broadcast_dynamic(transform_stamped_or_list, name, opts \\ []) do
+  def broadcast_dynamic(transform_stamped_or_list, name, opts \\ [])
+      when (is_map(transform_stamped_or_list) or is_struct(transform_stamped_or_list) or
+              is_list(transform_stamped_or_list)) and is_binary(name) and is_list(opts) do
     publish_tf_message(transform_stamped_or_list, "/tf", name, opts)
   end
 
+  @doc ~S"""
+  Publish one or more static transforms to `/tf_static`.
+
+  ### Parameters
+
+  - `transform_stamped_or_list` - A `TransformStamped`-compatible map/struct or a list of them.
+  - `name` - Node name that owns the publisher.
+
+  ### opts
+
+  - `:namespace` must lead with "/". if not specified, the default is "/"
+  - `:tf_message_type_module` overrides the generated `tf2_msgs/msg/TFMessage` module.
+  """
   @spec broadcast_static([map() | struct()] | map() | struct(), String.t(), opts()) ::
           :ok | {:error, term()}
-  def broadcast_static(transform_stamped_or_list, name, opts \\ []) do
+  def broadcast_static(transform_stamped_or_list, name, opts \\ [])
+      when (is_map(transform_stamped_or_list) or is_struct(transform_stamped_or_list) or
+              is_list(transform_stamped_or_list)) and is_binary(name) and is_list(opts) do
     publish_tf_message(transform_stamped_or_list, "/tf_static", name, opts)
   end
 
-  defp lookup_internal(key, target_frame, source_frame, time_ns) do
-    with {:ok, buffer} <- fetch_buffer(key),
-         :ok <- validate_frame_ids(target_frame, source_frame),
-         :ok <- ensure_known_frames(buffer, target_frame, source_frame),
-         {:ok, query_time_ns} <- resolve_query_time(buffer, target_frame, source_frame, time_ns),
-         {:ok, transform} <-
-           resolve_path_transform(buffer, target_frame, source_frame, query_time_ns) do
-      {:ok,
-       %{
-         header: %{frame_id: target_frame, stamp: ns_to_stamp(query_time_ns)},
-         child_frame_id: source_frame,
-         transform: transform
-       }}
+  defp query(buffer_key, operation, args, timeout_sec) do
+    with {:ok, buffer} <- fetch_buffer(buffer_key),
+         :ok <- validate_query_frames(operation, args) do
+      wait_until(deadline_ms(timeout_sec), fn -> native_probe(operation, buffer, args) end)
     end
   end
 
-  defp resolve_query_time(_buffer, _target_frame, _source_frame, time_ns) when time_ns > 0,
-    do: {:ok, time_ns}
+  defp validate_query_frames(:lookup_transform, [target, source, _time]),
+    do: validate_frame_ids(target, source)
 
-  defp resolve_query_time(buffer, target_frame, source_frame, _time_ns) do
-    latest_common_time_ns(buffer, target_frame, source_frame)
-  end
+  defp validate_query_frames(:lookup_transform, [
+         target,
+         _target_time,
+         source,
+         _source_time,
+         _fixed
+       ]),
+       do: validate_frame_ids(target, source)
 
-  defp latest_common_time_ns(buffer, target_frame, source_frame) do
-    case resolve_path_transform(buffer, target_frame, source_frame, :latest, true) do
-      {:ok, _transform, latest_stamp_ns} -> {:ok, latest_stamp_ns}
-      {:error, reason} -> {:error, reason}
+  defp validate_query_frames(:can_transform, _args), do: :ok
+
+  defp native_probe(operation, buffer, args) do
+    function =
+      if operation == :lookup_transform, do: :tf2_lookup_transform!, else: :tf2_can_transform!
+
+    case apply(Rclex.Nif, function, [buffer | args]) do
+      {true, _message} -> {:ok, true}
+      {false, message} -> {:retry, message}
+      {:error, reason} -> {:retry, reason}
+      result -> result
     end
   end
 
-  defp resolve_path_transform(
-         buffer,
-         target_frame,
-         source_frame,
-         query_time_ns,
-         only_time \\ false
-       ) do
-    start = {target_frame, identity_transform(), query_time_ns}
+  defp native_transform({parent, child}, stamp_ns, %{translation: translation, rotation: rotation}) do
+    {parent, child, stamp_ns, {translation.x, translation.y, translation.z},
+     {rotation.x, rotation.y, rotation.z, rotation.w}}
+  end
 
-    bfs_result =
-      do_resolve_path_transform(
-        [start],
-        MapSet.new([target_frame]),
-        buffer,
-        source_frame,
-        query_time_ns,
-        nil
-      )
+  defp native_result({:error, {kind, _message}} = result, opts) do
+    if Keyword.get(opts, :error_details, false), do: result, else: {:error, kind}
+  end
 
-    case bfs_result do
-      {:ok, transform, latest_stamp_ns} ->
-        if only_time, do: {:ok, transform, latest_stamp_ns}, else: {:ok, transform}
+  defp native_result(result, _opts), do: result
 
-      {:error, reason} ->
-        if path_exists?(buffer, target_frame, source_frame) and
-             reason not in [:lookup, :connectivity] do
-          {:error, reason}
-        else
-          {:error, :connectivity}
-        end
+  @doc ~S"""
+  Transforms a stamped geometry message using native `tf2_geometry_msgs` operations.
+
+  Supports PointStamped, Vector3Stamped, QuaternionStamped, PoseStamped and
+  TransformStamped shapes. Accepts atom-keyed maps or generated message structs
+  and preserves their struct types. The input header specifies source frame and time.
+  """
+  @spec transform(buffer_name(), map() | struct(), String.t(), String.t(), opts()) ::
+          {:ok, map() | struct()} | {:error, term()}
+  def transform(buffer_name, message, target, name, opts \\ []) do
+    ensure_table!()
+
+    with {:ok, buffer} <- fetch_buffer(key(buffer_name, name, opts)),
+         {:ok, kind} <- geometry_kind(message),
+         {:ok, result} <-
+           Rclex.Nif.tf2_transform!(buffer, message, target, kind) |> native_result(opts) do
+      {:ok, restore_structs(message, result)}
     end
   end
 
-  defp do_resolve_path_transform([], _visited, _buffer, _source_frame, _query_time_ns, nil),
-    do: {:error, :connectivity}
-
-  defp do_resolve_path_transform([], _visited, _buffer, _source_frame, _query_time_ns, reason),
-    do: {:error, reason}
-
-  defp do_resolve_path_transform(
-         [{current_frame, acc_transform, min_stamp_ns} | rest],
-         visited,
-         buffer,
-         source_frame,
-         query_time_ns,
-         best_reason
-       ) do
-    if current_frame == source_frame do
-      {:ok, acc_transform, min_stamp_ns}
-    else
-      {rest2, visited2, reason2} =
-        Enum.reduce(
-          neighbors(buffer, current_frame, query_time_ns),
-          {rest, visited, best_reason},
-          &fold_resolve_neighbor(&1, &2, acc_transform, min_stamp_ns)
-        )
-
-      do_resolve_path_transform(rest2, visited2, buffer, source_frame, query_time_ns, reason2)
+  defp geometry_kind(message) when is_map(message) do
+    case Enum.filter(
+           [:point, :vector, :quaternion, :pose, :transform],
+           &Map.has_key?(message, &1)
+         ) do
+      [kind] -> {:ok, kind}
+      _ -> {:error, :unsupported_geometry_type}
     end
   end
 
-  defp fold_resolve_neighbor(
-         {:ok, next_frame, edge_transform, edge_stamp_ns},
-         {queue, seen, reason},
-         acc_transform,
-         min_stamp_ns
-       ) do
-    if MapSet.member?(seen, next_frame) do
-      {queue, seen, reason}
-    else
-      composed = compose_transform(acc_transform, edge_transform)
-      new_min_stamp = min_stamp(min_stamp_ns, edge_stamp_ns)
-      {queue ++ [{next_frame, composed, new_min_stamp}], MapSet.put(seen, next_frame), reason}
-    end
+  defp geometry_kind(_), do: {:error, :unsupported_geometry_type}
+
+  defp restore_structs(template, result) when is_map(template) and is_map(result) do
+    fields =
+      Map.new(result, fn {field, value} ->
+        {field, restore_structs(Map.get(template, field), value)}
+      end)
+
+    if is_struct(template), do: struct(template.__struct__, fields), else: fields
   end
 
-  defp fold_resolve_neighbor(
-         {:error, edge_reason},
-         {queue, seen, reason},
-         _acc_transform,
-         _min_stamp_ns
-       ) do
-    {queue, seen, prefer_reason(reason, edge_reason)}
-  end
-
-  defp neighbors(buffer, frame, query_time_ns) do
-    static_edges = Enum.flat_map(buffer.static, &static_edge_for_frame(&1, frame))
-
-    dynamic_edges =
-      Enum.flat_map(buffer.dynamic, &dynamic_edge_for_frame(&1, frame, query_time_ns))
-
-    static_edges ++ dynamic_edges
-  end
-
-  defp static_edge_for_frame({{target, source}, %{transform: transform}}, frame) do
-    cond do
-      target == frame -> [{:ok, source, transform, :infinite}]
-      source == frame -> [{:ok, target, invert_transform(transform), :infinite}]
-      true -> []
-    end
-  end
-
-  defp static_edge_for_frame(_, _), do: []
-
-  defp dynamic_edge_for_frame({{target, source}, samples}, frame, query_time_ns) do
-    cond do
-      target == frame -> dynamic_edge_sample(samples, source, query_time_ns, :forward)
-      source == frame -> dynamic_edge_sample(samples, target, query_time_ns, :inverse)
-      true -> []
-    end
-  end
-
-  defp dynamic_edge_for_frame(_, _, _), do: []
-
-  defp dynamic_edge_sample(samples, other_frame, query_time_ns, direction) do
-    case transform_from_samples(samples, query_time_ns) do
-      {:ok, transform, stamp_ns} ->
-        edge_transform =
-          case direction do
-            :forward -> transform
-            :inverse -> invert_transform(transform)
-          end
-
-        [{:ok, other_frame, edge_transform, stamp_ns}]
-
-      {:error, reason} ->
-        [{:error, reason}]
-    end
-  end
-
-  defp transform_from_samples([], _query_time_ns), do: {:error, :lookup}
-
-  defp transform_from_samples(samples, :latest) do
-    case List.last(samples) do
-      nil -> {:error, :lookup}
-      sample -> {:ok, sample.transform, sample.stamp_ns}
-    end
-  end
-
-  defp transform_from_samples([sample], query_time_ns) do
-    cond do
-      query_time_ns == sample.stamp_ns -> {:ok, sample.transform, sample.stamp_ns}
-      query_time_ns < sample.stamp_ns -> {:error, :extrapolation_past}
-      query_time_ns > sample.stamp_ns -> {:error, :extrapolation_future}
-      true -> {:ok, sample.transform, sample.stamp_ns}
-    end
-  end
-
-  defp transform_from_samples(samples, query_time_ns) do
-    first = hd(samples)
-    last = List.last(samples)
-
-    cond do
-      query_time_ns < first.stamp_ns ->
-        {:error, :extrapolation_past}
-
-      query_time_ns > last.stamp_ns ->
-        {:error, :extrapolation_future}
-
-      true ->
-        interpolate_samples(samples, query_time_ns)
-    end
-  end
-
-  defp interpolate_samples(samples, query_time_ns) do
-    case Enum.find(samples, fn sample -> sample.stamp_ns == query_time_ns end) do
-      nil ->
-        pair =
-          samples
-          |> Enum.chunk_every(2, 1, :discard)
-          |> Enum.find(fn [a, b] ->
-            a.stamp_ns <= query_time_ns and query_time_ns <= b.stamp_ns
-          end)
-
-        case pair do
-          [a, b] when a.stamp_ns == b.stamp_ns -> {:ok, a.transform, a.stamp_ns}
-          [a, b] -> {:ok, interpolate_transform(a, b, query_time_ns), query_time_ns}
-          _ -> {:error, :lookup}
-        end
-
-      sample ->
-        {:ok, sample.transform, sample.stamp_ns}
-    end
-  end
-
-  defp interpolate_transform(a, b, query_time_ns) do
-    ratio = (query_time_ns - a.stamp_ns) / (b.stamp_ns - a.stamp_ns)
-
-    %{
-      translation: %{
-        x: lerp(a.transform.translation.x, b.transform.translation.x, ratio),
-        y: lerp(a.transform.translation.y, b.transform.translation.y, ratio),
-        z: lerp(a.transform.translation.z, b.transform.translation.z, ratio)
-      },
-      rotation: slerp(a.transform.rotation, b.transform.rotation, ratio)
-    }
-  end
-
-  defp lerp(a, b, r), do: a + (b - a) * r
-
-  defp slerp(q1, q2, ratio) do
-    q1n = normalize_quaternion(q1)
-    q2n = normalize_quaternion(q2)
-
-    dot = dot_quaternion(q1n, q2n)
-
-    {qa, qb, d} =
-      if dot < 0.0 do
-        {q1n, negate_quaternion(q2n), -dot}
-      else
-        {q1n, q2n, dot}
-      end
-
-    if d > 0.9995 do
-      normalize_quaternion(%{
-        w: lerp(qa.w, qb.w, ratio),
-        x: lerp(qa.x, qb.x, ratio),
-        y: lerp(qa.y, qb.y, ratio),
-        z: lerp(qa.z, qb.z, ratio)
-      })
-    else
-      theta_0 = :math.acos(d)
-      theta = theta_0 * ratio
-      sin_theta = :math.sin(theta)
-      sin_theta_0 = :math.sin(theta_0)
-      s0 = :math.cos(theta) - d * sin_theta / sin_theta_0
-      s1 = sin_theta / sin_theta_0
-
-      normalize_quaternion(%{
-        w: s0 * qa.w + s1 * qb.w,
-        x: s0 * qa.x + s1 * qb.x,
-        y: s0 * qa.y + s1 * qb.y,
-        z: s0 * qa.z + s1 * qb.z
-      })
-    end
-  end
-
-  defp dot_quaternion(a, b), do: a.w * b.w + a.x * b.x + a.y * b.y + a.z * b.z
-
-  defp negate_quaternion(q), do: %{w: -q.w, x: -q.x, y: -q.y, z: -q.z}
-
-  defp min_stamp(:infinite, s), do: s
-  defp min_stamp(s, :infinite), do: s
-  defp min_stamp(a, b), do: min(a, b)
-
-  defp prefer_reason(nil, reason), do: reason
-
-  defp prefer_reason(current, candidate) do
-    ranking = %{
-      extrapolation_future: 4,
-      extrapolation_past: 4,
-      lookup: 3,
-      connectivity: 2,
-      timeout: 1
-    }
-
-    if Map.get(ranking, candidate, 0) >= Map.get(ranking, current, 0),
-      do: candidate,
-      else: current
-  end
+  defp restore_structs(_template, result), do: result
 
   defp reason_to_string(:lookup), do: "lookup failed"
   defp reason_to_string(:connectivity), do: "frame connectivity failed"
   defp reason_to_string(:extrapolation_past), do: "extrapolation into the past"
   defp reason_to_string(:extrapolation_future), do: "extrapolation into the future"
   defp reason_to_string(:timeout), do: "timeout"
+  defp reason_to_string({_kind, message}), do: message
   defp reason_to_string(reason), do: to_string(reason)
-
-  defp path_exists?(buffer, target_frame, source_frame) do
-    start = [target_frame]
-    do_path_exists?(start, MapSet.new([target_frame]), buffer, source_frame)
-  end
-
-  defp do_path_exists?([], _visited, _buffer, _source_frame), do: false
-
-  defp do_path_exists?([current | rest], visited, buffer, source_frame) do
-    if current == source_frame do
-      true
-    else
-      nexts = path_neighbor_frames(buffer, current)
-      {queue, visited2} = enqueue_unseen(nexts, rest, visited)
-      do_path_exists?(queue, visited2, buffer, source_frame)
-    end
-  end
-
-  defp path_neighbor_frames(buffer, current) do
-    Enum.flat_map(all_edges(buffer), fn {target, source} ->
-      cond do
-        target == current -> [source]
-        source == current -> [target]
-        true -> []
-      end
-    end)
-  end
-
-  defp enqueue_unseen(nexts, queue, visited) do
-    Enum.reduce(nexts, {queue, visited}, fn frame, {q, seen} ->
-      if MapSet.member?(seen, frame) do
-        {q, seen}
-      else
-        {q ++ [frame], MapSet.put(seen, frame)}
-      end
-    end)
-  end
-
-  defp all_edges(buffer) do
-    (Map.keys(buffer.static) ++ Map.keys(buffer.dynamic))
-    |> Enum.uniq()
-  end
-
-  defp known_frames(buffer) do
-    all_edges(buffer)
-    |> Enum.reduce(MapSet.new(), fn {target, source}, acc ->
-      acc |> MapSet.put(target) |> MapSet.put(source)
-    end)
-    |> MapSet.to_list()
-  end
-
-  defp frame_list(buffer) do
-    entries = frame_yaml_entries(buffer)
-
-    entries
-    |> Map.keys()
-    |> Enum.sort()
-    |> Enum.map(fn child ->
-      info = Map.fetch!(entries, child)
-
-      %{
-        child: child,
-        parent: info.parent,
-        broadcaster: info.broadcaster,
-        rate: info.rate,
-        most_recent_transform: info.most_recent_transform,
-        oldest_transform: info.oldest_transform,
-        buffer_length: info.buffer_length
-      }
-    end)
-  end
-
-  defp render_frames_yaml([]), do: ""
-
-  defp render_frames_yaml(frames) do
-    frames
-    |> Enum.flat_map(fn info ->
-      [
-        "#{info.child}:",
-        "  parent: #{info.parent}",
-        "  broadcaster: #{info.broadcaster}",
-        "  rate: #{float_to_string(info.rate)}",
-        "  most_recent_transform: #{float_to_string(info.most_recent_transform)}",
-        "  oldest_transform: #{float_to_string(info.oldest_transform)}",
-        "  buffer_length: #{float_to_string(info.buffer_length)}"
-      ]
-    end)
-    |> Enum.join("\n")
-  end
-
-  defp frame_yaml_entries(buffer) do
-    static_entries =
-      Enum.reduce(buffer.static, %{}, fn
-        {{parent, child}, %{authority: authority}}, acc ->
-          Map.put(acc, child, %{
-            parent: parent,
-            broadcaster: normalize_broadcaster(authority),
-            rate: 0.0,
-            most_recent_transform: 0.0,
-            oldest_transform: 0.0,
-            buffer_length: 0.0,
-            stamp_ns: 0
-          })
-
-        _, acc ->
-          acc
-      end)
-
-    Enum.reduce(buffer.dynamic, static_entries, fn
-      {{parent, child}, samples}, acc when is_list(samples) and samples != [] ->
-        oldest = hd(samples)
-        latest = List.last(samples)
-        span_ns = max(0, latest.stamp_ns - oldest.stamp_ns)
-
-        rate =
-          if span_ns > 0 and length(samples) > 1 do
-            (length(samples) - 1) / (span_ns / 1_000_000_000)
-          else
-            0.0
-          end
-
-        info = %{
-          parent: parent,
-          broadcaster: normalize_broadcaster(latest.authority),
-          rate: rate,
-          most_recent_transform: latest.stamp_ns / 1_000_000_000,
-          oldest_transform: oldest.stamp_ns / 1_000_000_000,
-          buffer_length: span_ns / 1_000_000_000,
-          stamp_ns: latest.stamp_ns
-        }
-
-        case Map.get(acc, child) do
-          nil -> Map.put(acc, child, info)
-          existing when existing.stamp_ns <= info.stamp_ns -> Map.put(acc, child, info)
-          _ -> acc
-        end
-
-      _, acc ->
-        acc
-    end)
-  end
-
-  defp normalize_broadcaster(authority) when is_binary(authority) and authority != "",
-    do: authority
-
-  defp normalize_broadcaster(_), do: "unknown"
-
-  defp float_to_string(value) when is_float(value) do
-    :erlang.float_to_binary(value, decimals: 6)
-  end
-
-  defp float_to_string(value) when is_integer(value), do: Integer.to_string(value)
-
-  defp ensure_known_frames(buffer, target_frame, source_frame) do
-    frames = known_frames(buffer)
-
-    cond do
-      target_frame == source_frame -> :ok
-      target_frame in frames and source_frame in frames -> :ok
-      true -> {:error, :lookup}
-    end
-  end
 
   defp validate_frame_ids(target_frame, source_frame) do
     cond do
@@ -821,15 +1177,16 @@ defmodule Rclex.Tf2 do
       get_in_any(map, [:header, :stamp, :nanosec]) || get_in_any(map, [:header, :stamp, :nsec]) ||
         0
 
-    if is_integer(sec) and is_integer(nanosec) and sec >= 0 and nanosec >= 0 do
+    if valid_stamp?(sec, nanosec) do
       {:ok, sec * 1_000_000_000 + nanosec}
     else
       {:error, :invalid_stamp}
     end
   end
 
-  defp ns_to_stamp(ns) when is_integer(ns) and ns >= 0 do
-    %{sec: div(ns, 1_000_000_000), nanosec: rem(ns, 1_000_000_000)}
+  defp valid_stamp?(sec, nanosec) do
+    is_integer(sec) and sec >= 0 and sec <= 2_147_483_647 and
+      is_integer(nanosec) and nanosec >= 0 and nanosec < 1_000_000_000
   end
 
   defp to_map(%_{} = struct), do: Map.from_struct(struct)
@@ -849,35 +1206,37 @@ defmodule Rclex.Tf2 do
     Map.get(map, key) || Map.get(map, Atom.to_string(key))
   end
 
-  defp blank_to_nil(v) when is_binary(v) do
-    if String.trim(v) == "", do: nil, else: v
+  defp blank_to_nil(value) when is_binary(value) do
+    if String.trim(value) == "", do: nil, else: value
   end
 
   defp blank_to_nil(_), do: nil
 
   defp key(buffer_name, name, opts) do
-    namespace = opts |> Keyword.get(:namespace, "/") |> normalize_namespace()
-    {to_string(buffer_name), name, namespace}
+    namespace = Keyword.get(opts, :namespace, "/")
+    {to_string(buffer_name), name, if(namespace == "", do: "/", else: namespace)}
   end
 
-  defp normalize_namespace(ns) when is_binary(ns) do
-    if ns == "", do: "/", else: ns
+  defp deadline_ms(timeout_sec) do
+    System.monotonic_time(:millisecond) + max(0, trunc(timeout_sec * 1_000))
   end
 
-  defp deadline_ms(timeout_sec) when is_float(timeout_sec) or is_integer(timeout_sec) do
-    now = System.monotonic_time(:millisecond)
-    add = max(0, trunc(timeout_sec * 1_000))
-    now + add
-  end
+  defp wait_until(deadline, query, last_reason \\ nil) do
+    case query.() do
+      {:retry, reason}
+      when reason in [:buffer_not_found, :invalid_target_frame, :invalid_source_frame] ->
+        {:error, reason}
 
-  defp wait_until(deadline_ms, mode, fun, last_reason \\ nil) do
-    case fun.() do
+      {:retry, {kind, _message} = reason}
+      when kind in [:buffer_not_found, :invalid_argument, :native_error] ->
+        {:error, reason}
+
       {:retry, reason} ->
-        if System.monotonic_time(:millisecond) >= deadline_ms do
+        if System.monotonic_time(:millisecond) >= deadline do
           {:error, if(last_reason, do: :timeout, else: reason)}
         else
           Process.sleep(@poll_ms)
-          wait_until(deadline_ms, mode, fun, reason)
+          wait_until(deadline, query, reason)
         end
 
       result ->
@@ -885,54 +1244,19 @@ defmodule Rclex.Tf2 do
     end
   end
 
-  defp fetch_buffer(key) do
-    case :ets.lookup(@table, key) do
-      [{^key, buffer}] -> {:ok, buffer}
+  defp fetch_buffer(buffer_key) do
+    case :ets.lookup(@table, buffer_key) do
+      [{^buffer_key, buffer}] -> {:ok, buffer}
       [] -> {:error, :buffer_not_found}
     end
   end
 
-  defp ensure_table! do
-    case :ets.whereis(@table) do
-      :undefined ->
-        try do
-          :ets.new(@table, [
-            :named_table,
-            :public,
-            :set,
-            read_concurrency: true,
-            write_concurrency: true
-          ])
-        rescue
-          _ -> :ok
-        else
-          _ -> :ok
-        end
+  defp ensure_table!, do: ensure_table!(@table)
+  defp ensure_io_table!, do: ensure_table!(@io_table)
 
-      _ ->
-        :ok
-    end
-  end
-
-  defp ensure_io_table! do
-    case :ets.whereis(@io_table) do
-      :undefined ->
-        try do
-          :ets.new(@io_table, [
-            :named_table,
-            :public,
-            :set,
-            read_concurrency: true,
-            write_concurrency: true
-          ])
-        rescue
-          _ -> :ok
-        else
-          _ -> :ok
-        end
-
-      _ ->
-        :ok
+  defp ensure_table!(table) do
+    if :ets.whereis(table) == :undefined do
+      GenServer.call(__MODULE__, :ensure_tables)
     end
   end
 
@@ -968,7 +1292,13 @@ defmodule Rclex.Tf2 do
           ingest_tf_message(msg, topic_kind == :tf_static, buffer_name, name, opts, authority)
         end
 
-        case Rclex.start_subscription(callback, tf_message_type, topic, name, opts) do
+        case Rclex.start_subscription(
+               callback,
+               tf_message_type,
+               topic,
+               name,
+               topic_options(topic_kind, :listener, opts)
+             ) do
           :ok ->
             true = :ets.insert(@io_table, {io_key, true})
             :ok
@@ -995,7 +1325,12 @@ defmodule Rclex.Tf2 do
         tf_message_type = tf_message_type_module(opts)
         topic = topic_name(topic_kind)
 
-        case Rclex.start_publisher(tf_message_type, topic, name, opts) do
+        case Rclex.start_publisher(
+               tf_message_type,
+               topic,
+               name,
+               topic_options(topic_kind, :broadcaster, opts)
+             ) do
           :ok ->
             true = :ets.insert(@io_table, {io_key, true})
             :ok
@@ -1015,6 +1350,18 @@ defmodule Rclex.Tf2 do
 
   defp topic_name(:tf), do: "/tf"
   defp topic_name(:tf_static), do: "/tf_static"
+
+  defp topic_options(topic_kind, role, opts) do
+    default =
+      case {topic_kind, role} do
+        {:tf_static, :broadcaster} -> %Rclex.QoS{depth: 1, durability: :transient_local}
+        {:tf_static, :listener} -> %Rclex.QoS{depth: 100, durability: :transient_local}
+        {:tf, _} -> %Rclex.QoS{depth: 100}
+      end
+
+    qos_key = if topic_kind == :tf_static, do: :tf_static_qos, else: :tf_qos
+    Keyword.put(opts, :qos, Keyword.get(opts, qos_key, Keyword.get(opts, :qos, default)))
+  end
 
   defp publish_tf_message(transform_stamped_or_list, topic, name, opts) do
     ensure_table!()
@@ -1092,91 +1439,8 @@ defmodule Rclex.Tf2 do
   defp normalize_rotation(_), do: {:error, :invalid_rotation}
 
   defp validate_quaternion(q) do
-    norm = :math.sqrt(q.w * q.w + q.x * q.x + q.y * q.y + q.z * q.z)
-    if norm > 0.0, do: :ok, else: {:error, :invalid_quaternion}
+    if q.w == 0 and q.x == 0 and q.y == 0 and q.z == 0,
+      do: {:error, :invalid_quaternion},
+      else: :ok
   end
-
-  defp insert_sample(samples, sample) do
-    (samples ++ [sample])
-    |> Enum.sort_by(& &1.stamp_ns)
-    |> dedupe_samples()
-  end
-
-  defp dedupe_samples(samples) do
-    samples
-    |> Enum.reduce(%{}, fn sample, acc -> Map.put(acc, sample.stamp_ns, sample) end)
-    |> Map.values()
-    |> Enum.sort_by(& &1.stamp_ns)
-  end
-
-  defp trim_samples(samples, cache_time_ns) when cache_time_ns == 0,
-    do: [List.last(samples)] |> Enum.reject(&is_nil/1)
-
-  defp trim_samples(samples, cache_time_ns) do
-    case List.last(samples) do
-      nil ->
-        []
-
-      latest ->
-        Enum.filter(samples, fn sample -> latest.stamp_ns - sample.stamp_ns <= cache_time_ns end)
-    end
-  end
-
-  defp identity_transform do
-    %{
-      translation: %{x: 0.0, y: 0.0, z: 0.0},
-      rotation: %{w: 1.0, x: 0.0, y: 0.0, z: 0.0}
-    }
-  end
-
-  defp compose_transform(left, right) do
-    left_t = left.translation
-    left_r = normalize_quaternion(left.rotation)
-    right_t = right.translation
-    right_r = normalize_quaternion(right.rotation)
-
-    rotated_right_t = rotate_vector(left_r, right_t)
-
-    %{
-      translation: add_vec(left_t, rotated_right_t),
-      rotation: normalize_quaternion(quat_mul(left_r, right_r))
-    }
-  end
-
-  defp invert_transform(transform) do
-    rotation_inv = quat_conjugate(normalize_quaternion(transform.rotation))
-    translation_inv = scalar_mul(rotate_vector(rotation_inv, transform.translation), -1.0)
-
-    %{translation: translation_inv, rotation: rotation_inv}
-  end
-
-  defp rotate_vector(q, v) do
-    q_vec = %{w: 0.0, x: v.x, y: v.y, z: v.z}
-    rotated = quat_mul(quat_mul(q, q_vec), quat_conjugate(q))
-    %{x: rotated.x, y: rotated.y, z: rotated.z}
-  end
-
-  defp quat_mul(a, b) do
-    %{
-      w: a.w * b.w - a.x * b.x - a.y * b.y - a.z * b.z,
-      x: a.w * b.x + a.x * b.w + a.y * b.z - a.z * b.y,
-      y: a.w * b.y - a.x * b.z + a.y * b.w + a.z * b.x,
-      z: a.w * b.z + a.x * b.y - a.y * b.x + a.z * b.w
-    }
-  end
-
-  defp quat_conjugate(q), do: %{w: q.w, x: -q.x, y: -q.y, z: -q.z}
-
-  defp normalize_quaternion(q) do
-    norm = :math.sqrt(q.w * q.w + q.x * q.x + q.y * q.y + q.z * q.z)
-
-    if norm == 0.0 do
-      %{w: 1.0, x: 0.0, y: 0.0, z: 0.0}
-    else
-      %{w: q.w / norm, x: q.x / norm, y: q.y / norm, z: q.z / norm}
-    end
-  end
-
-  defp add_vec(a, b), do: %{x: a.x + b.x, y: a.y + b.y, z: a.z + b.z}
-  defp scalar_mul(v, k), do: %{x: v.x * k, y: v.y * k, z: v.z * k}
 end

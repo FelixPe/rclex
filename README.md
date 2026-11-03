@@ -136,11 +136,30 @@ be set on the same node at the same time.
 - Lifecycle node & Lifecycle client
 - Livebook support (ROS2 type generation needs to be considered)
 - eVision integration
-- TF2 support
 
 ## How to use
 
 This section explains the quickstart for `rclex` in the native environment where ROS 2 and Elixir have been installed.
+
+### Native TF2 Dependencies
+
+TF2 uses the installed ROS 2 C++ buffer and stamped-geometry conversions, rather
+than an Elixir implementation. On a Debian/Ubuntu ROS installation, install:
+
+```bash
+apt-get install ros-${ROS_DISTRO}-tf2 ros-${ROS_DISTRO}-tf2-geometry-msgs libyaml-cpp-dev liborocos-kdl-dev
+```
+
+A C++17 compiler is required. Prepared Docker/Nerves resources must contain the
+same target-architecture libraries and headers; minimal `ros-core` images are
+insufficient. Select a dependency-equipped image with `mix rclex.prep.ros2 --image`.
+
+The public `Rclex.Tf2` module uses native buffer semantics. TF functions are not
+exported from the root `Rclex` module. In particular,
+`clear/3` preserves static transforms. Fixed-frame time-travel queries,
+cancellable async lookups and `transform/5` stamped-geometry helpers are also
+available. See [ARCHITECTURE.md](ARCHITECTURE.md#native-tf2) for the boundary and
+intentional timeout-policy differences from `tf2_ros`.
 
 ### Create the project
 

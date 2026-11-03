@@ -25,6 +25,15 @@ defmodule Mix.Tasks.Rclex.Prep.Ros2 do
   overrides, the task uses its architecture- and distro-specific defaults and copies OpenSSL libraries
   for backwards compatibility. Install prefixes may be merged or isolated.
 
+  The bundled ARM32 Humble image uses `/root/ros2_ws/install`. Its default install
+  prefix reflects that layout; `--install-prefix` still overrides it for custom images.
+
+  Native TF2 requires an image containing `ros-$ROS_DISTRO-tf2`,
+  `ros-$ROS_DISTRO-tf2-geometry-msgs`, `libyaml-cpp-dev` and `liborocos-kdl-dev`.
+  Minimal `ros-core` images do not contain these dependencies. Use `--image` or
+  project configuration to select a prepared image. The task copies native headers
+  and libraries and validates the required TF2 resources before reporting success.
+
   ## Examples
 
   specify arch explicitly with `--arch` option
@@ -157,7 +166,8 @@ defmodule Mix.Tasks.Rclex.Prep.Ros2 do
       ros_distro: ros_distro,
       image: Keyword.get(options, :image) || ros_docker_image_tag(arch, ros_distro),
       ros_prefix: Keyword.get(options, :ros_prefix, default_ros_prefix(arch, ros_distro)),
-      install_prefix: Keyword.get(options, :install_prefix, default_install_prefix(arch)),
+      install_prefix:
+        Keyword.get(options, :install_prefix, default_install_prefix(arch, ros_distro)),
       copy_openssl: Keyword.get(options, :copy_openssl, true)
     }
   end
@@ -209,7 +219,7 @@ defmodule Mix.Tasks.Rclex.Prep.Ros2 do
       ros_distro,
       ros_docker_image_tag(arch, ros_distro),
       default_ros_prefix(arch, ros_distro),
-      default_install_prefix(arch),
+      default_install_prefix(arch, ros_distro),
       true
     )
   end
@@ -234,6 +244,42 @@ defmodule Mix.Tasks.Rclex.Prep.Ros2 do
     dest_path = Path.join(dest_dir_path, "/opt/ros/#{ros_distro}/lib")
     create_resources_directory!(dest_path, _git_ignore = false)
     copy_vendor_resources_from_docker!(dest_path, image, arch, ros_distro, copy_openssl)
+
+    ros_path = Path.join(dest_dir_path, "/opt/ros/#{ros_distro}")
+    include_path = Path.join(ros_path, "include")
+    create_resources_directory!(include_path, _git_ignore = false)
+    copy_from_docker_impl!(image, native_header_resource_paths(), include_path)
+    validate_tf2_resources!(ros_path)
+  end
+
+  @doc false
+  def native_header_resource_paths, do: ["/usr/include/yaml-cpp", "/usr/include/kdl"]
+
+  @doc false
+  def validate_tf2_resources!(ros_path) do
+    required = [
+      "include/tf2/tf2/buffer_core.hpp",
+      "include/tf2_geometry_msgs/tf2_geometry_msgs/tf2_geometry_msgs.hpp",
+      "include/rosidl_runtime_cpp/rosidl_runtime_cpp/bounded_vector.hpp",
+      "include/yaml-cpp/yaml.h",
+      "include/kdl/frames.hpp",
+      "lib/libtf2.so",
+      "lib/libyaml-cpp.so",
+      "lib/liborocos-kdl.so"
+    ]
+
+    missing = Enum.reject(required, &File.exists?(Path.join(ros_path, &1)))
+
+    if missing != [] do
+      Mix.raise("""
+      Missing native TF2 resources: #{Enum.join(missing, ", ")}
+      Use --image with an image containing ros-$ROS_DISTRO-tf2,
+      ros-$ROS_DISTRO-tf2-geometry-msgs, libyaml-cpp-dev and liborocos-kdl-dev.
+      Minimal ros-core images are insufficient for native TF2.
+      """)
+    end
+
+    :ok
   end
 
   defp copy_ros_resources_from_docker!(dest_path, image, ros_prefix, install_prefix) do
@@ -261,6 +307,8 @@ defmodule Mix.Tasks.Rclex.Prep.Ros2 do
       "/lib/#{dir_name}/libnuma.so.1*",
       "/usr/lib/#{dir_name}/libyaml-0.so*",
       "/usr/lib/#{dir_name}/libyaml.so*",
+      "/usr/lib/#{dir_name}/libyaml-cpp.so*",
+      "/usr/lib/#{dir_name}/liborocos-kdl.so*",
       "/opt/ros/#{distro}/opt/zenoh_cpp_vendor/lib/libzenohc.so*"
     ]
 
@@ -286,8 +334,9 @@ defmodule Mix.Tasks.Rclex.Prep.Ros2 do
 
   defp default_ros_prefix(_arch, _ros_distro), do: nil
 
-  defp default_install_prefix("arm32v7"), do: "/ros2_ws/install"
-  defp default_install_prefix(_arch), do: nil
+  defp default_install_prefix("arm32v7", "humble"), do: "/root/ros2_ws/install"
+  defp default_install_prefix("arm32v7", _ros_distro), do: "/ros2_ws/install"
+  defp default_install_prefix(_arch, _ros_distro), do: nil
 
   @doc false
   def ros_docker_image_tag(arch, ros_distro)

@@ -106,6 +106,16 @@ defmodule Rclex.Clock do
     GenServer.call(server, {:set_ros_time_override, ns})
   end
 
+  @doc false
+  def register_tf2_buffer(server, resource) do
+    GenServer.call(server, {:register_tf2_buffer, resource})
+  end
+
+  @doc false
+  def unregister_tf2_buffer(server, resource) do
+    GenServer.call(server, {:unregister_tf2_buffer, resource})
+  end
+
   ## ---------- callbacks ----------
 
   @impl true
@@ -115,7 +125,7 @@ defmodule Rclex.Clock do
 
     if clock_type in [:system_time, :steady_time, :ros_time] do
       clock = Nif.rcl_clock_init!(clock_type)
-      {:ok, %{clock_type: clock_type, clock: clock, override_enabled: false}}
+      {:ok, %{clock_type: clock_type, clock: clock, override_enabled: false, tf2_buffers: %{}}}
     else
       {:stop, {:invalid_clock_type, clock_type}}
     end
@@ -138,6 +148,7 @@ defmodule Rclex.Clock do
 
   def handle_call(:enable_ros_time_override, _from, %{clock_type: :ros_time} = state) do
     :ok = Nif.rcl_enable_ros_time_override!(state.clock)
+    if not state.override_enabled, do: clear_tf2_buffers(state)
     {:reply, :ok, %{state | override_enabled: true}}
   end
 
@@ -147,6 +158,7 @@ defmodule Rclex.Clock do
 
   def handle_call(:disable_ros_time_override, _from, %{clock_type: :ros_time} = state) do
     :ok = Nif.rcl_disable_ros_time_override!(state.clock)
+    if state.override_enabled, do: clear_tf2_buffers(state)
     {:reply, :ok, %{state | override_enabled: false}}
   end
 
@@ -155,12 +167,35 @@ defmodule Rclex.Clock do
   end
 
   def handle_call({:set_ros_time_override, ns}, _from, %{clock_type: :ros_time} = state) do
+    previous = Nif.rcl_clock_get_now!(state.clock)
     :ok = Nif.rcl_set_ros_time_override!(state.clock, ns)
+    if state.override_enabled and ns < previous, do: clear_tf2_buffers(state)
     {:reply, :ok, state}
   end
 
   def handle_call({:set_ros_time_override, _ns}, _from, state) do
     {:reply, {:error, :clock_type_not_ros_time}, state}
+  end
+
+  def handle_call({:register_tf2_buffer, resource}, {owner, _tag}, state) do
+    buffers = Map.put_new_lazy(state.tf2_buffers, resource, fn -> Process.monitor(owner) end)
+    {:reply, :ok, %{state | tf2_buffers: buffers}}
+  end
+
+  def handle_call({:unregister_tf2_buffer, resource}, _from, state) do
+    {monitor, buffers} = Map.pop(state.tf2_buffers, resource)
+    if monitor, do: Process.demonitor(monitor, [:flush])
+    {:reply, :ok, %{state | tf2_buffers: buffers}}
+  end
+
+  @impl true
+  def handle_info({:DOWN, monitor, :process, _pid, _reason}, state) do
+    buffers = Map.reject(state.tf2_buffers, fn {_resource, ref} -> ref == monitor end)
+    {:noreply, %{state | tf2_buffers: buffers}}
+  end
+
+  defp clear_tf2_buffers(state) do
+    Enum.each(state.tf2_buffers, fn {resource, _monitor} -> Nif.tf2_clear!(resource) end)
   end
 
   @impl true
