@@ -76,10 +76,12 @@ static void free_ros_args(int argc, char **argv) {
 ERL_NIF_TERM atom_new_graph_event;
 ERL_NIF_TERM atom_exit;
 ERL_NIF_TERM atom_adding_to_waitset_failed;
+ERL_NIF_TERM atom_waitset_thread_stopped;
 
 void make_node_atoms(ErlNifEnv *env) {
   atom_new_graph_event          = enif_make_atom(env, "new_graph_event");
   atom_adding_to_waitset_failed = enif_make_atom(env, "adding_to_waitset_failed");
+  atom_waitset_thread_stopped   = enif_make_atom(env, "waitset_thread_stopped");
 }
 
 ERL_NIF_TERM nif_rcl_node_init(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
@@ -235,6 +237,7 @@ static void *graph_guard_waiter(void *arg) {
       msg = enif_make_tuple(env, 2, atom_error, atom_adding_to_waitset_failed);
       enif_send(NULL, &ctx_p->pid, env, msg);
       enif_clear_env(env);
+      break;
     }
 
     rc = rcl_wait_set_add_guard_condition(&wait_set, &ctx_p->exit_condition, &index_exit);
@@ -242,11 +245,19 @@ static void *graph_guard_waiter(void *arg) {
       msg = enif_make_tuple(env, 2, atom_error, atom_adding_to_waitset_failed);
       enif_send(NULL, &ctx_p->pid, env, msg);
       enif_clear_env(env);
+      break;
     }
 
     rc = rcl_wait(&wait_set, RCL_MS_TO_NS(10000)); // 10000ms == 10s, passed as ns
     if (rc == RCL_RET_TIMEOUT) {
       continue;
+    }
+
+    if (rc != RCL_RET_OK) {
+      msg = enif_make_tuple(env, 2, atom_error, atom_new_graph_event);
+      enif_send(NULL, &ctx_p->pid, env, msg);
+      enif_clear_env(env);
+      break;
     }
 
     if (wait_set.guard_conditions[index_exit]) {
@@ -329,13 +340,15 @@ ERL_NIF_TERM nif_node_stop_waitset_thread(ErlNifEnv *env, int argc, const ERL_NI
   void *exit_value;
   int errno = enif_thread_join(ctx_p->tid, &exit_value);
 
+  if (errno != 0) {
+    return raise_with_message(env, __FILE__, __LINE__, "joining thread failed");
+  }
+
   enif_thread_opts_destroy(ctx_p->opts_p);
 
   rc = rcl_guard_condition_fini(&ctx_p->exit_condition);
-  if (rc != RCL_RET_OK) return raise_with_safe_message(env, __FILE__, __LINE__, rc);
-
-  if (errno != 0) {
-    return raise_with_message(env, __FILE__, __LINE__, "joining thread failed");
+  if (rc != RCL_RET_OK) {
+    return enif_make_tuple3(env, atom_error, atom_waitset_thread_stopped, enif_make_int(env, rc));
   }
 
   return atom_ok;

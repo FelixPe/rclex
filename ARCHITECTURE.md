@@ -34,6 +34,26 @@
 
 This diagram is written by https://asciiflow.com/
 
+## Native Node Ownership
+
+Each node supervisor starts a `Rclex.NodeResourceOwner` before its node and
+entity processes. The owner creates and retains the native node and context
+reference; `Rclex.Node` borrows the handle. Graph-wait threads also belong to the
+owner, which forwards graph events to the exact borrowing node PID.
+
+The node supervisor uses `one_for_all`. If the node process is killed, the
+supervisor stops its other children in reverse startup order: entities and their
+wait threads stop before the resource owner joins the graph-wait thread and
+finalizes the native node. Restart begins only after teardown completes, so a
+replacement never reuses the old generation's native handle. The owner's shutdown
+budget is unlimited to avoid interrupting native cleanup. Application shutdown
+stops node supervisors before finalizing the context.
+
+This protects supervised nodes against node-process death, including `:kill`.
+It does not protect against force-killing the resource owner itself or a VM crash.
+Direct internal `Rclex.Node.start_link/1` calls without a resource owner retain
+their existing process-local cleanup behavior.
+
 ## Native TF2
 
 `Rclex.Tf2` is supervised alongside the context and node supervisors. It owns

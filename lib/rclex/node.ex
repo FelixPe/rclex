@@ -299,16 +299,25 @@ defmodule Rclex.Node do
     ros_args = Keyword.get(args, :ros_args, [])
     type_description_service = Keyword.get(args, :type_description_service, true)
 
-    node = Nif.rcl_node_init!(context, ~c"#{name}", ~c"#{namespace}", ros_args)
+    resource_owner = Keyword.get(args, :resource_owner)
 
-    wait_thread =
-      if graph_change_callback do
-        if :erlang.fun_info(graph_change_callback)[:arity] != 0 do
-          raise("graph_change_callback must expect zero parameters")
+    {node, wait_thread} =
+      if resource_owner do
+        {Rclex.NodeResourceOwner.borrow(resource_owner), nil}
+      else
+        if graph_change_callback && not is_function(graph_change_callback, 0) do
+          raise ArgumentError, "graph_change_callback must expect zero parameters"
         end
 
-        graph_guard_condition = Nif.rcl_node_get_graph_guard_condition!(node)
-        Nif.node_start_waitset_thread!(context, graph_guard_condition)
+        node = Nif.rcl_node_init!(context, ~c"#{name}", ~c"#{namespace}", ros_args)
+
+        wait_thread =
+          if graph_change_callback do
+            graph_guard_condition = Nif.rcl_node_get_graph_guard_condition!(node)
+            Nif.node_start_waitset_thread!(context, graph_guard_condition)
+          end
+
+        {node, wait_thread}
       end
 
     # Initialize the node state
@@ -320,20 +329,27 @@ defmodule Rclex.Node do
        namespace: namespace,
        graph_change_callback: graph_change_callback,
        wait_thread: wait_thread,
+       resource_owner: resource_owner,
        type_description_service: type_description_service
      }}
   end
 
   def terminate(
         reason,
-        %{name: name, namespace: namespace, wait_thread: wait_thread, node: node} = _state
+        %{
+          name: name,
+          namespace: namespace,
+          wait_thread: wait_thread,
+          node: node,
+          resource_owner: resource_owner
+        }
       ) do
     # Stop the node's waitset thread if it exists
     if wait_thread do
       Nif.node_stop_waitset_thread!(wait_thread)
     end
 
-    Nif.rcl_node_fini!(node)
+    if is_nil(resource_owner), do: Nif.rcl_node_fini!(node)
 
     Logger.debug("#{__MODULE__}: #{inspect(reason)} #{Path.join(namespace, name)}")
   end
@@ -681,5 +697,10 @@ defmodule Rclex.Node do
       ) do
     graph_change_callback.()
     {:noreply, state}
+  end
+
+  def handle_info({:error, reason}, state)
+      when reason in [:new_graph_event, :adding_to_waitset_failed] do
+    {:stop, {:graph_waitset_error, reason}, state}
   end
 end

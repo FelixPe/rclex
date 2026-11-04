@@ -51,7 +51,13 @@ defmodule Rclex.NodeSupervisor do
         args
       end
 
-    children = [{Node, args}, {EntitiesSupervisor, args}]
+    owner = Rclex.NodeResourceOwner.name(node_name, namespace)
+
+    children = [
+      {Rclex.NodeResourceOwner, args},
+      {Node, Keyword.put(args, :resource_owner, owner)},
+      {EntitiesSupervisor, args}
+    ]
 
     children =
       if start_parameter_server, do: children ++ [{ParameterServer, args}], else: children
